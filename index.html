@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapFlow | Let it Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --bg: #000; --text: #fff; --accent: #fe2c55; }
+        body, html { margin: 0; padding: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+
+        /* TikTok Style Scroll Container */
+        .feed {
+            height: 100vh;
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
+        }
+
+        .video-card {
+            height: 100vh;
+            width: 100%;
+            scroll-snap-align: start;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Overlay UI */
+        .overlay {
+            position: absolute;
+            bottom: 80px;
+            left: 15px;
+            z-index: 10;
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.8);
+        }
+
+        /* Floating Upload Button */
+        .upload-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 100;
+        }
+
+        #upload-form {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: white; color: black;
+            padding: 20px; border-radius: 10px; z-index: 200;
+        }
+    </style>
+</head>
+<body>
+
+    <button class="upload-btn" onclick="toggleForm()">+ Upload</button>
+
+    <div id="upload-form">
+        <h3>Upload Video Baru</h3>
+        <input type="file" id="video-file" accept="video/*"><br><br>
+        <input type="text" id="caption" placeholder="Tulis caption..."><br><br>
+        <button onclick="handleUpload()">Kirim</button>
+        <button onclick="toggleForm()">Batal</button>
+    </div>
+
+    <div class="feed" id="video-feed">
+        </div>
+
+    <script>
+        // 1. Inisialisasi Supabase
+        const SUPABASE_URL = "https://andsuzhyaencxfiamyed.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZHN1emh5YWVuY3hmaWFteWVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMzAzMTgsImV4cCI6MjA4NTgwNjMxOH0.N_Nytjgmch9Ztq8a-8m2UaZJRZMMcsfMP0iwv2S9KAQ";
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function toggleForm() {
+            const form = document.getElementById('upload-form');
+            form.style.display = form.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // 2. Fungsi Upload Video
+        async function handleUpload() {
+            const file = document.getElementById('video-file').files[0];
+            const caption = document.getElementById('caption').value;
+            
+            if (!file) return alert("Pilih video dulu!");
+
+            // a. Upload ke Storage
+            const fileName = `${Date.now()}_${file.name}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('videos')
+                .upload(fileName, file);
+
+            if (uploadError) return alert("Gagal upload file");
+
+            // b. Simpan URL ke Database
+            const { data: publicURL } = supabase.storage.from('videos').getPublicUrl(fileName);
+            
+            const { error: dbError } = await supabase
+                .from('videos')
+                .insert([{ video_url: publicURL.publicUrl, caption: caption }]);
+
+            if (dbError) alert("Gagal simpan ke DB");
+            else location.reload();
+        }
+
+        // 3. Ambil Data Video dari Supabase
+        async function loadFeed() {
+            const { data, error } = await supabase
+                .from('videos')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (data) {
+                const feed = document.getElementById('video-feed');
+                feed.innerHTML = data.map(vid => `
+                    <div class="video-card">
+                        <video src="${vid.video_url}" loop onclick="this.paused ? this.play() : this.pause()"></video>
+                        <div class="overlay">
+                            <h4>@user_snapflow</h4>
+                            <p>${vid.caption}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        loadFeed();
+    </script>
+</body>
+</html>
