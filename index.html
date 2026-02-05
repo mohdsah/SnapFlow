@@ -6,21 +6,37 @@
     <title>SnapFlow | Let it Flow</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --bg: #000; --text: #fff; --accent: #fe2c55; }
-        body, html { margin: 0; padding: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+        :root {
+            --bg: #000;
+            --text: #fff;
+            --accent: #fe2c55; /* Warna khas video pendek */
+            --gray: #2f2f2f;
+        }
 
-        /* TikTok Style Scroll Container */
+        body, html {
+            margin: 0; padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Container Utama Feed */
         .feed {
             height: 100vh;
             scroll-snap-type: y mandatory;
             overflow-y: scroll;
+            scrollbar-width: none; /* Sembunyikan scrollbar Firefox */
         }
+        .feed::-webkit-scrollbar { display: none; } /* Sembunyikan scrollbar Chrome/Safari */
 
+        /* Card Video */
         .video-card {
             height: 100vh;
             width: 100%;
             scroll-snap-align: start;
             position: relative;
+            background: #000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -32,114 +48,204 @@
             object-fit: cover;
         }
 
-        /* Overlay UI */
-        .overlay {
+        /* Overlay UI (Username & Caption) */
+        .ui-overlay {
             position: absolute;
-            bottom: 80px;
+            bottom: 40px;
             left: 15px;
             z-index: 10;
-            text-shadow: 1px 1px 5px rgba(0,0,0,0.8);
+            max-width: 80%;
         }
+        .ui-overlay h3 { margin: 0 0 5px 0; font-size: 1.1rem; }
+        .ui-overlay p { margin: 0; font-size: 0.9rem; opacity: 0.9; }
 
-        /* Floating Upload Button */
-        .upload-btn {
+        /* Floating Buttons */
+        .action-bar {
             position: fixed;
             top: 20px;
-            right: 20px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-            cursor: pointer;
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
             z-index: 100;
         }
 
-        #upload-form {
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .btn-logout { background: #444; font-size: 12px; }
+
+        /* Modal Auth & Upload */
+        .modal {
             display: none;
             position: fixed;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            background: white; color: black;
-            padding: 20px; border-radius: 10px; z-index: 200;
+            background: white; color: #000;
+            padding: 25px; border-radius: 15px;
+            z-index: 1000; width: 300px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .modal input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        .overlay-screen {
+            display: none;
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.7); z-index: 500;
         }
     </style>
 </head>
 <body>
 
-    <button class="upload-btn" onclick="toggleForm()">+ Upload</button>
-
-    <div id="upload-form">
-        <h3>Upload Video Baru</h3>
-        <input type="file" id="video-file" accept="video/*"><br><br>
-        <input type="text" id="caption" placeholder="Tulis caption..."><br><br>
-        <button onclick="handleUpload()">Kirim</button>
-        <button onclick="toggleForm()">Batal</button>
+    <div class="action-bar">
+        <button id="btn-upload-trigger" class="btn" onclick="openModal('upload-modal')">+ Post</button>
+        <button id="btn-auth-trigger" class="btn" onclick="openModal('auth-modal')">Login</button>
+        <button id="btn-logout" class="btn btn-logout" style="display:none;" onclick="handleLogout()">Keluar</button>
     </div>
 
     <div class="feed" id="video-feed">
-        </div>
+        <div style="padding: 20px; text-align: center; margin-top: 50vh;">Memuat SnapFlow...</div>
+    </div>
+
+    <div id="overlay-bg" class="overlay-screen" onclick="closeModals()"></div>
+    
+    <div id="auth-modal" class="modal">
+        <h2 id="auth-title">Daftar SnapFlow</h2>
+        <input type="email" id="auth-email" placeholder="Email">
+        <input type="password" id="auth-password" placeholder="Password">
+        <button class="btn" style="width:100%" onclick="handleAuth()">Lanjut</button>
+        <p style="text-align:center; font-size:12px; cursor:pointer;" onclick="toggleAuthMode()">Sudah punya akun? Login</p>
+    </div>
+
+    <div id="upload-modal" class="modal">
+        <h2>Bagikan Video</h2>
+        <input type="file" id="file-video" accept="video/*">
+        <input type="text" id="video-caption" placeholder="Tulis caption...">
+        <button id="upload-action-btn" class="btn" style="width:100%" onclick="handleUpload()">Upload Sekarang</button>
+    </div>
 
     <script>
-        // 1. Inisialisasi Supabase
-        const SUPABASE_URL = "https://andsuzhyaencxfiamyed.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZHN1emh5YWVuY3hmaWFteWVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMzAzMTgsImV4cCI6MjA4NTgwNjMxOH0.N_Nytjgmch9Ztq8a-8m2UaZJRZMMcsfMP0iwv2S9KAQ";
-        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        // KONFIGURASI SUPABASE
+        const _url = "https://andsuzhyaencxfiamyed.supabase.co";
+        const _key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZHN1emh5YWVuY3hmaWFteWVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMzAzMTgsImV4cCI6MjA4NTgwNjMxOH0.N_Nytjgmch9Ztq8a-8m2UaZJRZMMcsfMP0iwv2S9KAQ";
+        const snapSupabase = supabase.createClient(_url, _key);
 
-        function toggleForm() {
-            const form = document.getElementById('upload-form');
-            form.style.display = form.style.display === 'block' ? 'none' : 'block';
+        let isLoginMode = false;
+
+        // FUNGSI MODAL
+        function openModal(id) {
+            document.getElementById('overlay-bg').style.display = 'block';
+            document.getElementById(id).style.display = 'block';
+        }
+        function closeModals() {
+            document.getElementById('overlay-bg').style.display = 'none';
+            document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+        }
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-title').innerText = isLoginMode ? "Login SnapFlow" : "Daftar SnapFlow";
         }
 
-        // 2. Fungsi Upload Video
+        // AUTHENTICATION
+        async function handleAuth() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            try {
+                if (isLoginMode) {
+                    const { error } = await snapSupabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                } else {
+                    const { error } = await snapSupabase.auth.signUp({ email, password });
+                    if (error) throw error;
+                    alert("Cek email konfirmasi!");
+                }
+                location.reload();
+            } catch (err) { alert(err.message); }
+        }
+
+        async function handleLogout() {
+            await snapSupabase.auth.signOut();
+            location.reload();
+        }
+
+        // UPLOAD VIDEO
         async function handleUpload() {
-            const file = document.getElementById('video-file').files[0];
-            const caption = document.getElementById('caption').value;
-            
+            const btn = document.getElementById('upload-action-btn');
+            const file = document.getElementById('file-video').files[0];
+            const caption = document.getElementById('video-caption').value;
+
             if (!file) return alert("Pilih video dulu!");
+            btn.innerText = "Mengunggah...";
+            btn.disabled = true;
 
-            // a. Upload ke Storage
-            const fileName = `${Date.now()}_${file.name}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('videos')
-                .upload(fileName, file);
+            try {
+                const { data: userData } = await snapSupabase.auth.getUser();
+                if (!userData.user) return alert("Login dulu!");
 
-            if (uploadError) return alert("Gagal upload file");
+                const fileName = `${Date.now()}_${file.name}`;
+                const { error: upError } = await snapSupabase.storage
+                    .from('videos')
+                    .upload(fileName, file);
+                
+                if (upError) throw upError;
 
-            // b. Simpan URL ke Database
-            const { data: publicURL } = supabase.storage.from('videos').getPublicUrl(fileName);
-            
-            const { error: dbError } = await supabase
-                .from('videos')
-                .insert([{ video_url: publicURL.publicUrl, caption: caption }]);
+                const { data: urlData } = snapSupabase.storage.from('videos').getPublicUrl(fileName);
 
-            if (dbError) alert("Gagal simpan ke DB");
-            else location.reload();
+                const { error: dbError } = await snapSupabase.from('videos').insert([
+                    { video_url: urlData.publicUrl, caption: caption, user_id: userData.user.id }
+                ]);
+
+                if (dbError) throw dbError;
+                location.reload();
+            } catch (err) {
+                alert(err.message);
+                btn.innerText = "Upload Sekarang";
+                btn.disabled = false;
+            }
         }
 
-        // 3. Ambil Data Video dari Supabase
-        async function loadFeed() {
-            const { data, error } = await supabase
+        // LOAD VIDEOS
+        async function loadVideos() {
+            const { data, error } = await snapSupabase
                 .from('videos')
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (data) {
-                const feed = document.getElementById('video-feed');
+            const feed = document.getElementById('video-feed');
+            if (data && data.length > 0) {
                 feed.innerHTML = data.map(vid => `
                     <div class="video-card">
                         <video src="${vid.video_url}" loop onclick="this.paused ? this.play() : this.pause()"></video>
-                        <div class="overlay">
-                            <h4>@user_snapflow</h4>
-                            <p>${vid.caption}</p>
+                        <div class="ui-overlay">
+                            <h3>@User_${vid.user_id.substring(0,5)}</h3>
+                            <p>${vid.caption || ''}</p>
                         </div>
                     </div>
                 `).join('');
+            } else {
+                feed.innerHTML = '<div style="padding:100px; text-align:center;">Belum ada video. Jadi yang pertama upload!</div>';
             }
         }
 
-        loadFeed();
+        // CEK USER STATUS
+        async function init() {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (user) {
+                document.getElementById('btn-auth-trigger').style.display = 'none';
+                document.getElementById('btn-logout').style.display = 'block';
+            }
+            loadVideos();
+        }
+
+        init();
     </script>
 </body>
 </html>
