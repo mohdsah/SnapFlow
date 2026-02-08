@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnapFlow | Order Success</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body style="background: #000; color: #fff; height: 100vh; display: flex; align-items: center; justify-content: center;">
+
+    <div class="success-container" style="text-align: center; padding: 20px;">
+        <div class="success-animation">
+            <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+        </div>
+
+        <h2 style="margin-top: 20px; font-size: 24px;">Pembayaran Berjaya!</h2>
+        <p style="color: #888; font-size: 14px; line-height: 1.5; margin-bottom: 30px;">
+            Pesanan anda sedang diproses. Kami akan menghantar notifikasi sebaik sahaja barang dihantar.
+        </p>
+
+        <div class="order-id-box" style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 40px;">
+            <span style="color: #666; font-size: 12px; display: block;">ID Pesanan:</span>
+            <strong id="display-order-id" style="color: #fe2c55;">#SF-88920110</strong>
+        </div>
+
+        <div class="action-buttons" style="display: flex; flex-direction: column; gap: 15px;">
+            <button onclick="window.location.href='index.html'" class="btn-primary">Kembali ke Home</button>
+            <button onclick="window.location.href='inbox.html'" class="btn-secondary">Lihat Status Pesanan</button>
+        </div>
+    </div>
+
+    <script>
+        // Generate Order ID rawak untuk nampak realistik
+        const randomID = "SF-" + Math.floor(Math.random() * 10000000);
+        document.getElementById('display-order-id').innerText = "#" + randomID;
+    </script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+/* --- ASAS & RESET --- */
+:root {
+    --accent: #fe2c55; /* Merah TikTok */
+    --bg-dark: #000000;
+    --text-white: #ffffff;
+    --nav-height: 70px;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-dark);
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-white);
+    overflow: hidden; /* Supaya skrol hanya berlaku di dalam video feed */
+}
+
+/* --- VIDEO FEED (FULLSCREEN) --- */
+#video-feed {
+    height: 100vh;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory; /* Skrol melekat skrin demi skrin */
+    scrollbar-width: none; /* Sembunyi scrollbar di Firefox */
+}
+
+#video-feed::-webkit-scrollbar {
+    display: none; /* Sembunyi scrollbar di Chrome/Safari */
+}
+
+.video-container {
+    height: 100vh;
+    width: 100vw;
+    scroll-snap-align: start;
+    position: relative;
+    background: #111;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Video memenuhi skrin tanpa bar hitam */
+}
+
+/* --- INFO VIDEO (CAPTION & NAMA) --- */
+.video-info {
+    position: absolute;
+    bottom: 90px; /* Di atas bottom nav */
+    left: 15px;
+    width: 70%;
+    z-index: 10;
+    text-shadow: 1px 1px 5px rgba(0,0,0,0.8);
+}
+
+.video-info h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+}
+
+.video-info p {
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.4;
+    color: #eee;
+}
+
+/* --- BUTANG INTERAKSI DI TEPI (SIDEBAR) --- */
+.side-bar {
+    position: absolute;
+    right: 10px;
+    bottom: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    z-index: 10;
+}
+
+.action-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+}
+
+.action-item i {
+    font-size: 28px;
+    margin-bottom: 5px;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+}
+
+.action-item span {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* --- NAVIGASI BAWAH (BOTTOM NAV) --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: var(--nav-height);
+    background: #000;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 0.5px solid #333;
+    z-index: 1000;
+}
+
+.nav-item {
+    text-decoration: none;
+    color: #888;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 10px;
+    gap: 4px;
+}
+
+.nav-item.active {
+    color: #fff;
+}
+
+.nav-item i {
+    font-size: 20px;
+}
+
+/* BUTANG TAMBAH (+) */
+.nav-plus {
+    text-decoration: none;
+}
+
+.plus-icon {
+    width: 45px;
+    height: 30px;
+    background: linear-gradient(to right, #00f2ea 0%, #00f2ea 25%, #fe2c55 75%, #fe2c55 100%);
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.plus-icon::before {
+    content: '';
+    position: absolute;
+    width: 37px;
+    height: 100%;
+    background: #fff;
+    border-radius: 8px;
+    z-index: -1;
+}
+
+.plus-icon i {
+    color: #000;
+    font-size: 16px;
+}
+
+/* --- SEARCH OVERLAY --- */
+.search-overlay {
+    transition: all 0.3s ease;
+}
+
+.search-header i {
+    font-size: 20px;
+    cursor: pointer;
+}

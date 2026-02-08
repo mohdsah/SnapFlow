@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnapFlow | Login</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 30px;">
+
+    <div class="login-container" style="text-align: center;">
+        <h1 style="font-size: 32px; margin-bottom: 10px;">SnapFlow</h1>
+        <p style="color: #888; margin-bottom: 40px;">Log masuk untuk mula berkongsi ilmu solar.</p>
+
+        <div class="input-group" style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="login-input-wrapper">
+                <i class="fa-solid fa-envelope"></i>
+                <input type="email" id="login-email" placeholder="Alamat Emel">
+            </div>
+            <div class="login-input-wrapper">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="login-password" placeholder="Kata Laluan">
+            </div>
+            
+            <button onclick="handleLogin()" class="login-btn-main">Log Masuk</button>
+        </div>
+<a href="forgot-password.html" style="display: block; margin-top: 15px; color: #888; text-decoration: none; font-size: 13px;">Lupa kata laluan?</a>
+
+        <div style="margin: 25px 0; color: #444;">— atau —</div>
+
+        <div class="social-login">
+            <button class="social-btn"><i class="fa-brands fa-google"></i> Teruskan dengan Google</button>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #888;">
+            Belum ada akaun? <a href="register.html" style="color: #fe2c55; text-decoration: none; font-weight: bold;">Daftar</a>
+        </p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

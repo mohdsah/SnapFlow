@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnapFlow | Daftar Akaun</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 30px;">
+
+    <div class="register-container" style="text-align: center;">
+        <h1 style="font-size: 32px; margin-bottom: 10px;">SnapFlow</h1>
+        <p style="color: #888; margin-bottom: 40px;">Cipta akaun untuk mula berkongsi projek solar anda.</p>
+
+        <div class="input-group" style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="login-input-wrapper">
+                <i class="fa-solid fa-user"></i>
+                <input type="text" id="reg-username" placeholder="Nama Penuh / Nama Syarikat">
+            </div>
+            <div class="login-input-wrapper">
+                <i class="fa-solid fa-envelope"></i>
+                <input type="email" id="reg-email" placeholder="Alamat Emel">
+            </div>
+            <div class="login-input-wrapper">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="reg-password" placeholder="Kata Laluan">
+            </div>
+            
+            <button onclick="handleRegister()" class="login-btn-main">Daftar Sekarang</button>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #888;">
+            Sudah ada akaun? <a href="login.html" style="color: #fe2c55; text-decoration: none; font-weight: bold;">Log Masuk</a>
+        </p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

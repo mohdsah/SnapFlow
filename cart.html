@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnapFlow | Troli Saya</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body style="background: #000; color: #fff;">
+
+    <div class="cart-header" style="padding: 15px 20px; display: flex; align-items: center; gap: 20px; border-bottom: 1px solid #222;">
+        <i class="fa-solid fa-chevron-left" onclick="history.back()"></i>
+        <strong style="font-size: 18px;">Troli ( <span id="cart-count-title">0</span> )</strong>
+    </div>
+
+    <main id="cart-items-container" style="padding: 20px; padding-bottom: 100px;">
+        </main>
+
+    <div class="cart-footer" style="position: fixed; bottom: 0; width: 100%; background: #111; padding: 15px 20px; border-top: 1px solid #333; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <span>Jumlah Keseluruhan:</span>
+            <strong id="total-price" style="color: #fe2c55; font-size: 18px;">RM 0</strong>
+        </div>
+        <button onclick="checkout()" style="width: 100%; background: #fe2c55; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold;">Checkout</button>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Paparkan barang sebaik sahaja halaman dimuatkan
+        renderCart();
+    </script>
+</body>
+</html>

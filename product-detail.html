@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnapFlow | Detail Produk</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body style="background: #000; color: #fff;">
+
+    <div class="detail-header">
+        <i class="fa-solid fa-chevron-left" onclick="history.back()"></i>
+        <span>Detail Produk</span>
+        <i class="fa-solid fa-share-nodes"></i>
+    </div>
+
+    <div class="detail-container">
+        <img id="detail-img" src="" alt="Produk">
+        <div class="detail-content" style="padding: 20px;">
+            <h2 id="detail-title" style="margin-bottom: 10px;"></h2>
+            <h3 id="detail-price" style="color: #fe2c55; margin-bottom: 20px;"></h3>
+            <p id="detail-desc" style="color: #bbb; line-height: 1.6; font-size: 14px;"></p>
+        </div>
+    </div>
+
+    <div class="detail-footer">
+        <div class="footer-icon-group">
+            <div class="f-icon"><i class="fa-solid fa-shop"></i><span>Shop</span></div>
+            <div class="f-icon"><i class="fa-solid fa-message"></i><span>Chat</span></div>
+        </div>
+        <button class="buy-now-btn" onclick="alert('Terima kasih! Pesanan anda sedang diproses.')">Beli Sekarang</button>
+    </div>
+
+    <script>
+        // Ambil data dari URL Parameter
+        const params = new URLSearchParams(window.location.search);
+        document.getElementById('detail-title').innerText = params.get('name');
+        document.getElementById('detail-price').innerText = params.get('price');
+        document.getElementById('detail-img').src = params.get('img');
+        document.getElementById('detail-desc').innerText = params.get('desc');
+    </script>
+</body>
+</html>

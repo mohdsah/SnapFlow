@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SnapFlow | Checkout</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="background: #000; color: #fff; padding-bottom: 100px;">
+
+    <header style="padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #222; position: sticky; top: 0; background: #000; z-index: 100;">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="margin-right: 20px;"></i>
+        <strong style="font-size: 17px;">Pengesahan Pesanan</strong>
+    </header>
+
+    <main style="padding: 20px;">
+        <div style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: #fe2c55;">
+                <i class="fa-solid fa-location-dot"></i>
+                <strong style="font-size: 14px;">Alamat Penghantaran</strong>
+            </div>
+            <p style="font-size: 13px; color: #ccc; line-height: 1.5;">
+                Ali Bin Abu<br>
+                No. 123, Jalan Solar Utama, <br>
+                88000 Kota Kinabalu, Sabah.
+            </p>
+        </div>
+
+        <div id="checkout-item" style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222; display: flex; gap: 15px;">
+            <img src="https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=200" style="width: 80px; height: 80px; border-radius: 8px; object-fit: cover;">
+            <div style="flex: 1;">
+                <h3 style="font-size: 14px; margin-bottom: 5px;" id="item-name">Panel Jinko 550W</h3>
+                <p style="font-size: 12px; color: #888;">Kuantiti: 1</p>
+                <p style="color: #fe2c55; font-weight: bold; margin-top: 5px;" id="item-price">RM 1,150.00</p>
+            </div>
+        </div>
+
+        <div style="background: #111; padding: 15px; border-radius: 12px; border: 1px solid #222;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                <span style="color: #888;">Subtotal Produk</span>
+                <span id="subtotal">RM 1,150.00</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                <span style="color: #888;">Kos Penghantaran (Sabah/Sarawak)</span>
+                <span>RM 50.00</span>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #222; margin: 10px 0;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>Jumlah Bayaran</span>
+                <span style="color: #fe2c55; font-size: 18px;" id="total-price">RM 1,200.00</span>
+            </div>
+        </div>
+    </main>
+
+    <div style="position: fixed; bottom: 0; width: 100%; background: #111; padding: 15px 20px; border-top: 1px solid #222; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
+        <div>
+            <p style="font-size: 12px; color: #888;">Jumlah Keseluruhan</p>
+            <p style="color: #fe2c55; font-weight: bold; font-size: 18px;" id="bottom-total">RM 1,200.00</p>
+        </div>
+        <button onclick="processPayment()" style="background: #fe2c55; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+            Buat Bayaran
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
