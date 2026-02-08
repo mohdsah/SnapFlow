@@ -167,3 +167,54 @@ video {
     font-size: 20px;
     cursor: pointer;
 }
+
+.login-input-wrapper {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #333;
+}
+
+.login-input-wrapper input {
+    background: transparent;
+    border: none;
+    color: white;
+    outline: none;
+    width: 100%;
+    font-size: 15px;
+}
+
+.login-btn-main {
+    background: #fe2c55; /* Merah SnapFlow */
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.login-btn-main:disabled {
+    background: #555;
+    cursor: not-allowed;
+}
+
+.social-btn {
+    width: 100%;
+    background: white;
+    color: black;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+}
