@@ -113,145 +113,55 @@ async function processPayment() {
 
 // ... (Seterusnya kekalkan semua fungsi pembantu lain yang anda hantar tadi)
 
-// Fungsi Pendaftaran (Register) - DIPERBAIKI
+// --- FUNGSI REGISTER (FIXED) ---
 async function handleRegister() {
     const username = document.getElementById('reg-username').value.trim();
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value;
+    const btn = document.querySelector('button[onclick="handleRegister()"]');
 
-    // Validasi ringkas
-    if (!username || !email || !password) {
-        alert("Sila isi semua ruangan (Nama, Emel, dan Kata Laluan).");
-        return;
-    }
+    if (!username || !email || !password) return alert("Sila isi semua ruangan.");
 
-    if (password.length < 6) {
-        alert("Kata laluan mestilah sekurang-kurangnya 6 aksara.");
-        return;
-    }
+    btn.innerText = "Mendaftar...";
+    btn.disabled = true;
 
-    // Tukar butang kepada mod memuatkan
-    const regBtn = document.querySelector('button[onclick="handleRegister()"]');
-    const originalText = regBtn.innerText;
-    regBtn.innerText = "Mendaftar...";
-    regBtn.disabled = true;
+    const { data, error } = await snapSupabase.auth.signUp({
+        email: email,
+        password: password,
+        options: { data: { full_name: username } }
+    });
 
-    try {
-        // 1. Daftar pengguna dalam Supabase Auth dengan metadata
-        const { data, error } = await snapSupabase.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-                data: {
-                    full_name: username, // Simpan nama penuh dalam metadata
-                }
-            }
-        });
-
-        if (error) throw error;
-
-        if (data.user) {
-            alert("Pendaftaran Berjaya! Sila log masuk.");
-            window.location.href = "login.html";
-        }
-    } catch (error) {
-        alert("Ralat Pendaftaran: " + error.message);
-    } finally {
-        // Pulihkan butang
-        regBtn.innerText = originalText;
-        regBtn.disabled = false;
-    }
-}
-// Fungsi Pendaftaran (Register) - DIPERBAIKI
-async function handleRegister() {
-    const username = document.getElementById('reg-username').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
-    const password = document.getElementById('reg-password').value;
-
-    // Validasi ringkas
-    if (!username || !email || !password) {
-        alert("Sila isi semua ruangan (Nama, Emel, dan Kata Laluan).");
-        return;
-    }
-
-    if (password.length < 6) {
-        alert("Kata laluan mestilah sekurang-kurangnya 6 aksara.");
-        return;
-    }
-
-    // Tukar butang kepada mod memuatkan
-    const regBtn = document.querySelector('button[onclick="handleRegister()"]');
-    const originalText = regBtn.innerText;
-    regBtn.innerText = "Mendaftar...";
-    regBtn.disabled = true;
-
-    try {
-        // 1. Daftar pengguna dalam Supabase Auth dengan metadata
-        const { data, error } = await snapSupabase.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-                data: {
-                    full_name: username, // Simpan nama penuh dalam metadata
-                }
-            }
-        });
-
-        if (error) throw error;
-
-        if (data.user) {
-            alert("Pendaftaran Berjaya! Sila log masuk.");
-            window.location.href = "login.html";
-        }
-    } catch (error) {
-        alert("Ralat Pendaftaran: " + error.message);
-    } finally {
-        // Pulihkan butang
-        regBtn.innerText = originalText;
-        regBtn.disabled = false;
+    if (error) {
+        alert("Ralat: " + error.message);
+        btn.innerText = "Daftar";
+        btn.disabled = false;
+    } else {
+        alert("Pendaftaran Berjaya! Sila log masuk.");
+        window.location.href = "login.html";
     }
 }
 
-// ==========================================
-// FUNGSI LOG MASUK (Login) - DIPERBAIKI
-// ==========================================
+// --- FUNGSI LOGIN (FIXED) ---
 async function handleLogin() {
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
-    const loginBtn = document.querySelector('.login-btn-main');
+    const btn = document.querySelector('.login-btn-main');
 
-    // 1. Validasi Input
-    if (!email || !password) {
-        alert("Sila masukkan emel dan kata laluan.");
-        return;
-    }
+    if (!email || !password) return alert("Isi emel dan kata laluan.");
 
-    // 2. Tunjukkan status memuatkan (Loading)
-    const originalText = loginBtn.innerText;
-    loginBtn.innerText = "Sila tunggu...";
-    loginBtn.disabled = true;
+    btn.innerText = "Sila tunggu...";
+    btn.disabled = true;
 
-    try {
-        // 3. Proses Log Masuk dengan Supabase
-        const { data, error } = await snapSupabase.auth.signInWithPassword({
-            email: email,
-            password: password,
-        });
+    const { data, error } = await snapSupabase.auth.signInWithPassword({
+        email: email,
+        password: password
+    });
 
-        if (error) throw error;
-
-        // 4. Jika berjaya
-        if (data.user) {
-            console.log("Log masuk berjaya:", data.user);
-            window.location.href = "index.html"; // Terus ke Home
-        }
-
-    } catch (error) {
-        // 5. Pengurusan Ralat (Contoh: Salah password atau emel)
-        alert("Ralat Log Masuk: " + error.message);
-    } finally {
-        // 6. Pulihkan butang jika gagal
-        loginBtn.innerText = originalText;
-        loginBtn.disabled = false;
+    if (error) {
+        alert("Gagal: " + error.message);
+        btn.innerText = "Log Masuk";
+        btn.disabled = false;
+    } else {
+        window.location.href = "index.html";
     }
 }

@@ -218,3 +218,7 @@ video {
     gap: 10px;
     cursor: pointer;
 }
+
+.logo-glow {
+    text-shadow: 0 0 20px rgba(254, 44, 85, 0.5);
+}

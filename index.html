@@ -1,35 +1,54 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="ms">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Home</title>
+    <title>SnapFlow | Solar Video Feed</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body style="background: #000; color: #fff; margin: 0; overflow: hidden;">
 
-    <header class="top-header">
-        <i class="fa-solid fa-tv live-icon"></i>
-        <div class="top-tabs">
-            <span>Following</span>
-            <span class="active">For You</span>
+    <header style="position: absolute; top: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 20px; z-index: 100; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);">
+        <strong style="font-size: 20px; letter-spacing: 1px;">SnapFlow</strong>
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <i class="fa-solid fa-magnifying-glass" onclick="toggleSearch()" style="font-size: 20px; cursor: pointer;"></i>
+            <i class="fa-solid fa-bell" style="font-size: 20px;"></i>
         </div>
-        <i class="fa-solid fa-magnifying-glass search-icon"></i>
     </header>
 
-    <main class="feed" id="video-feed">
-        </main>
+    <main id="video-feed" style="height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory;">
+        <div style="height: 100vh; display: flex; align-items: center; justify-content: center; color: #555;">
+            <p>Memuatkan video solar terbaik...</p>
+        </div>
+    </main>
+
+    <div id="search-overlay" class="search-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 5000; display: none;">
+        <div class="search-header" style="display: flex; align-items: center; padding: 15px; gap: 15px; border-bottom: 1px solid #222;">
+            <i class="fa-solid fa-chevron-left" onclick="toggleSearch()"></i>
+            <div style="flex: 1; background: #1a1a1a; display: flex; align-items: center; padding: 8px 15px; border-radius: 8px; gap: 10px;">
+                <i class="fa-solid fa-magnifying-glass" style="color: #555;"></i>
+                <input type="text" id="search-input" placeholder="Cari tutorial solar..." onkeyup="handleSearch(event)" style="background: transparent; border: none; color: #fff; outline: none; width: 100%;">
+            </div>
+        </div>
+        <div id="search-results" style="padding: 15px;"></div>
+    </div>
 
     <nav class="bottom-nav">
-        <div class="nav-item active"><i class="fa-solid fa-house"></i><span>Home</span></div>
-        <div class="nav-item"><i class="fa-solid fa-bag-shopping"></i><span>Shop</span></div>
-        <div class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></div>
-        <div class="nav-item"><i class="fa-solid fa-message"></i><span class="badge">99+</span><span>Inbox</span></div>
-        <div class="nav-item"><i class="fa-solid fa-user"></i><span>Profile</span></div>
+        <a href="index.html" class="nav-item active"><i class="fa-solid fa-house"></i><span>Home</span></a>
+        <a href="shop.html" class="nav-item"><i class="fa-solid fa-bag-shopping"></i><span>Shop</span></a>
+        <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profile</span></a>
     </nav>
 
     <script src="app.js"></script>
+    <script>
+        // Memulakan fungsi sebaik sahaja halaman dibuka
+        window.onload = () => {
+            loadHomeFeed();
+        };
+    </script>
 </body>
 </html>
