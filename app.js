@@ -348,3 +348,79 @@ async function handleUpload() {
         btn.disabled = false;
     }
 }
+// --- FUNGSI PREVIEW FAIL ---
+function previewFile(event) {
+    const file = event.target.files[0];
+    const imgPreview = document.getElementById('preview-img');
+    const vidPreview = document.getElementById('preview-vid');
+    const placeholder = document.getElementById('placeholder-content');
+
+    if (!file) return;
+
+    // Sembunyikan ikon placeholder
+    placeholder.style.display = 'none';
+
+    if (file.type.startsWith('image/')) {
+        imgPreview.src = URL.createObjectURL(file);
+        imgPreview.style.display = 'block';
+        vidPreview.style.display = 'none';
+    } else if (file.type.startsWith('video/')) {
+        vidPreview.src = URL.createObjectURL(file);
+        vidPreview.style.display = 'block';
+        imgPreview.style.display = 'none';
+    }
+}
+
+// --- FUNGSI MUAT NAIK KE SUPABASE ---
+async function startUpload() {
+    const fileInput = document.getElementById('file-input');
+    const file = fileInput.files[0];
+    const caption = document.getElementById('video-caption').value.trim();
+    const btn = document.getElementById('upload-btn');
+
+    if (!file) return alert("Sila pilih gambar atau video dahulu.");
+
+    btn.innerText = "Sedang Memuat Naik... ⏳";
+    btn.disabled = true;
+
+    try {
+        const { data: { user } } = await snapSupabase.auth.getUser();
+        if (!user) throw new Error("Sila log masuk.");
+
+        // 1. Tentukan folder (Bucket) - Gunakan 'videos' untuk kedua-duanya buat masa ini supaya senang
+        const bucketName = 'videos'; 
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+
+        // 2. Upload fail fizikal
+        const { data: uploadData, error: uploadError } = await snapSupabase.storage
+            .from(bucketName)
+            .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        // 3. Ambil URL fail yang sudah siap di-upload
+        const { data: urlData } = snapSupabase.storage.from(bucketName).getPublicUrl(fileName);
+        const publicUrl = urlData.publicUrl;
+
+        // 4. Simpan maklumat ke database (Table: videos)
+        const { error: dbError } = await snapSupabase.from('videos').insert([{
+            user_id: user.id,
+            video_url: publicUrl,
+            caption: caption,
+            likes_count: 0
+        }]);
+
+        if (dbError) throw dbError;
+
+        alert("Berjaya dikongsi! 🎉");
+        window.location.href = "index.html";
+
+    } catch (error) {
+        alert("Gagal Muat Naik: " + error.message);
+        console.error(error);
+    } finally {
+        btn.innerText = "Kongsi Sekarang";
+        btn.disabled = false;
+    }
+}

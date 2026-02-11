@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow</title>
+    <title>SnapFlow | Welcome</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        body, html {
-            height: 100%;
-            margin: 0;
+        body {
             background: #000;
+            height: 100vh;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
+            margin: 0;
             overflow: hidden;
+            font-family: sans-serif;
         }
-        .splash-container {
+        .logo-container {
             text-align: center;
-            animation: fadeIn 1s ease-in-out;
+            animation: pulse 2s infinite;
         }
         .logo-text {
             font-size: 40px;
@@ -27,23 +29,37 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
         }
     </style>
 </head>
 <body>
-    <div class="splash-container">
+
+    <div class="logo-container">
         <h1 class="logo-text">SnapFlow</h1>
-        <p style="color: #555; font-size: 12px; margin-top: 10px;">SOLAR ENERGY ECOSYSTEM</p>
+        <p style="color: #555; font-size: 14px; margin-top: 10px;">Solar Innovation in Every Snap</p>
+    </div>
+
+    <div style="position: absolute; bottom: 50px;">
+        <div style="width: 20px; height: 20px; border: 2px solid #333; border-top: 2px solid #fe2c55; border-radius: 50%; animation: spin 1s linear infinite;"></div>
     </div>
 
     <script>
-        // Tunggu 2 saat kemudian hantar ke halaman login
-        setTimeout(() => {
-            window.location.href = 'login.html';
-        }, 2000);
+        // Fungsi untuk berpindah halaman selepas 3 saat
+        setTimeout(function() {
+            // Kita cuba hantar ke login.html
+            window.location.href = "login.html";
+        }, 3000); // 3000ms = 3 saat
     </script>
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </body>
 </html>
