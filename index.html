@@ -3,52 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Solar Video Feed</title>
+    <title>SnapFlow | Home Feed</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body style="background: #000; color: #fff; margin: 0; overflow: hidden;">
+<body style="background: #000; margin: 0; overflow: hidden;">
 
-    <header style="position: absolute; top: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 20px; z-index: 100; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);">
-        <strong style="font-size: 20px; letter-spacing: 1px;">SnapFlow</strong>
-        <div style="display: flex; gap: 20px; align-items: center;">
+    <header style="position: fixed; top: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 20px; z-index: 100; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); box-sizing: border-box;">
+        <strong style="font-size: 20px; color: #fff; letter-spacing: 1px;">SnapFlow</strong>
+        <div style="display: flex; gap: 20px; color: #fff;">
             <i class="fa-solid fa-magnifying-glass" onclick="toggleSearch()" style="font-size: 20px; cursor: pointer;"></i>
-            <i class="fa-solid fa-bell" style="font-size: 20px;"></i>
+            <i class="fa-solid fa-bell" style="font-size: 20px; cursor: pointer;"></i>
         </div>
     </header>
 
-    <main id="video-feed" style="height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory;">
-        <div style="height: 100vh; display: flex; align-items: center; justify-content: center; color: #555;">
-            <p>Memuatkan video solar terbaik...</p>
+    <main id="video-feed">
+        <div style="height: 100vh; display: flex; align-items: center; justify-content: center; color: #444;">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px; margin-right: 10px;"></i>
+            <p>Memuatkan video...</p>
         </div>
     </main>
 
-    <div id="search-overlay" class="search-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 5000; display: none;">
-        <div class="search-header" style="display: flex; align-items: center; padding: 15px; gap: 15px; border-bottom: 1px solid #222;">
-            <i class="fa-solid fa-chevron-left" onclick="toggleSearch()"></i>
-            <div style="flex: 1; background: #1a1a1a; display: flex; align-items: center; padding: 8px 15px; border-radius: 8px; gap: 10px;">
-                <i class="fa-solid fa-magnifying-glass" style="color: #555;"></i>
-                <input type="text" id="search-input" placeholder="Cari tutorial solar..." onkeyup="handleSearch(event)" style="background: transparent; border: none; color: #fff; outline: none; width: 100%;">
+    <div id="comment-sheet" class="comment-sheet">
+        <div class="sheet-header">
+            <div class="drag-handle"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
+                <span style="font-weight: bold; font-size: 14px; color: #fff;">Komen</span>
+                <i class="fa-solid fa-xmark" onclick="toggleComments()" style="cursor: pointer; font-size: 18px; color: #fff;"></i>
             </div>
         </div>
-        <div id="search-results" style="padding: 15px;"></div>
+        <div id="comment-list" class="comment-list">
+            </div>
+        <div class="comment-input-area">
+            <input type="text" placeholder="Tambah komen..." id="new-comment">
+            <button onclick="sendComment()" style="background: transparent; border: none; color: #fe2c55; font-size: 20px;">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+    <div id="comment-overlay" class="comment-overlay" onclick="toggleComments()"></div>
+
+    <div id="search-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 5000; padding: 20px; box-sizing: border-box;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <i class="fa-solid fa-chevron-left" onclick="toggleSearch()" style="color: #fff; cursor: pointer;"></i>
+            <input type="text" id="search-input" placeholder="Cari video solar..." onkeyup="handleSearch(event)" style="flex: 1; background: #1a1a1a; border: none; padding: 12px; border-radius: 8px; color: #fff; outline: none;">
+        </div>
+        <div id="search-results" style="margin-top: 20px; overflow-y: auto; height: 80vh;"></div>
     </div>
 
     <nav class="bottom-nav">
-        <a href="index.html" class="nav-item active"><i class="fa-solid fa-house"></i><span>Home</span></a>
-        <a href="shop.html" class="nav-item"><i class="fa-solid fa-bag-shopping"></i><span>Shop</span></a>
-        <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
-        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
-        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profile</span></a>
+        <a href="index.html" class="nav-item active">
+            <i class="fa-solid fa-house"></i>
+            <span>Home</span>
+        </a>
+        <a href="shop.html" class="nav-item">
+            <i class="fa-solid fa-bag-shopping"></i>
+            <span>Shop</span>
+        </a>
+        <a href="upload.html" class="nav-plus">
+            <div class="plus-icon"><i class="fa-solid fa-plus"></i></div>
+        </a>
+        <a href="inbox.html" class="nav-item">
+            <i class="fa-solid fa-message"></i>
+            <span>Inbox</span>
+        </a>
+        <a href="profile.html" class="nav-item">
+            <i class="fa-solid fa-user"></i>
+            <span>Profile</span>
+        </a>
     </nav>
 
     <script src="app.js"></script>
-    <script>
-        // Memulakan fungsi sebaik sahaja halaman dibuka
-        window.onload = () => {
-            loadHomeFeed();
-        };
-    </script>
 </body>
 </html>

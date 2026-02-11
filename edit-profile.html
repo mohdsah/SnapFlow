@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Edit Profil | SnapFlow</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="background: #000; color: #fff;">
+
+    <header style="padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #222;">
+        <i class="fa-solid fa-xmark" onclick="window.history.back()" style="font-size: 20px; margin-right: 20px;"></i>
+        <strong style="font-size: 17px;">Edit Profil</strong>
+    </header>
+
+    <main style="padding: 30px 20px; text-align: center;">
+        <div style="position: relative; display: inline-block; margin-bottom: 30px;">
+            <div id="edit-avatar-preview" style="width: 100px; height: 100px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid #222;"></div>
+            <label for="upload-avatar" style="position: absolute; bottom: 0; right: 0; background: #fe2c55; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <i class="fa-solid fa-camera" style="font-size: 14px;"></i>
+            </label>
+            <input type="file" id="upload-avatar" hidden accept="image/*" onchange="previewImage(event)">
+        </div>
+
+        <div style="text-align: left; margin-bottom: 20px;">
+            <label style="color: #888; font-size: 12px; margin-left: 5px;">Nama Penuh</label>
+            <input type="text" id="edit-fullname" style="width: 100%; background: #111; border: 1px solid #333; padding: 12px; border-radius: 8px; color: #fff; margin-top: 5px; outline: none;">
+        </div>
+
+        <button onclick="saveProfileChanges()" id="save-btn" style="width: 100%; background: #fe2c55; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; margin-top: 20px;">
+            Simpan Perubahan
+        </button>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        // Muat data asal sebaik halaman dibuka
+        window.onload = async () => {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (user) {
+                const name = user.user_metadata.full_name || "";
+                document.getElementById('edit-fullname').value = name;
+                document.getElementById('edit-avatar-preview').style.backgroundImage = `url('https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random')`;
+            }
+        };
+
+        function previewImage(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                document.getElementById('edit-avatar-preview').style.backgroundImage = `url('${reader.result}')`;
+            }
+            reader.readAsDataURL(event.target.files[0]);
+        }
+    </script>
+</body>
+</html>

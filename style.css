@@ -222,3 +222,124 @@ video {
 .logo-glow {
     text-shadow: 0 0 20px rgba(254, 44, 85, 0.5);
 }
+
+/* --- COMMENT SHEET STYLES --- */
+.comment-sheet {
+    position: fixed;
+    bottom: -70%; /* Sembunyi di bawah skrin */
+    left: 0;
+    width: 100%;
+    height: 70%;
+    background: #121212;
+    border-radius: 15px 15px 0 0;
+    z-index: 2000;
+    transition: bottom 0.3s ease-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.comment-sheet.active {
+    bottom: 0; /* Muncul ke atas */
+}
+
+.comment-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    z-index: 1999;
+}
+
+.sheet-header {
+    padding: 10px 15px;
+    border-bottom: 1px solid #222;
+}
+
+.drag-handle {
+    width: 40px;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    margin: 0 auto 10px;
+}
+
+.comment-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.comment-item {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.user-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background-size: cover;
+}
+
+.comment-content strong {
+    font-size: 13px;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.comment-content p {
+    font-size: 14px;
+    margin: 0;
+    color: #eee;
+}
+
+.comment-content span {
+    font-size: 11px;
+    color: #666;
+}
+
+.comment-input-area {
+    padding: 15px;
+    border-top: 1px solid #222;
+    display: flex;
+    gap: 10px;
+    background: #121212;
+}
+
+.comment-input-area input {
+    flex: 1;
+    background: #222;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 20px;
+    color: white;
+    outline: none;
+}
+
+/* Animasi Loading semasa tarik */
+.pull-to-refresh {
+    position: absolute;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: top 0.3s ease;
+    z-index: 500;
+    color: #fe2c55;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pull-to-refresh.visible {
+    top: 20px;
+}
+
+@keyframes rotation {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(359deg); }
+}

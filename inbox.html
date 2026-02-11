@@ -1,41 +1,59 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="ms">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Inbox Notifications</title>
+    <title>Inbox | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body style="background: #000; color: #fff; overflow-y: auto;">
+<body style="background: #000; color: #fff; padding-bottom: 80px;">
 
-    <header class="inbox-header" style="position: sticky; top: 0; background: #000; z-index: 100; padding: 15px 20px; border-bottom: 1px solid #222; text-align: center;">
-        <strong style="font-size: 17px;">Kotak Masuk</strong>
+    <header style="padding: 15px; text-align: center; border-bottom: 1px solid #111; position: sticky; top: 0; background: #000; z-index: 100;">
+        <strong style="font-size: 17px;">Inbox</strong>
     </header>
 
-    <div class="activity-tabs" style="display: flex; justify-content: space-around; padding: 20px 10px; border-bottom: 1px solid #111;">
-        <div class="act-tab-item"><div class="icon-circle" style="background: #fe2c55;"><i class="fa-solid fa-heart"></i></div><span>Likes</span></div>
-        <div class="act-tab-item"><div class="icon-circle" style="background: #00f2ea;"><i class="fa-solid fa-comment"></i></div><span>Comments</span></div>
-        <div class="act-tab-item"><div class="icon-circle" style="background: #ffbc00;"><i class="fa-solid fa-user-plus"></i></div><span>Followers</span></div>
+    <div style="display: flex; justify-content: space-around; padding: 15px 0; border-bottom: 1px solid #111;">
+        <div style="text-align: center;">
+            <div style="width: 45px; height: 45px; background: #1a1a1a; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+                <i class="fa-solid fa-heart" style="color: #fe2c55;"></i>
+            </div>
+            <span style="font-size: 11px; color: #888;">Likes</span>
+        </div>
+        <div style="text-align: center;">
+            <div style="width: 45px; height: 45px; background: #1a1a1a; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+                <i class="fa-solid fa-comment" style="color: #00f2ea;"></i>
+            </div>
+            <span style="font-size: 11px; color: #888;">Komen</span>
+        </div>
+        <div style="text-align: center;">
+            <div style="width: 45px; height: 45px; background: #1a1a1a; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+                <i class="fa-solid fa-user-plus" style="color: #ffcc00;"></i>
+            </div>
+            <span style="font-size: 11px; color: #888;">Followers</span>
+        </div>
     </div>
 
-    <main class="inbox-list" id="notification-list" style="padding-bottom: 80px;">
-        <p style="padding: 15px 20px; color: #888; font-size: 13px; font-weight: bold;">BARU</p>
-        </main>
+    <main id="notification-list" style="padding: 10px;">
+        <div style="display: flex; align-items: center; gap: 15px; padding: 12px; border-bottom: 1px solid #111;">
+            <div style="width: 45px; height: 45px; border-radius: 50%; background: #222; background-image: url('https://ui-avatars.com/api/?name=Admin&background=fe2c55&color=fff'); background-size: cover;"></div>
+            <div style="flex: 1;">
+                <p style="margin: 0; font-size: 14px;"><strong>SnapFlow Team</strong> menghantar mesej sistem.</p>
+                <span style="font-size: 12px; color: #555;">Selamat datang ke komuniti Solar! ☀️</span>
+            </div>
+            <div style="font-size: 11px; color: #444;">Baru tadi</div>
+        </div>
+    </main>
 
     <nav class="bottom-nav">
         <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Home</span></a>
         <a href="shop.html" class="nav-item"><i class="fa-solid fa-bag-shopping"></i><span>Shop</span></a>
         <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
-        <a href="inbox.html" class="nav-item active"><i class="fa-solid fa-message"></i><span class="badge">99+</span><span>Inbox</span></a>
+        <a href="inbox.html" class="nav-item active"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
         <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profile</span></a>
     </nav>
 
     <script src="app.js"></script>
-    <script>
-        // Panggil fungsi saat halaman dibuka
-        loadNotifications();
-    </script>
 </body>
 </html>

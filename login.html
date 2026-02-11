@@ -1,41 +1,35 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="ms">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Login</title>
+    <title>Log Masuk | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body style="background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 30px;">
+<body style="background: #000; color: #fff; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; font-family: sans-serif;">
 
-    <div class="login-container" style="text-align: center;">
-        <h1 style="font-size: 32px; margin-bottom: 10px;">SnapFlow</h1>
-        <p style="color: #888; margin-bottom: 40px;">Log masuk untuk mula berkongsi ilmu solar.</p>
+    <div style="width: 100%; max-width: 400px; padding: 40px 25px; text-align: center;">
+        <h1 style="font-size: 32px; font-weight: bold; background: linear-gradient(to right, #fff, #fe2c55); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px;">SnapFlow</h1>
+        <p style="color: #888; margin-bottom: 40px;">Log masuk ke akun Solar anda</p>
 
-        <div class="input-group" style="display: flex; flex-direction: column; gap: 15px;">
-            <div class="login-input-wrapper">
-                <i class="fa-solid fa-envelope"></i>
-                <input type="email" id="login-email" placeholder="Alamat Emel">
-            </div>
-            <div class="login-input-wrapper">
-                <i class="fa-solid fa-lock"></i>
-                <input type="password" id="login-password" placeholder="Kata Laluan">
-            </div>
-            
-            <button onclick="handleLogin()" class="login-btn-main">Log Masuk</button>
-        </div>
-<a href="forgot-password.html" style="display: block; margin-top: 15px; color: #888; text-decoration: none; font-size: 13px;">Lupa kata laluan?</a>
-
-        <div style="margin: 25px 0; color: #444;">— atau —</div>
-
-        <div class="social-login">
-            <button class="social-btn"><i class="fa-brands fa-google"></i> Teruskan dengan Google</button>
+        <div style="text-align: left; margin-bottom: 20px;">
+            <label style="font-size: 12px; color: #666; margin-left: 5px;">Alamat Email</label>
+            <input type="email" id="login-email" placeholder="Contoh: user@email.com" style="width: 100%; background: #111; border: 1px solid #333; padding: 15px; border-radius: 10px; color: #fff; margin-top: 5px; outline: none;">
         </div>
 
-        <p style="margin-top: 30px; font-size: 14px; color: #888;">
-            Belum ada akaun? <a href="register.html" style="color: #fe2c55; text-decoration: none; font-weight: bold;">Daftar</a>
+        <div style="text-align: left; margin-bottom: 30px;">
+            <label style="font-size: 12px; color: #666; margin-left: 5px;">Kata Laluan</label>
+            <input type="password" id="login-password" placeholder="••••••••" style="width: 100%; background: #111; border: 1px solid #333; padding: 15px; border-radius: 10px; color: #fff; margin-top: 5px; outline: none;">
+        </div>
+
+        <button class="login-btn-main" onclick="handleLogin()" style="width: 100%; background: #fe2c55; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer;">
+            Log Masuk
+        </button>
+
+        <p style="margin-top: 30px; color: #888; font-size: 14px;">
+            Belum ada akun? <a href="register.html" style="color: #fe2c55; text-decoration: none; font-weight: bold;">Daftar Sekarang</a>
         </p>
     </div>
 

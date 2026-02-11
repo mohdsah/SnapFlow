@@ -1,32 +1,59 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="ms">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Post Video</title>
+    <title>Upload Video | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-    <div class="upload-content" style="padding: 20px;">
-        <div class="upload-header" style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-            <a href="index.html" style="color: #888; text-decoration: none;">Batal</a>
-            <strong>Posting Video</strong>
-            <span></span>
+<body style="background: #000; color: #fff; margin: 0; padding-bottom: 80px;">
+
+    <header style="padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #111;">
+        <i class="fa-solid fa-xmark" onclick="window.history.back()" style="font-size: 20px; margin-right: 20px; cursor: pointer;"></i>
+        <strong style="font-size: 17px;">Muat Naik Video</strong>
+    </header>
+
+    <main style="padding: 20px;">
+        <div id="upload-box" onclick="document.getElementById('video-input').click()" style="width: 100%; height: 250px; border: 2px dashed #333; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative;">
+            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 40px; color: #fe2c55; margin-bottom: 10px;"></i>
+            <p style="color: #888; font-size: 14px;">Klik untuk pilih video</p>
+            <video id="preview-video" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;"></video>
         </div>
-        
-        <input type="file" id="video-file" accept="video/*" style="display: none;" onchange="previewVideo(event)">
-        <div class="video-preview-box" onclick="document.getElementById('video-file').click()">
-            <i class="fa-solid fa-video" id="upload-icon"></i>
-            <p id="upload-text">Pilih Video</p>
-            <video id="video-preview-element" style="display: none; width: 100%; height: 100%; object-fit: cover;" controls></video>
+        <input type="file" id="video-input" accept="video/*" hidden onchange="handleVideoPreview(event)">
+
+        <div style="margin-top: 25px;">
+            <label style="color: #888; font-size: 12px;">Kapsyen Video</label>
+            <textarea id="video-caption" placeholder="Tulis sesuatu tentang projek solar anda..." style="width: 100%; background: #111; border: 1px solid #333; border-radius: 8px; padding: 12px; color: #fff; margin-top: 8px; resize: none; height: 100px; outline: none;"></textarea>
         </div>
 
-        <textarea id="video-caption" placeholder="Apa yang sedang kamu pikirkan?"></textarea>
-        <button id="btn-upload-submit" onclick="handleUpload()">Posting Sekarang</button>
-    </div>
+        <button id="upload-btn" onclick="handleUpload()" style="width: 100%; background: #fe2c55; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; margin-top: 20px; cursor: pointer;">
+            Kongsi Sekarang
+        </button>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Home</span></a>
+        <a href="shop.html" class="nav-item"><i class="fa-solid fa-bag-shopping"></i><span>Shop</span></a>
+        <a href="upload.html" class="nav-plus active"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profile</span></a>
+    </nav>
 
     <script src="app.js"></script>
+    <script>
+        function handleVideoPreview(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const video = document.getElementById('preview-video');
+                video.src = URL.createObjectURL(file);
+                video.style.display = 'block';
+                video.play();
+                document.querySelector('#upload-box i').style.display = 'none';
+                document.querySelector('#upload-box p').style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
