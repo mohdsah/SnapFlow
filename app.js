@@ -424,3 +424,101 @@ async function startUpload() {
         btn.disabled = false;
     }
 }
+async function handleLikeAction(videoId) {
+    try {
+        const { data: { user } } = await snapSupabase.auth.getUser();
+        if (!user) return alert("Sila log masuk untuk menyukai video ini!");
+
+        // 1. Semak jika user dah pernah like sebelum ni
+        const { data: existingLike } = await snapSupabase
+            .from('likes')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('video_id', videoId)
+            .single();
+
+        if (existingLike) {
+            // Jika dah like, kita buat fungsi 'Unlike' (Opsyenal)
+            await snapSupabase.from('likes').delete().eq('id', existingLike.id);
+            updateLikeCount(videoId, -1);
+            document.getElementById(`like-icon-${videoId}`).style.color = '#fff';
+        } else {
+            // 2. Jika belum, tambah like baru
+            await snapSupabase.from('likes').insert([{ user_id: user.id, video_id: videoId }]);
+            updateLikeCount(videoId, 1);
+            document.getElementById(`like-icon-${videoId}`).style.color = '#fe2c55';
+        }
+    } catch (error) {
+        console.error("Ralat Like:", error);
+    }
+}
+
+async function updateLikeCount(videoId, increment) {
+    // Ambil nilai semasa
+    const { data: video } = await snapSupabase
+        .from('videos')
+        .select('likes_count')
+        .eq('id', videoId)
+        .single();
+
+    const newCount = (video.likes_count || 0) + increment;
+
+    // Simpan nilai baru ke database
+    await snapSupabase
+        .from('videos')
+        .update({ likes_count: newCount })
+        .eq('id', videoId);
+    
+    // Kemaskini paparan di skrin secara real-time
+    const countElement = document.querySelector(`#like-count-${videoId}`);
+    if (countElement) countElement.innerText = newCount;
+}
+async function handleLikeAction(videoId) {
+    try {
+        const { data: { user } } = await snapSupabase.auth.getUser();
+        if (!user) return alert("Sila log masuk untuk menyukai video ini!");
+
+        // 1. Semak jika user dah pernah like sebelum ni
+        const { data: existingLike } = await snapSupabase
+            .from('likes')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('video_id', videoId)
+            .single();
+
+        if (existingLike) {
+            // Jika dah like, kita buat fungsi 'Unlike' (Opsyenal)
+            await snapSupabase.from('likes').delete().eq('id', existingLike.id);
+            updateLikeCount(videoId, -1);
+            document.getElementById(`like-icon-${videoId}`).style.color = '#fff';
+        } else {
+            // 2. Jika belum, tambah like baru
+            await snapSupabase.from('likes').insert([{ user_id: user.id, video_id: videoId }]);
+            updateLikeCount(videoId, 1);
+            document.getElementById(`like-icon-${videoId}`).style.color = '#fe2c55';
+        }
+    } catch (error) {
+        console.error("Ralat Like:", error);
+    }
+}
+
+async function updateLikeCount(videoId, increment) {
+    // Ambil nilai semasa
+    const { data: video } = await snapSupabase
+        .from('videos')
+        .select('likes_count')
+        .eq('id', videoId)
+        .single();
+
+    const newCount = (video.likes_count || 0) + increment;
+
+    // Simpan nilai baru ke database
+    await snapSupabase
+        .from('videos')
+        .update({ likes_count: newCount })
+        .eq('id', videoId);
+    
+    // Kemaskini paparan di skrin secara real-time
+    const countElement = document.querySelector(`#like-count-${videoId}`);
+    if (countElement) countElement.innerText = newCount;
+}
