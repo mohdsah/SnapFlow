@@ -31,11 +31,14 @@
             </button>
         </div>
 
-        <div style="display: flex; justify-content: center; gap: 30px; border-top: 1px solid #111; padding-top: 20px;">
+        <div style="display: flex; justify-content: center; gap: 30px; border-top: 1px solid #111; padding-top: 20px; margin-bottom: 20px;">
             <div><strong>0</strong><p style="color: #888; font-size: 12px;">Following</p></div>
             <div><strong>0</strong><p style="color: #888; font-size: 12px;">Followers</p></div>
-            <div><strong>0</strong><p style="color: #888; font-size: 12px;">Likes</p></div>
+            <div><strong id="total-likes-display">0</strong><p style="color: #888; font-size: 12px;">Likes</p></div>
         </div>
+
+        <div id="profile-video-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;">
+            </div>
     </main>
 
     <nav class="bottom-nav">
@@ -47,9 +50,11 @@
     </nav>
 
     <script src="app.js"></script>
+
     <script>
-        // Fungsi khas untuk memaparkan data user di profile
-        async function loadProfileData() {
+        // Fungsi untuk memaparkan maklumat user dan memanggil video
+        async function initProfile() {
+            // 1. Muat maklumat nama & avatar
             const { data: { user } } = await snapSupabase.auth.getUser();
             if (user) {
                 const name = user.user_metadata.full_name || "User Baru";
@@ -57,9 +62,15 @@
                 document.getElementById('display-fullname').innerText = name;
                 document.getElementById('display-handle').innerText = "@" + name.toLowerCase().replace(/\s+/g, '');
                 document.getElementById('profile-avatar').style.backgroundImage = `url('https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random')`;
+                
+                // 2. Muat video milik user (Pastikan fungsi ini ada dalam app.js)
+                if (typeof loadProfileVideos === "function") {
+                    loadProfileVideos();
+                }
             }
         }
-        window.onload = loadProfileData;
+
+        window.onload = initProfile;
     </script>
 </body>
 </html>
