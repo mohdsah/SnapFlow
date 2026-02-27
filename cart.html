@@ -1,33 +1,36 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="ms">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Troli Saya</title>
+    <title>Troli | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background: #000; color: #fff; margin: 0; overflow-y: auto; }
+    </style>
 </head>
-<body style="background: #000; color: #fff;">
+<body>
 
-    <div class="cart-header" style="padding: 15px 20px; display: flex; align-items: center; gap: 20px; border-bottom: 1px solid #222;">
-        <i class="fa-solid fa-chevron-left" onclick="history.back()"></i>
-        <strong style="font-size: 18px;">Troli ( <span id="cart-count-title">0</span> )</strong>
-    </div>
+    <header style="padding: 16px 20px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #111; position: sticky; top: 0; background: #000; z-index: 100;">
+        <i class="fa-solid fa-chevron-left" onclick="history.back()" style="font-size: 18px; cursor: pointer; color: #888;"></i>
+        <strong style="font-size: 17px; font-weight: 700;">Troli (<span id="cart-count-title">0</span>)</strong>
+    </header>
 
-    <main id="cart-items-container" style="padding: 20px; padding-bottom: 100px;">
-        </main>
+    <main id="cart-items-container" style="padding: 15px 20px; padding-bottom: 140px;"></main>
 
-    <div class="cart-footer" style="position: fixed; bottom: 0; width: 100%; background: #111; padding: 15px 20px; border-top: 1px solid #333; box-sizing: border-box;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-            <span>Jumlah Keseluruhan:</span>
-            <strong id="total-price" style="color: #fe2c55; font-size: 18px;">RM 0</strong>
+    <div style="position: fixed; bottom: 0; width: 100%; background: #0a0a0a; padding: 16px 20px; border-top: 1px solid #1a1a1a; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <span style="color: #888; font-size: 14px;">Jumlah Keseluruhan</span>
+            <strong id="total-price" style="color: #fe2c55; font-size: 22px; font-weight: 700;">RM 0</strong>
         </div>
-        <button onclick="checkout()" style="width: 100%; background: #fe2c55; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold;">Checkout</button>
+        <button onclick="checkout()" class="login-btn-main" style="margin: 0;">
+            <i class="fa-solid fa-lock"></i> Teruskan ke Checkout
+        </button>
     </div>
 
     <script src="app.js"></script>
     <script>
-        // Paparkan barang sebaik sahaja halaman dimuatkan
         renderCart();
     </script>
 </body>

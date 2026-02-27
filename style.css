@@ -1,33 +1,55 @@
-/* --- ASAS & RESET --- */
+/* ==========================================
+   SNAPFLOW — UPGRADED STYLESHEET
+   ========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+
 :root {
-    --accent: #fe2c55; /* Merah TikTok */
+    --accent: #fe2c55;
+    --accent-cyan: #00f2ea;
     --bg-dark: #000000;
+    --bg-card: #111111;
+    --bg-input: #1a1a1a;
     --text-white: #ffffff;
-    --nav-height: 70px;
+    --text-muted: #888888;
+    --text-dim: #555555;
+    --border: #222222;
+    --nav-height: 65px;
+    --radius: 12px;
+    --transition: 0.25s ease;
 }
 
+/* ==========================================
+   RESET & BASE
+   ========================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 body, html {
-    margin: 0;
-    padding: 0;
     width: 100%;
     height: 100%;
     background-color: var(--bg-dark);
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Outfit', 'Segoe UI', sans-serif;
     color: var(--text-white);
-    overflow: hidden; /* Supaya skrol hanya berlaku di dalam video feed */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- VIDEO FEED (FULLSCREEN) --- */
+a { text-decoration: none; color: inherit; }
+img { display: block; }
+button { font-family: inherit; cursor: pointer; }
+input, textarea { font-family: inherit; }
+
+/* ==========================================
+   VIDEO FEED
+   ========================================== */
 #video-feed {
     height: 100vh;
     overflow-y: scroll;
-    scroll-snap-type: y mandatory; /* Skrol melekat skrin demi skrin */
-    scrollbar-width: none; /* Sembunyi scrollbar di Firefox */
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
 }
 
-#video-feed::-webkit-scrollbar {
-    display: none; /* Sembunyi scrollbar di Chrome/Safari */
-}
+#video-feed::-webkit-scrollbar { display: none; }
 
 .video-container {
     height: 100vh;
@@ -35,45 +57,61 @@ body, html {
     scroll-snap-align: start;
     position: relative;
     background: #111;
+    overflow: hidden;
 }
 
-video {
+.video-container video {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Video memenuhi skrin tanpa bar hitam */
+    object-fit: cover;
+    cursor: pointer;
 }
 
-/* --- INFO VIDEO (CAPTION & NAMA) --- */
+/* Gradient overlay bawah */
+.video-gradient {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 60%;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Info caption */
 .video-info {
     position: absolute;
-    bottom: 90px; /* Di atas bottom nav */
+    bottom: calc(var(--nav-height) + 20px);
     left: 15px;
-    width: 70%;
+    width: 68%;
     z-index: 10;
-    text-shadow: 1px 1px 5px rgba(0,0,0,0.8);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
 }
 
 .video-info h3 {
-    margin: 0 0 8px 0;
-    font-size: 16px;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
 }
 
 .video-info p {
-    font-size: 14px;
-    margin: 0;
-    line-height: 1.4;
-    color: #eee;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #ddd;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-/* --- BUTANG INTERAKSI DI TEPI (SIDEBAR) --- */
+/* Sidebar butang */
 .side-bar {
     position: absolute;
-    right: 10px;
-    bottom: 120px;
+    right: 12px;
+    bottom: calc(var(--nav-height) + 20px);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 18px;
     z-index: 10;
 }
 
@@ -81,61 +119,99 @@ video {
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 4px;
     cursor: pointer;
+    transition: transform var(--transition);
 }
+
+.action-item:active { transform: scale(0.9); }
 
 .action-item i {
     font-size: 28px;
-    margin-bottom: 5px;
-    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    transition: color var(--transition), transform 0.2s;
 }
 
 .action-item span {
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 
-/* --- NAVIGASI BAWAH (BOTTOM NAV) --- */
+/* Avatar follow */
+.avatar-wrap {
+    position: relative;
+    margin-bottom: 5px;
+}
+
+.avatar-wrap img {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    object-fit: cover;
+}
+
+.follow-plus-btn {
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #000;
+    transition: background var(--transition);
+}
+
+/* ==========================================
+   BOTTOM NAVIGATION
+   ========================================== */
 .bottom-nav {
     position: fixed;
     bottom: 0;
     width: 100%;
     height: var(--nav-height);
-    background: #000;
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     display: flex;
     justify-content: space-around;
     align-items: center;
-    border-top: 0.5px solid #333;
+    border-top: 0.5px solid #1a1a1a;
     z-index: 1000;
+    padding: 0 5px;
 }
 
 .nav-item {
-    text-decoration: none;
-    color: #888;
+    color: var(--text-dim);
     display: flex;
     flex-direction: column;
     align-items: center;
     font-size: 10px;
-    gap: 4px;
+    font-weight: 500;
+    gap: 3px;
+    padding: 8px 12px;
+    transition: color var(--transition);
+    flex: 1;
+    text-align: center;
 }
 
-.nav-item.active {
-    color: #fff;
-}
+.nav-item i { font-size: 20px; }
 
-.nav-item i {
-    font-size: 20px;
-}
+.nav-item.active { color: var(--text-white); }
 
-/* BUTANG TAMBAH (+) */
-.nav-plus {
-    text-decoration: none;
-}
+.nav-plus { flex-shrink: 0; }
 
 .plus-icon {
-    width: 45px;
+    width: 46px;
     height: 30px;
-    background: linear-gradient(to right, #00f2ea 0%, #00f2ea 25%, #fe2c55 75%, #fe2c55 100%);
+    background: linear-gradient(to right, #00f2ea 20%, #fe2c55 80%);
     border-radius: 8px;
     display: flex;
     justify-content: center;
@@ -146,37 +222,118 @@ video {
 .plus-icon::before {
     content: '';
     position: absolute;
-    width: 37px;
-    height: 100%;
+    width: 38px;
+    height: 26px;
     background: #fff;
-    border-radius: 8px;
-    z-index: -1;
+    border-radius: 6px;
 }
 
 .plus-icon i {
     color: #000;
     font-size: 16px;
+    position: relative;
+    z-index: 1;
 }
 
-/* --- SEARCH OVERLAY --- */
-.search-overlay {
-    transition: all 0.3s ease;
+/* ==========================================
+   KOMEN SHEET
+   ========================================== */
+.comment-sheet {
+    position: fixed;
+    bottom: -72%;
+    left: 0;
+    width: 100%;
+    height: 70%;
+    background: #121212;
+    border-radius: 18px 18px 0 0;
+    z-index: 2000;
+    transition: bottom 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 -4px 30px rgba(0,0,0,0.5);
 }
 
-.search-header i {
-    font-size: 20px;
-    cursor: pointer;
+.comment-sheet.active { bottom: 0; }
+
+.comment-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    z-index: 1999;
 }
 
-.login-input-wrapper {
-    background: #1a1a1a;
-    border-radius: 8px;
+.sheet-header {
+    padding: 10px 15px 5px;
+    border-bottom: 1px solid #1e1e1e;
+    flex-shrink: 0;
+}
+
+.drag-handle {
+    width: 36px;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    margin: 0 auto 12px;
+}
+
+.comment-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 15px;
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+}
+
+.comment-item {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.comment-input-area {
     padding: 12px 15px;
+    border-top: 1px solid #1e1e1e;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: #121212;
+    flex-shrink: 0;
+}
+
+.comment-input-area input {
+    flex: 1;
+    background: #222;
+    border: 1px solid #333;
+    padding: 10px 16px;
+    border-radius: 22px;
+    color: white;
+    outline: none;
+    font-size: 14px;
+    transition: border-color var(--transition);
+}
+
+.comment-input-area input:focus { border-color: var(--accent); }
+
+/* ==========================================
+   FORM / AUTH PAGES
+   ========================================== */
+.login-input-wrapper {
+    background: var(--bg-input);
+    border-radius: var(--radius);
+    padding: 14px 16px;
     display: flex;
     align-items: center;
-    gap: 10px;
-    border: 1px solid #333;
+    gap: 12px;
+    border: 1px solid var(--border);
+    transition: border-color var(--transition);
+    width: 100%;
 }
+
+.login-input-wrapper:focus-within { border-color: #444; }
+
+.login-input-wrapper i { color: #555; flex-shrink: 0; }
 
 .login-input-wrapper input {
     background: transparent;
@@ -185,161 +342,271 @@ video {
     outline: none;
     width: 100%;
     font-size: 15px;
+    box-sizing: border-box;
 }
 
+.login-input-wrapper input::placeholder { color: #444; }
+
 .login-btn-main {
-    background: #fe2c55; /* Merah SnapFlow */
+    background: var(--accent);
     color: white;
     border: none;
     padding: 15px;
-    border-radius: 8px;
-    font-weight: bold;
+    border-radius: var(--radius);
+    font-weight: 700;
     font-size: 16px;
     cursor: pointer;
-    margin-top: 10px;
+    width: 100%;
+    margin-top: 8px;
+    transition: opacity var(--transition), transform 0.1s;
+    letter-spacing: 0.3px;
 }
 
-.login-btn-main:disabled {
-    background: #555;
-    cursor: not-allowed;
-}
+.login-btn-main:active { transform: scale(0.98); }
+.login-btn-main:disabled { background: #555; cursor: not-allowed; opacity: 0.7; }
 
 .social-btn {
     width: 100%;
     background: white;
     color: black;
     border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-weight: bold;
+    padding: 13px;
+    border-radius: var(--radius);
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
     cursor: pointer;
+    font-size: 15px;
 }
 
-.logo-glow {
-    text-shadow: 0 0 20px rgba(254, 44, 85, 0.5);
+/* ==========================================
+   SHOP & PRODUK
+   ========================================== */
+.product-card {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform var(--transition);
 }
 
-/* --- COMMENT SHEET STYLES --- */
-.comment-sheet {
-    position: fixed;
-    bottom: -70%; /* Sembunyi di bawah skrin */
-    left: 0;
+.product-card:active { transform: scale(0.97); }
+
+.product-card img { aspect-ratio: 1/1; object-fit: cover; width: 100%; }
+
+.btn-cart {
     width: 100%;
-    height: 70%;
-    background: #121212;
-    border-radius: 15px 15px 0 0;
-    z-index: 2000;
-    transition: bottom 0.3s ease-out;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 9px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    transition: opacity var(--transition);
+}
+
+.btn-cart:active { opacity: 0.8; }
+
+/* Kategori sidebar */
+.brand-item {
+    padding: 14px 10px;
+    font-size: 12px;
+    text-align: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 1px solid #1a1a1a;
+    transition: all var(--transition);
+    line-height: 1.4;
+}
+
+.brand-item.active {
+    color: var(--text-white);
+    background: #1a1a1a;
+    border-right: 3px solid var(--accent);
+    font-weight: 700;
+}
+
+.search-bar-shop {
+    background: var(--bg-input);
+    border-radius: 10px;
+    padding: 10px 14px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    border: 1px solid var(--border);
 }
 
-.comment-sheet.active {
-    bottom: 0; /* Muncul ke atas */
+.search-bar-shop i { color: #555; }
+
+.search-bar-shop input {
+    background: transparent;
+    border: none;
+    color: white;
+    outline: none;
+    flex: 1;
+    font-size: 14px;
 }
 
-.comment-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
+.product-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* ==========================================
+   PROFIL
+   ========================================== */
+.profile-video-item {
+    position: relative;
+    aspect-ratio: 9/16;
+    background: #111;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.profile-video-item video {
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: none;
-    z-index: 1999;
+    object-fit: cover;
 }
 
-.sheet-header {
-    padding: 10px 15px;
-    border-bottom: 1px solid #222;
-}
-
-.drag-handle {
-    width: 40px;
-    height: 4px;
-    background: #333;
-    border-radius: 2px;
-    margin: 0 auto 10px;
-}
-
-.comment-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 15px;
-}
-
-.comment-item {
+.profile-video-overlay {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
     display: flex;
-    gap: 12px;
+    align-items: center;
+    gap: 4px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+/* ==========================================
+   INBOX / NOTIFIKASI
+   ========================================== */
+.notif-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 6px;
+}
+
+/* ==========================================
+   CART BADGE
+   ========================================== */
+.cart-badge-wrap { position: relative; }
+
+#cart-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid #000;
+}
+
+/* ==========================================
+   SPLASH SCREEN
+   ========================================== */
+.logo-text {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.logo-tagline {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 8px;
+    letter-spacing: 0.5px;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50% { transform: scale(1.04); opacity: 1; }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loader-spin {
+    width: 22px; height: 22px;
+    border: 2.5px solid #1a1a1a;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/* ==========================================
+   SEARCH OVERLAY
+   ========================================== */
+.search-overlay-inner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
     margin-bottom: 20px;
 }
 
-.user-avatar {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    background-size: cover;
+#search-results {
+    overflow-y: auto;
+    max-height: calc(100vh - 80px);
 }
 
-.comment-content strong {
-    font-size: 13px;
-    display: block;
-    margin-bottom: 2px;
-}
-
-.comment-content p {
-    font-size: 14px;
-    margin: 0;
-    color: #eee;
-}
-
-.comment-content span {
-    font-size: 11px;
-    color: #666;
-}
-
-.comment-input-area {
-    padding: 15px;
-    border-top: 1px solid #222;
+/* ==========================================
+   UPLOAD PAGE
+   ========================================== */
+.upload-box {
+    width: 100%;
+    height: 300px;
+    border: 2px dashed #2a2a2a;
+    border-radius: 16px;
     display: flex;
-    gap: 10px;
-    background: #121212;
-}
-
-.comment-input-area input {
-    flex: 1;
-    background: #222;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 20px;
-    color: white;
-    outline: none;
-}
-
-/* Animasi Loading semasa tarik */
-.pull-to-refresh {
-    position: absolute;
-    top: -50px;
-    left: 50%;
-    transform: translateX(-50%);
-    transition: top 0.3s ease;
-    z-index: 500;
-    color: #fe2c55;
-    font-weight: bold;
-    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    background: #050505;
+    transition: border-color var(--transition);
 }
 
-.pull-to-refresh.visible {
-    top: 20px;
-}
+.upload-box:hover { border-color: var(--accent); }
 
-@keyframes rotation {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(359deg); }
-}
+.upload-box i { font-size: 50px; color: var(--accent); margin-bottom: 12px; }
+
+/* ==========================================
+   UTILITY
+   ========================================== */
+.text-accent { color: var(--accent); }
+.text-muted { color: var(--text-muted); }
+.text-center { text-align: center; }
+.fw-bold { font-weight: 700; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 4px; }

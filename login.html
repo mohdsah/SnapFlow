@@ -7,29 +7,86 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 40px 25px;
+            text-align: center;
+        }
+        .auth-logo {
+            font-size: 34px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 30%, #fe2c55 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+        .form-group {
+            text-align: left;
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            font-size: 12px;
+            color: #666;
+            margin-left: 4px;
+            margin-bottom: 6px;
+            display: block;
+        }
+        .form-group input {
+            width: 100%;
+            background: #111;
+            border: 1px solid #2a2a2a;
+            padding: 14px 16px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus { border-color: #444; }
+    </style>
 </head>
-<body style="background: #000; color: #fff; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; font-family: sans-serif;">
+<body>
+    <div class="auth-container">
+        <h1 class="auth-logo">SnapFlow</h1>
+        <p class="text-muted" style="margin-bottom: 36px; font-size: 14px;">Log masuk ke akun SnapFlow anda</p>
 
-    <div style="width: 100%; max-width: 400px; padding: 40px 25px; text-align: center;">
-        <h1 style="font-size: 32px; font-weight: bold; background: linear-gradient(to right, #fff, #fe2c55); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px;">SnapFlow</h1>
-        <p style="color: #888; margin-bottom: 40px;">Log masuk ke akun Solar anda</p>
-
-        <div style="text-align: left; margin-bottom: 20px;">
-            <label style="font-size: 12px; color: #666; margin-left: 5px;">Alamat Email</label>
-            <input type="email" id="login-email" placeholder="Contoh: user@email.com" style="width: 100%; background: #111; border: 1px solid #333; padding: 15px; border-radius: 10px; color: #fff; margin-top: 5px; outline: none;">
+        <div class="form-group">
+            <label>Alamat Email</label>
+            <input type="email" id="login-email" placeholder="user@email.com" autocomplete="email">
         </div>
 
-        <div style="text-align: left; margin-bottom: 30px;">
-            <label style="font-size: 12px; color: #666; margin-left: 5px;">Kata Laluan</label>
-            <input type="password" id="login-password" placeholder="••••••••" style="width: 100%; background: #111; border: 1px solid #333; padding: 15px; border-radius: 10px; color: #fff; margin-top: 5px; outline: none;">
+        <div class="form-group" style="margin-bottom: 8px;">
+            <label>Kata Laluan</label>
+            <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+                   onkeydown="if(event.key==='Enter') handleLogin()">
         </div>
 
-        <button class="login-btn-main" onclick="handleLogin()" style="width: 100%; background: #fe2c55; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer;">
-            Log Masuk
-        </button>
+        <div style="text-align: right; margin-bottom: 24px;">
+            <a href="forgot-password.html" style="color: #666; font-size: 13px;">Lupa kata laluan?</a>
+        </div>
 
-        <p style="margin-top: 30px; color: #888; font-size: 14px;">
-            Belum ada akun? <a href="register.html" style="color: #fe2c55; text-decoration: none; font-weight: bold;">Daftar Sekarang</a>
+        <button class="login-btn-main" onclick="handleLogin()">Log Masuk</button>
+
+        <div style="display: flex; align-items: center; gap: 12px; margin: 24px 0;">
+            <div style="flex:1; height:1px; background:#1a1a1a;"></div>
+            <span style="color:#333; font-size:13px;">atau</span>
+            <div style="flex:1; height:1px; background:#1a1a1a;"></div>
+        </div>
+
+        <p style="margin-top: 10px; color: #666; font-size: 14px;">
+            Belum ada akaun? <a href="register.html" style="color: #fe2c55; font-weight: 700;">Daftar Sekarang</a>
         </p>
     </div>
 

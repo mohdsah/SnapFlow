@@ -3,42 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Profil Saya | SnapFlow</title>
+    <title>Profil | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 20px); overflow-y: auto; }
+        .stat-item { text-align: center; }
+        .stat-item strong { font-size: 18px; font-weight: 700; display: block; }
+        .stat-item span { color: #666; font-size: 12px; margin-top: 2px; display: block; }
+        .action-btn {
+            background: #1a1a1a;
+            color: #fff;
+            border: 1px solid #2a2a2a;
+            padding: 9px 22px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .action-btn:active { background: #222; }
+        .action-btn.danger { background: #1a0008; border-color: #3a0010; color: #fe2c55; }
+    </style>
 </head>
-<body style="background: #000; color: #fff; margin: 0; padding-bottom: 80px;">
+<body>
 
-    <header style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111;">
-        <i class="fa-solid fa-user-plus"></i>
-        <strong id="display-username">Memuatkan...</strong>
-        <i class="fa-solid fa-bars"></i>
+    <header style="padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111;">
+        <i class="fa-solid fa-user-plus" style="font-size: 18px; color: #555;"></i>
+        <strong id="display-username" style="font-size: 16px; font-weight: 700;">Memuatkan...</strong>
+        <a href="edit-profile.html"><i class="fa-solid fa-ellipsis-vertical" style="font-size: 18px; color: #fff;"></i></a>
     </header>
 
-    <main style="text-align: center; padding: 20px;">
-        <div id="profile-avatar" style="width: 100px; height: 100px; border-radius: 50%; background-color: #333; margin: 0 auto 15px; background-size: cover; background-position: center;"></div>
-        
-        <h3 id="display-fullname" style="margin: 0; font-size: 18px;">Nama Pengguna</h3>
-        <p id="display-handle" style="color: #888; margin: 5px 0 20px;">@username</p>
+    <main style="padding: 24px 20px; text-align: center;">
 
-        <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 30px;">
-            <button onclick="window.location.href='edit-profile.html'" style="background: #222; color: #fff; border: none; padding: 10px 25px; border-radius: 5px; font-weight: bold; cursor: pointer;">
-                Edit Profile
+        <!-- Avatar -->
+        <div id="profile-avatar" style="width: 90px; height: 90px; border-radius: 50%; background: #1a1a1a; margin: 0 auto 14px; background-size: cover; background-position: center; border: 2.5px solid #2a2a2a;"></div>
+
+        <h3 id="display-fullname" style="margin: 0; font-size: 20px; font-weight: 700;">Nama</h3>
+        <p id="display-handle" style="color: #555; margin: 5px 0 22px; font-size: 14px;">@username</p>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 28px;">
+            <button class="action-btn" onclick="window.location.href='edit-profile.html'">
+                <i class="fa-solid fa-pen" style="font-size:12px;"></i> Edit Profil
             </button>
-            <button onclick="handleLogout()" style="background: #fe2c55; color: #fff; border: none; padding: 10px 25px; border-radius: 5px; font-weight: bold; cursor: pointer;">
-                Log Keluar
+            <button class="action-btn danger" onclick="handleLogout()">
+                <i class="fa-solid fa-right-from-bracket" style="font-size:12px;"></i> Log Keluar
             </button>
         </div>
 
-        <div style="display: flex; justify-content: center; gap: 30px; border-top: 1px solid #111; padding-top: 20px; margin-bottom: 20px;">
-            <div><strong>0</strong><p style="color: #888; font-size: 12px;">Following</p></div>
-            <div><strong>0</strong><p style="color: #888; font-size: 12px;">Followers</p></div>
-            <div><strong id="total-likes-display">0</strong><p style="color: #888; font-size: 12px;">Likes</p></div>
-        </div>
-
-        <div id="profile-video-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;">
+        <!-- Stats -->
+        <div style="display: flex; justify-content: center; gap: 30px; border-top: 1px solid #111; border-bottom: 1px solid #111; padding: 18px 0; margin-bottom: 20px;">
+            <div class="stat-item">
+                <strong id="following-count">0</strong>
+                <span>Following</span>
             </div>
+            <div class="stat-item">
+                <strong id="followers-count">0</strong>
+                <span>Followers</span>
+            </div>
+            <div class="stat-item">
+                <strong id="total-likes-display">0</strong>
+                <span>Likes</span>
+            </div>
+            <div class="stat-item">
+                <strong id="video-count">0</strong>
+                <span>Video</span>
+            </div>
+        </div>
+
+        <!-- Video Grid -->
+        <div id="profile-video-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;"></div>
     </main>
 
     <nav class="bottom-nav">
@@ -50,27 +86,5 @@
     </nav>
 
     <script src="app.js"></script>
-
-    <script>
-        // Fungsi untuk memaparkan maklumat user dan memanggil video
-        async function initProfile() {
-            // 1. Muat maklumat nama & avatar
-            const { data: { user } } = await snapSupabase.auth.getUser();
-            if (user) {
-                const name = user.user_metadata.full_name || "User Baru";
-                document.getElementById('display-username').innerText = name;
-                document.getElementById('display-fullname').innerText = name;
-                document.getElementById('display-handle').innerText = "@" + name.toLowerCase().replace(/\s+/g, '');
-                document.getElementById('profile-avatar').style.backgroundImage = `url('https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random')`;
-                
-                // 2. Muat video milik user (Pastikan fungsi ini ada dalam app.js)
-                if (typeof loadProfileVideos === "function") {
-                    loadProfileVideos();
-                }
-            }
-        }
-
-        window.onload = initProfile;
-    </script>
 </body>
 </html>

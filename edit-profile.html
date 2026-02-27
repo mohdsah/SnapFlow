@@ -7,50 +7,72 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #000; color: #fff; margin: 0; overflow-y: auto; }
+        .form-group { text-align: left; margin-bottom: 20px; }
+        .form-group label { font-size: 12px; color: #555; margin-bottom: 8px; display: block; letter-spacing: 0.5px; text-transform: uppercase; }
+        .form-group input {
+            width: 100%; background: #111; border: 1px solid #2a2a2a;
+            padding: 14px 16px; border-radius: 12px; color: #fff;
+            font-size: 15px; outline: none; transition: border-color 0.2s; box-sizing: border-box;
+        }
+        .form-group input:focus { border-color: #444; }
+    </style>
 </head>
-<body style="background: #000; color: #fff;">
+<body>
 
-    <header style="padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #222;">
-        <i class="fa-solid fa-xmark" onclick="window.history.back()" style="font-size: 20px; margin-right: 20px;"></i>
-        <strong style="font-size: 17px;">Edit Profil</strong>
+    <header style="padding: 16px 20px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #111; position: sticky; top: 0; background: #000; z-index: 100;">
+        <i class="fa-solid fa-xmark" onclick="window.history.back()" style="font-size: 20px; cursor: pointer; color: #888;"></i>
+        <strong style="font-size: 17px; font-weight: 700;">Edit Profil</strong>
     </header>
 
-    <main style="padding: 30px 20px; text-align: center;">
-        <div style="position: relative; display: inline-block; margin-bottom: 30px;">
-            <div id="edit-avatar-preview" style="width: 100px; height: 100px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid #222;"></div>
-            <label for="upload-avatar" style="position: absolute; bottom: 0; right: 0; background: #fe2c55; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                <i class="fa-solid fa-camera" style="font-size: 14px;"></i>
-            </label>
-            <input type="file" id="upload-avatar" hidden accept="image/*" onchange="previewImage(event)">
+    <main style="padding: 30px 20px;">
+
+        <!-- Avatar Preview -->
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="position: relative; display: inline-block;">
+                <div id="edit-avatar-preview" style="width: 96px; height: 96px; border-radius: 50%; background: #1a1a1a; background-size: cover; background-position: center; border: 2px solid #2a2a2a; margin: 0 auto;"></div>
+                <label for="upload-avatar" style="position: absolute; bottom: 0; right: 0; background: #fe2c55; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid #000;">
+                    <i class="fa-solid fa-camera" style="font-size: 12px;"></i>
+                </label>
+                <input type="file" id="upload-avatar" hidden accept="image/*" onchange="previewEditImage(event)">
+            </div>
+            <p style="color: #555; font-size: 13px; margin-top: 12px;">Tukar gambar profil</p>
         </div>
 
-        <div style="text-align: left; margin-bottom: 20px;">
-            <label style="color: #888; font-size: 12px; margin-left: 5px;">Nama Penuh</label>
-            <input type="text" id="edit-fullname" style="width: 100%; background: #111; border: 1px solid #333; padding: 12px; border-radius: 8px; color: #fff; margin-top: 5px; outline: none;">
+        <div class="form-group">
+            <label>Nama Penuh</label>
+            <input type="text" id="edit-fullname" placeholder="Nama anda" autocomplete="name">
         </div>
 
-        <button onclick="saveProfileChanges()" id="save-btn" style="width: 100%; background: #fe2c55; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; margin-top: 20px;">
-            Simpan Perubahan
+        <button onclick="saveProfileChanges()" id="save-btn" class="login-btn-main">
+            <i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan
         </button>
+
+        <div style="border-top: 1px solid #111; margin-top: 30px; padding-top: 25px;">
+            <a href="update-password.html" style="display: flex; align-items: center; justify-content: space-between; color: #888; font-size: 14px; padding: 12px 0;">
+                <span><i class="fa-solid fa-key" style="margin-right: 10px; color: #555;"></i> Tukar Kata Laluan</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+            </a>
+        </div>
     </main>
 
     <script src="app.js"></script>
     <script>
-        // Muat data asal sebaik halaman dibuka
         window.onload = async () => {
             const { data: { user } } = await snapSupabase.auth.getUser();
             if (user) {
-                const name = user.user_metadata.full_name || "";
+                const name = user.user_metadata?.full_name || '';
                 document.getElementById('edit-fullname').value = name;
-                document.getElementById('edit-avatar-preview').style.backgroundImage = `url('https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random')`;
+                document.getElementById('edit-avatar-preview').style.backgroundImage = `url('https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=200')`;
             }
         };
 
-        function previewImage(event) {
+        function previewEditImage(event) {
             const reader = new FileReader();
-            reader.onload = function() {
+            reader.onload = function () {
                 document.getElementById('edit-avatar-preview').style.backgroundImage = `url('${reader.result}')`;
-            }
+            };
             reader.readAsDataURL(event.target.files[0]);
         }
     </script>

@@ -1,45 +1,48 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="ms">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Chat</title>
+    <title>Chat | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        #chat-box::-webkit-scrollbar { display: none; }
+    </style>
 </head>
-<body style="background: #000; color: #fff; height: 100vh; display: flex; flex-direction: column;">
+<body>
 
-    <header style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #222; background: #000;">
-        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="font-size: 18px; margin-right: 15px;"></i>
-        <div style="width: 35px; height: 35px; border-radius: 50%; background: #333; margin-right: 10px; background-image: url('https://ui-avatars.com/api/?name=Penjual+Solar'); background-size: cover;"></div>
-        <div>
-            <strong style="font-size: 15px; display: block;">Penjual Part Solar</strong>
-            <span style="font-size: 11px; color: #00f2ea;">Online</span>
+    <header style="display: flex; align-items: center; padding: 14px 20px; border-bottom: 1px solid #111; background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); flex-shrink: 0;">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="font-size: 18px; margin-right: 14px; cursor: pointer; color: #888;"></i>
+        <div style="width: 38px; height: 38px; border-radius: 50%; background-image: url('https://ui-avatars.com/api/?name=Penjual+Solar&background=fe2c55&color=fff'); background-size: cover; margin-right: 12px; flex-shrink: 0;"></div>
+        <div style="flex: 1;">
+            <strong style="font-size: 15px; font-weight: 700; display: block;">Penjual Part Solar</strong>
+            <span style="font-size: 11px; color: #00f2ea; display: flex; align-items: center; gap: 4px;">
+                <span style="width: 6px; height: 6px; background: #00f2ea; border-radius: 50%; display: inline-block;"></span>
+                Online
+            </span>
         </div>
+        <i class="fa-solid fa-ellipsis-vertical" style="color: #555; font-size: 18px;"></i>
     </header>
 
-    <main id="chat-box" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
-        </main>
-<button onclick="goToCheckout('Panel Jinko 550W', '1150.00')" style="background: #222; color: #fe2c55; border: 1px solid #fe2c55; padding: 5px 10px; border-radius: 4px; font-size: 11px; margin-top: 5px;">
-    Beli Sekarang
-</button>
+    <main id="chat-box" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: none;"></main>
 
-    <footer style="padding: 15px; background: #111; display: flex; align-items: center; gap: 10px;">
-        <div style="flex: 1; background: #222; border-radius: 20px; padding: 8px 15px; display: flex; align-items: center;">
-            <input type="text" id="chat-input" placeholder="Tulis pesan..." style="flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 14px;">
-            <i class="fa-solid fa-face-smile" style="color: #888; margin-left: 10px;"></i>
+    <footer style="padding: 12px 15px; background: #0a0a0a; border-top: 1px solid #111; display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+        <div style="flex: 1; background: #1a1a1a; border-radius: 24px; padding: 10px 16px; display: flex; align-items: center; border: 1px solid #222;">
+            <input type="text" id="chat-input" placeholder="Tulis mesej..."
+                   style="flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 14px; font-family: inherit;"
+                   onkeydown="if(event.key==='Enter') sendMessage()">
+            <i class="fa-solid fa-face-smile" style="color: #444; margin-left: 10px; cursor: pointer;"></i>
         </div>
-        
-        <button onclick="sendMessage()" style="background: #fe2c55; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-            <i class="fa-solid fa-paper-plane" style="font-size: 14px;"></i>
+        <button onclick="sendMessage()" style="background: #fe2c55; color: white; border: none; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+            <i class="fa-solid fa-paper-plane" style="font-size: 15px;"></i>
         </button>
-        
     </footer>
 
     <script src="app.js"></script>
     <script>
-        // Inisialisasi chat
         loadMessages();
         listenMessages();
     </script>

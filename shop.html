@@ -3,39 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Kedai Solar</title>
+    <title>Kedai Solar | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 20px); overflow-y: auto; }
+    </style>
 </head>
-<body style="background: #000; color: #fff; padding-bottom: 80px;">
+<body>
 
-    <header style="padding: 20px; border-bottom: 1px solid #222; text-align: center; position: sticky; top: 0; background: #000; z-index: 100;">
-        <strong style="font-size: 18px;">Pasar Solar SnapFlow</strong>
+    <header style="padding: 16px 20px; border-bottom: 1px solid #111; position: sticky; top: 0; background: rgba(0,0,0,0.95); z-index: 100; backdrop-filter: blur(10px);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <strong style="font-size: 20px; font-weight: 800; background: linear-gradient(to right, #fff, #fe2c55); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Pasar Solar</strong>
+            <a href="cart.html" style="position: relative; color: #fff;">
+                <i class="fa-solid fa-bag-shopping" style="font-size: 20px;"></i>
+                <span id="cart-badge" style="position:absolute; top:-8px; right:-8px; background:#fe2c55; color:#fff; font-size:10px; font-weight:700; border-radius:50%; width:17px; height:17px; display:none; align-items:center; justify-content:center; border:1.5px solid #000;"></span>
+            </a>
+        </div>
+        <div class="search-bar-shop">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" placeholder="Cari panel, inverter, bateri..." onkeyup="searchShop(event)">
+        </div>
     </header>
 
-    <main style="padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-        <div style="background: #111; border-radius: 12px; overflow: hidden; border: 1px solid #222;">
-            <img src="https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=400" style="width: 100%; aspect-ratio: 1/1; object-fit: cover;">
-            <div style="padding: 12px;">
-                <h3 style="font-size: 14px; margin-bottom: 5px;">Panel Jinko 550W</h3>
-                <p style="color: #fe2c55; font-weight: bold; margin-bottom: 10px;">RM 1,150</p>
-                <button onclick="contactSeller('ID_PENJUAL_A')" style="width: 100%; background: #fff; color: #000; border: none; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;">
-                    <i class="fa-solid fa-comments"></i> Chat
-                </button>
-            </div>
-        </div>
+    <!-- Brand Filter -->
+    <div style="display: flex; gap: 10px; padding: 14px 20px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #111;">
+        <button class="filter-chip active" onclick="filterShop('All', this)">Semua</button>
+        <button class="filter-chip" onclick="filterShop('Jinko', this)">Jinko</button>
+        <button class="filter-chip" onclick="filterShop('Longi', this)">Longi</button>
+        <button class="filter-chip" onclick="filterShop('Huawei', this)">Huawei</button>
+        <button class="filter-chip" onclick="filterShop('Trina', this)">Trina</button>
+        <button class="filter-chip" onclick="filterShop('Sungrow', this)">Sungrow</button>
+    </div>
 
-        <div style="background: #111; border-radius: 12px; overflow: hidden; border: 1px solid #222;">
-            <img src="https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=400" style="width: 100%; aspect-ratio: 1/1; object-fit: cover;">
-            <div style="padding: 12px;">
-                <h3 style="font-size: 14px; margin-bottom: 5px;">Hybrid Inverter 5kW</h3>
-                <p style="color: #fe2c55; font-weight: bold; margin-bottom: 10px;">RM 3,200</p>
-                <button onclick="contactSeller('ID_PENJUAL_B')" style="width: 100%; background: #fff; color: #000; border: none; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;">
-                    <i class="fa-solid fa-comments"></i> Chat
-                </button>
-            </div>
-        </div>
+    <main style="padding: 15px 15px;">
+        <div id="shop-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;"></div>
     </main>
 
     <nav class="bottom-nav">
@@ -46,6 +49,67 @@
         <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profile</span></a>
     </nav>
 
+    <style>
+        .filter-chip {
+            background: #111; color: #888; border: 1px solid #222;
+            padding: 7px 16px; border-radius: 100px; font-size: 13px;
+            font-weight: 500; white-space: nowrap; cursor: pointer;
+            transition: all 0.2s; font-family: inherit;
+        }
+        .filter-chip.active { background: #fe2c55; color: #fff; border-color: #fe2c55; }
+    </style>
+
     <script src="app.js"></script>
+    <script>
+        function filterShop(brand, el) {
+            document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+
+            const grid = document.getElementById('shop-grid');
+            const filtered = brand === 'All' ? PRODUCTS : PRODUCTS.filter(p => p.brand === brand);
+
+            grid.innerHTML = filtered.map(p => `
+                <div class="product-card">
+                    <div style="position:relative;">
+                        <img src="${p.img}" alt="${escapeHtml(p.name)}" style="width:100%;aspect-ratio:1/1;object-fit:cover;">
+                        <div style="position:absolute;top:8px;left:8px;background:#fe2c55;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;">${p.brand}</div>
+                    </div>
+                    <div style="padding:12px;">
+                        <h3 style="font-size:13px;margin:0 0 4px;font-weight:600;">${escapeHtml(p.name)}</h3>
+                        <p style="color:#555;font-size:11px;margin:0 0 8px;">${escapeHtml(p.desc)}</p>
+                        <p style="color:#fe2c55;font-weight:700;margin:0 0 10px;font-size:15px;">RM ${p.price.toLocaleString()}</p>
+                        <button onclick="addToCart(${p.id})" class="btn-cart">
+                            <i class="fa-solid fa-cart-plus"></i> Tambah ke Troli
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function searchShop(e) {
+            const q = e.target.value.toLowerCase();
+            const filtered = PRODUCTS.filter(p => p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q));
+            const grid = document.getElementById('shop-grid');
+            if (!filtered.length) {
+                grid.innerHTML = '<p style="color:#555;text-align:center;padding:30px;grid-column:span 2;">Tiada produk dijumpai.</p>';
+                return;
+            }
+            // Guna filterShop tapi pass produk terus
+            grid.innerHTML = filtered.map(p => `
+                <div class="product-card">
+                    <img src="${p.img}" style="width:100%;aspect-ratio:1/1;object-fit:cover;">
+                    <div style="padding:12px;">
+                        <h3 style="font-size:13px;margin:0 0 6px;">${escapeHtml(p.name)}</h3>
+                        <p style="color:#fe2c55;font-weight:700;margin:0 0 10px;">RM ${p.price.toLocaleString()}</p>
+                        <button onclick="addToCart(${p.id})" class="btn-cart"><i class="fa-solid fa-cart-plus"></i> Tambah</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Papar semua produk masa mula
+        filterShop('All', document.querySelector('.filter-chip'));
+        updateCartBadge();
+    </script>
 </body>
 </html>
