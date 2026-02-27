@@ -9,77 +9,125 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 10px); overflow-y: auto; }
-        .notif-section { display: flex; flex-direction: column; gap: 2px; }
-        .notif-row {
-            display: flex; align-items: center; gap: 14px;
-            padding: 14px 20px; border-bottom: 1px solid #0d0d0d;
-            cursor: pointer; transition: background 0.15s;
-        }
+
+        .tab-bar { display: flex; border-bottom: 1px solid #111; position: sticky; top: 57px; background: #000; z-index: 90; }
+        .tab-btn { flex: 1; background: transparent; border: none; color: #555; font-size: 12px; font-weight: 600; padding: 12px 5px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .tab-btn i { font-size: 17px; }
+        .tab-btn.active { color: #fff; border-bottom-color: #fe2c55; }
+        .tab-btn .tbadge { background: #fe2c55; color: #fff; font-size: 9px; font-weight: 700; border-radius: 10px; padding: 1px 5px; min-width: 16px; text-align: center; display: none; margin-left: 3px; }
+        .tab-btn .tbadge.show { display: inline-block; }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .notif-row { display: flex; align-items: center; gap: 13px; padding: 13px 18px; border-bottom: 1px solid #0d0d0d; cursor: pointer; transition: background 0.15s; animation: fadeInUp 0.3s ease; }
         .notif-row:active { background: #0a0a0a; }
+        .notif-row.unread { background: #0d0006; }
+
+        .notif-avatar { width: 44px; height: 44px; border-radius: 50%; background-size: cover; background-position: center; background-color: #1a1a1a; flex-shrink: 0; position: relative; }
+        .notif-type-icon { position: absolute; bottom: -3px; right: -3px; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #000; font-size: 8px; }
+
+        .notif-body { flex: 1; min-width: 0; }
+        .notif-body p { margin: 0 0 3px; font-size: 14px; line-height: 1.4; }
+        .notif-body span { font-size: 11px; color: #444; }
+
+        .unread-dot { width: 7px; height: 7px; border-radius: 50%; background: #fe2c55; flex-shrink: 0; }
+
+        .chat-row { display: flex; align-items: center; gap: 13px; padding: 13px 18px; border-bottom: 1px solid #0d0d0d; cursor: pointer; transition: background 0.15s; }
+        .chat-row:active { background: #0a0a0a; }
+        .chat-avatar { width: 48px; height: 48px; border-radius: 50%; background-size: cover; background-color: #1a1a1a; flex-shrink: 0; }
+        .chat-info { flex: 1; min-width: 0; }
+        .chat-info strong { font-size: 14px; font-weight: 700; display: block; margin-bottom: 3px; }
+        .chat-info span { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: #333; }
+        .empty-state i { font-size: 44px; margin-bottom: 16px; display: block; }
+        .empty-state p { font-size: 14px; line-height: 1.6; }
+
+        .skeleton { background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .filter-pill { background: #111; color: #666; border: 1px solid #222; padding: 6px 14px; border-radius: 100px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+        .filter-pill.active { background: #1a0008; color: #fe2c55; border-color: #3a0010; }
     </style>
 </head>
 <body>
 
-    <header style="padding: 16px 20px; text-align: center; border-bottom: 1px solid #111; position: sticky; top: 0; background: rgba(0,0,0,0.95); z-index: 100; backdrop-filter: blur(10px);">
-        <strong style="font-size: 17px; font-weight: 700;">Aktiviti</strong>
+    <header style="padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111; position: sticky; top: 0; background: rgba(0,0,0,0.97); z-index: 100; backdrop-filter: blur(12px);">
+        <strong style="font-size: 18px; font-weight: 800;">Inbox</strong>
+        <button onclick="markAllRead()" id="mark-read-btn" style="background:transparent;border:none;color:#555;font-size:13px;cursor:pointer;font-family:inherit;display:none;">Tandakan dibaca</button>
     </header>
 
-    <!-- Tab icon aktiviti -->
-    <div style="display: flex; justify-content: space-around; padding: 16px 20px; border-bottom: 1px solid #111; background: #000;">
-        <div style="text-align: center; cursor: pointer;">
-            <div style="width: 46px; height: 46px; background: #1a0008; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; border: 1px solid #3a0010;">
-                <i class="fa-solid fa-heart" style="color: #fe2c55; font-size: 18px;"></i>
-            </div>
-            <span style="font-size: 11px; color: #666;">Likes</span>
-        </div>
-        <div style="text-align: center; cursor: pointer;">
-            <div style="width: 46px; height: 46px; background: #001a1a; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; border: 1px solid #003a3a;">
-                <i class="fa-solid fa-comment" style="color: #00f2ea; font-size: 18px;"></i>
-            </div>
-            <span style="font-size: 11px; color: #666;">Komen</span>
-        </div>
-        <div style="text-align: center; cursor: pointer;">
-            <div style="width: 46px; height: 46px; background: #1a1600; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; border: 1px solid #3a3000;">
-                <i class="fa-solid fa-user-plus" style="color: #ffcc00; font-size: 18px;"></i>
-            </div>
-            <span style="font-size: 11px; color: #666;">Followers</span>
-        </div>
-        <div style="text-align: center; cursor: pointer; position: relative;">
-            <div style="width: 46px; height: 46px; background: #001a07; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; border: 1px solid #003a10;">
-                <i class="fa-solid fa-message" style="color: #2ecc71; font-size: 18px;"></i>
-            </div>
-            <span style="font-size: 11px; color: #666;">Mesej</span>
-        </div>
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('aktiviti')" id="tab-aktiviti">
+            <i class="fa-solid fa-bell"></i>
+            <span>Aktiviti <span class="tbadge" id="badge-aktiviti"></span></span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('mesej')" id="tab-mesej">
+            <i class="fa-solid fa-message"></i>
+            <span>Mesej <span class="tbadge" id="badge-mesej"></span></span>
+        </button>
     </div>
 
-    <!-- Senarai notifikasi -->
-    <div class="notif-section">
-        <div class="notif-row">
-            <div style="width: 46px; height: 46px; border-radius: 50%; background-image: url('https://ui-avatars.com/api/?name=SnapFlow+Team&background=fe2c55&color=fff'); background-size: cover; flex-shrink: 0;"></div>
-            <div style="flex: 1;">
-                <p style="margin: 0; font-size: 14px; line-height: 1.4;"><strong>SnapFlow Team</strong> — Selamat datang ke komuniti Solar! ☀️</p>
-                <span style="font-size: 12px; color: #444;">Baru sahaja</span>
-            </div>
-            <div style="width: 36px; height: 36px; background: #111; border-radius: 6px; overflow: hidden; flex-shrink: 0;">
-                <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fe2c55, #00f2ea);"></div>
+    <!-- Panel: Aktiviti -->
+    <div class="tab-panel active" id="panel-aktiviti">
+        <div style="display:flex;gap:8px;padding:12px 16px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid #0d0d0d;">
+            <button class="filter-pill active" onclick="filterNotif('all', this)">Semua</button>
+            <button class="filter-pill" onclick="filterNotif('like', this)">❤️ Likes</button>
+            <button class="filter-pill" onclick="filterNotif('comment', this)">💬 Komen</button>
+            <button class="filter-pill" onclick="filterNotif('follow', this)">👤 Follow</button>
+        </div>
+        <div id="notif-list">
+            <!-- Skeleton -->
+            <div id="notif-skeleton">
+                <div style="display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #0d0d0d;align-items:center;">
+                    <div class="skeleton" style="width:44px;height:44px;border-radius:50%;flex-shrink:0;"></div>
+                    <div style="flex:1;"><div class="skeleton" style="height:13px;width:75%;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:40%;"></div></div>
+                </div>
+                <div style="display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #0d0d0d;align-items:center;">
+                    <div class="skeleton" style="width:44px;height:44px;border-radius:50%;flex-shrink:0;"></div>
+                    <div style="flex:1;"><div class="skeleton" style="height:13px;width:60%;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:30%;"></div></div>
+                </div>
+                <div style="display:flex;gap:13px;padding:13px 18px;align-items:center;">
+                    <div class="skeleton" style="width:44px;height:44px;border-radius:50%;flex-shrink:0;"></div>
+                    <div style="flex:1;"><div class="skeleton" style="height:13px;width:80%;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:35%;"></div></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Tiada notifikasi lagi -->
-    <div id="empty-inbox" style="text-align:center; padding: 50px 20px; color: #333;">
-        <i class="fa-solid fa-bell-slash" style="font-size: 40px; margin-bottom: 15px; display: block;"></i>
-        <p style="font-size: 14px;">Tiada notifikasi baru.</p>
+    <!-- Panel: Mesej -->
+    <div class="tab-panel" id="panel-mesej">
+        <div id="mesej-list">
+            <div id="mesej-skeleton">
+                <div style="display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #0d0d0d;align-items:center;">
+                    <div class="skeleton" style="width:48px;height:48px;border-radius:50%;flex-shrink:0;"></div>
+                    <div style="flex:1;"><div class="skeleton" style="height:13px;width:50%;margin-bottom:6px;"></div><div class="skeleton" style="height:11px;width:70%;"></div></div>
+                </div>
+                <div style="display:flex;gap:13px;padding:13px 18px;align-items:center;">
+                    <div class="skeleton" style="width:48px;height:48px;border-radius:50%;flex-shrink:0;"></div>
+                    <div style="flex:1;"><div class="skeleton" style="height:13px;width:40%;margin-bottom:6px;"></div><div class="skeleton" style="height:11px;width:65%;"></div></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <nav class="bottom-nav">
-        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Home</span></a>
-        <a href="shop.html" class="nav-item"><i class="fa-solid fa-bag-shopping"></i><span>Shop</span></a>
+        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
         <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
-        <a href="inbox.html" class="nav-item active"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
-        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profile</span></a>
+        <a href="inbox.html" class="nav-item active" style="position:relative;">
+            <i class="fa-solid fa-message"></i><span>Inbox</span>
+            <span id="nav-notif-dot" style="position:absolute;top:8px;right:14px;width:7px;height:7px;background:#fe2c55;border-radius:50%;display:none;border:1.5px solid #000;"></span>
+        </a>
+        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
     </nav>
 
     <script src="app.js"></script>
+    <script>
+        initInbox();
+    </script>
 </body>
 </html>

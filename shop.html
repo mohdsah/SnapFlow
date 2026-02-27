@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kedai Solar | SnapFlow</title>
+    <title>Kedai | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -15,7 +15,7 @@
 
     <header style="padding: 16px 20px; border-bottom: 1px solid #111; position: sticky; top: 0; background: rgba(0,0,0,0.95); z-index: 100; backdrop-filter: blur(10px);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <strong style="font-size: 20px; font-weight: 800; background: linear-gradient(to right, #fff, #fe2c55); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Pasar Solar</strong>
+            <strong style="font-size: 20px; font-weight: 800; background: linear-gradient(to right, #fff, #fe2c55); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Kedai SnapFlow</strong>
             <a href="cart.html" style="position: relative; color: #fff;">
                 <i class="fa-solid fa-bag-shopping" style="font-size: 20px;"></i>
                 <span id="cart-badge" style="position:absolute; top:-8px; right:-8px; background:#fe2c55; color:#fff; font-size:10px; font-weight:700; border-radius:50%; width:17px; height:17px; display:none; align-items:center; justify-content:center; border:1.5px solid #000;"></span>
@@ -23,18 +23,18 @@
         </div>
         <div class="search-bar-shop">
             <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" placeholder="Cari panel, inverter, bateri..." onkeyup="searchShop(event)">
+            <input type="text" placeholder="Cari produk, jenama..." onkeyup="searchShop(event)">
         </div>
     </header>
 
     <!-- Brand Filter -->
     <div style="display: flex; gap: 10px; padding: 14px 20px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #111;">
         <button class="filter-chip active" onclick="filterShop('All', this)">Semua</button>
-        <button class="filter-chip" onclick="filterShop('Jinko', this)">Jinko</button>
-        <button class="filter-chip" onclick="filterShop('Longi', this)">Longi</button>
-        <button class="filter-chip" onclick="filterShop('Huawei', this)">Huawei</button>
-        <button class="filter-chip" onclick="filterShop('Trina', this)">Trina</button>
-        <button class="filter-chip" onclick="filterShop('Sungrow', this)">Sungrow</button>
+        <button class="filter-chip" onclick="filterShop('Fesyen', this)">Fesyen</button>
+        <button class="filter-chip" onclick="filterShop('Makanan', this)">Makanan</button>
+        <button class="filter-chip" onclick="filterShop('Elektronik', this)">Elektronik</button>
+        <button class="filter-chip" onclick="filterShop('Kecantikan', this)">Kecantikan</button>
+        <button class="filter-chip" onclick="filterShop('Sukan', this)">Sukan</button>
     </div>
 
     <main style="padding: 15px 15px;">
@@ -42,11 +42,11 @@
     </main>
 
     <nav class="bottom-nav">
-        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Home</span></a>
-        <a href="shop.html" class="nav-item active"><i class="fa-solid fa-bag-shopping"></i><span>Shop</span></a>
+        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
         <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
         <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
-        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profile</span></a>
+        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
     </nav>
 
     <style>
@@ -109,6 +109,7 @@
 
         // Papar semua produk masa mula
         filterShop('All', document.querySelector('.filter-chip'));
+        updateCartBadge();
         updateCartBadge();
     </script>
 </body>

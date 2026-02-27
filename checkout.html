@@ -11,59 +11,130 @@
 <body style="background: #000; color: #fff; padding-bottom: 100px;">
 
     <header style="padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #222; position: sticky; top: 0; background: #000; z-index: 100;">
-        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="margin-right: 20px;"></i>
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="margin-right: 20px; cursor:pointer;"></i>
         <strong style="font-size: 17px;">Pengesahan Pesanan</strong>
     </header>
 
     <main style="padding: 20px;">
+
+        <!-- Alamat Penghantaran -->
         <div style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222;">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: #fe2c55;">
                 <i class="fa-solid fa-location-dot"></i>
                 <strong style="font-size: 14px;">Alamat Penghantaran</strong>
+                <span style="margin-left:auto; font-size:12px; color:#555; cursor:pointer;">Tukar</span>
             </div>
-            <p style="font-size: 13px; color: #ccc; line-height: 1.5;">
-                Ali Bin Abu<br>
-                No. 123, Jalan Solar Utama, <br>
-                88000 Kota Kinabalu, Sabah.
+            <p style="font-size: 13px; color: #ccc; line-height: 1.6;">
+                Nama Penerima<br>
+                No. 123, Jalan Bahagia,<br>
+                50000 Kuala Lumpur, WP.
             </p>
         </div>
 
-        <div id="checkout-item" style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222; display: flex; gap: 15px;">
-            <img src="https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=200" style="width: 80px; height: 80px; border-radius: 8px; object-fit: cover;">
+        <!-- Item Pesanan -->
+        <div id="checkout-item" style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222; display: flex; gap: 15px; align-items: flex-start;">
+            <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200" id="checkout-img" style="width: 80px; height: 80px; border-radius: 10px; object-fit: cover;">
             <div style="flex: 1;">
-                <h3 style="font-size: 14px; margin-bottom: 5px;" id="item-name">Panel Jinko 550W</h3>
-                <p style="font-size: 12px; color: #888;">Kuantiti: 1</p>
-                <p style="color: #fe2c55; font-weight: bold; margin-top: 5px;" id="item-price">RM 1,150.00</p>
+                <h3 style="font-size: 14px; margin-bottom: 5px; font-weight:700;" id="item-name">Produk SnapFlow</h3>
+                <p style="font-size: 12px; color: #666; margin-bottom: 6px;">Kuantiti: 1</p>
+                <p style="color: #fe2c55; font-weight: bold; font-size:15px;" id="item-price">RM 0.00</p>
             </div>
         </div>
 
+        <!-- Kaedah Penghantaran -->
+        <div style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: #fff;">
+                <i class="fa-solid fa-truck" style="color:#fe2c55;"></i>
+                <strong style="font-size: 14px;">Penghantaran</strong>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1; background:#1a1a1a; border:1px solid #fe2c55; border-radius:8px; padding:10px; text-align:center;">
+                    <p style="font-size:12px; font-weight:700; margin:0;">Standard</p>
+                    <p style="font-size:11px; color:#888; margin:4px 0 0;">3-5 hari • RM 8</p>
+                </div>
+                <div style="flex:1; background:#1a1a1a; border:1px solid #222; border-radius:8px; padding:10px; text-align:center;">
+                    <p style="font-size:12px; font-weight:700; margin:0;">Ekspres</p>
+                    <p style="font-size:11px; color:#888; margin:4px 0 0;">1-2 hari • RM 15</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ringkasan Bayaran -->
         <div style="background: #111; padding: 15px; border-radius: 12px; border: 1px solid #222;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
                 <span style="color: #888;">Subtotal Produk</span>
-                <span id="subtotal">RM 1,150.00</span>
+                <span id="subtotal">RM 0.00</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
-                <span style="color: #888;">Kos Penghantaran (Sabah/Sarawak)</span>
-                <span>RM 50.00</span>
+                <span style="color: #888;">Kos Penghantaran</span>
+                <span>RM 8.00</span>
             </div>
-            <hr style="border: 0; border-top: 1px solid #222; margin: 10px 0;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+                <span style="color: #888;">Diskaun Voucher</span>
+                <span style="color:#2ecc71;">- RM 0.00</span>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #222; margin: 12px 0;">
             <div style="display: flex; justify-content: space-between; font-weight: bold;">
                 <span>Jumlah Bayaran</span>
-                <span style="color: #fe2c55; font-size: 18px;" id="total-price">RM 1,200.00</span>
+                <span style="color: #fe2c55; font-size: 18px;" id="total-price">RM 0.00</span>
+            </div>
+        </div>
+
+        <!-- Kaedah Bayaran -->
+        <div style="background: #111; padding: 15px; border-radius: 12px; margin-top: 16px; border: 1px solid #222;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                <i class="fa-solid fa-credit-card" style="color:#fe2c55;"></i>
+                <strong style="font-size: 14px;">Kaedah Bayaran</strong>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="display:flex; align-items:center; gap:12px; background:#1a1a1a; padding:12px; border-radius:8px; cursor:pointer;">
+                    <input type="radio" name="payment" value="fpx" checked style="accent-color:#fe2c55;"> <span style="font-size:14px;">FPX (Internet Banking)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:12px; background:#1a1a1a; padding:12px; border-radius:8px; cursor:pointer;">
+                    <input type="radio" name="payment" value="ewallet" style="accent-color:#fe2c55;"> <span style="font-size:14px;">e-Wallet (Touch 'n Go, GrabPay)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:12px; background:#1a1a1a; padding:12px; border-radius:8px; cursor:pointer;">
+                    <input type="radio" name="payment" value="cod" style="accent-color:#fe2c55;"> <span style="font-size:14px;">Bayar Semasa Terima (COD)</span>
+                </label>
             </div>
         </div>
     </main>
 
-    <div style="position: fixed; bottom: 0; width: 100%; background: #111; padding: 15px 20px; border-top: 1px solid #222; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
+    <div style="position: fixed; bottom: 0; width: 100%; background: #0a0a0a; padding: 14px 20px; border-top: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
         <div>
-            <p style="font-size: 12px; color: #888;">Jumlah Keseluruhan</p>
-            <p style="color: #fe2c55; font-weight: bold; font-size: 18px;" id="bottom-total">RM 1,200.00</p>
+            <p style="font-size: 12px; color: #666; margin:0 0 2px;">Jumlah Keseluruhan</p>
+            <p style="color: #fe2c55; font-weight: bold; font-size: 20px; margin:0;" id="bottom-total">RM 0.00</p>
         </div>
-        <button onclick="processPayment()" style="background: #fe2c55; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+        <button onclick="processPayment()" style="background: #fe2c55; color: white; border: none; padding: 13px 28px; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer;">
             Buat Bayaran
         </button>
     </div>
 
     <script src="app.js"></script>
+    <script>
+        // Ambil item dari URL params atau cart
+        window.onload = function() {
+            const params = new URLSearchParams(window.location.search);
+            const productName = params.get('product');
+            const price = parseFloat(params.get('price') || 0);
+
+            if (productName && price) {
+                document.getElementById('item-name').innerText = decodeURIComponent(productName);
+                document.getElementById('item-price').innerText = `RM ${price.toLocaleString('ms-MY', {minimumFractionDigits: 2})}`;
+                document.getElementById('subtotal').innerText = `RM ${price.toLocaleString('ms-MY', {minimumFractionDigits: 2})}`;
+                const total = price + 8;
+                document.getElementById('total-price').innerText = `RM ${total.toLocaleString('ms-MY', {minimumFractionDigits: 2})}`;
+                document.getElementById('bottom-total').innerText = `RM ${total.toLocaleString('ms-MY', {minimumFractionDigits: 2})}`;
+            }
+        };
+
+        async function processPayment() {
+            const btn = document.querySelector('button[onclick="processPayment()"]');
+            setLoading(btn, true, 'Buat Bayaran');
+            setTimeout(() => {
+                window.location.href = 'order-success.html';
+            }, 1500);
+        }
+    </script>
 </body>
 </html>

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Discover | SnapFlow</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 10px); overflow-y: auto; }
+
+        /* ── Search Bar ── */
+        .discover-search {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 12px;
+            padding: 11px 16px;
+            margin: 14px 16px;
+            transition: border-color 0.2s;
+        }
+        .discover-search:focus-within { border-color: #333; }
+        .discover-search i { color: #555; flex-shrink: 0; }
+        .discover-search input {
+            background: transparent; border: none; color: #fff;
+            outline: none; flex: 1; font-size: 15px; font-family: inherit;
+        }
+        .discover-search input::placeholder { color: #444; }
+
+        /* ── Tabs ── */
+        .discover-tabs {
+            display: flex;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding: 0 16px;
+            gap: 6px;
+            border-bottom: 1px solid #111;
+            padding-bottom: 0;
+        }
+        .discover-tabs::-webkit-scrollbar { display: none; }
+        .dtab {
+            background: transparent; border: none; color: #555;
+            font-size: 14px; font-weight: 600; padding: 10px 14px;
+            cursor: pointer; white-space: nowrap; font-family: inherit;
+            border-bottom: 2.5px solid transparent; transition: all 0.2s;
+        }
+        .dtab.active { color: #fff; border-bottom-color: #fe2c55; }
+
+        /* ── Section Header ── */
+        .section-hdr {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 16px 10px;
+        }
+        .section-hdr h2 { font-size: 16px; font-weight: 700; margin: 0; }
+        .section-hdr a { font-size: 13px; color: #fe2c55; font-weight: 600; }
+
+        /* ── Hashtag Chips ── */
+        .hashtag-scroll {
+            display: flex; gap: 10px; overflow-x: auto;
+            padding: 0 16px 16px; scrollbar-width: none;
+        }
+        .hashtag-scroll::-webkit-scrollbar { display: none; }
+        .hashtag-chip {
+            background: #111; border: 1px solid #1e1e1e;
+            border-radius: 100px; padding: 8px 16px;
+            white-space: nowrap; cursor: pointer;
+            transition: all 0.2s; font-size: 13px; font-weight: 600;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            min-width: 90px;
+        }
+        .hashtag-chip:active { background: #1a0008; border-color: #fe2c55; }
+        .hashtag-chip .htag { color: #fff; font-size: 13px; font-weight: 700; }
+        .hashtag-chip .hcount { color: #555; font-size: 11px; }
+
+        /* ── Trending Video Grid ── */
+        .trending-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            padding: 0;
+        }
+        .trending-item {
+            position: relative; aspect-ratio: 9/16;
+            background: #111; overflow: hidden; cursor: pointer;
+        }
+        .trending-item video, .trending-item img {
+            width: 100%; height: 100%; object-fit: cover;
+            display: block;
+        }
+        .trending-item .overlay {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            padding: 8px 6px 6px;
+        }
+        .trending-item .overlay span {
+            font-size: 11px; font-weight: 700; color: #fff;
+            display: flex; align-items: center; gap: 3px;
+        }
+        .trending-item .rank-badge {
+            position: absolute; top: 6px; left: 6px;
+            background: #fe2c55; color: #fff; font-size: 10px;
+            font-weight: 800; border-radius: 4px; padding: 2px 6px;
+        }
+
+        /* ── Kreator Card ── */
+        .kreator-scroll {
+            display: flex; gap: 12px; overflow-x: auto;
+            padding: 0 16px 16px; scrollbar-width: none;
+        }
+        .kreator-scroll::-webkit-scrollbar { display: none; }
+        .kreator-card {
+            background: #111; border: 1px solid #1a1a1a;
+            border-radius: 14px; padding: 16px 14px;
+            text-align: center; min-width: 130px; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .kreator-card:active { transform: scale(0.96); }
+        .kreator-avatar {
+            width: 60px; height: 60px; border-radius: 50%;
+            background-size: cover; background-position: center;
+            margin: 0 auto 10px; border: 2px solid #222;
+        }
+        .kreator-card h4 { font-size: 13px; font-weight: 700; margin: 0 0 3px; }
+        .kreator-card p { font-size: 11px; color: #555; margin: 0 0 10px; }
+        .follow-kreator-btn {
+            background: #fe2c55; color: #fff; border: none;
+            padding: 6px 16px; border-radius: 6px; font-size: 12px;
+            font-weight: 700; cursor: pointer; font-family: inherit;
+            transition: opacity 0.2s; width: 100%;
+        }
+        .follow-kreator-btn.followed {
+            background: transparent; border: 1px solid #333; color: #888;
+        }
+
+        /* ── Kedai Quick Access ── */
+        .kedai-banner {
+            margin: 0 16px 16px;
+            background: linear-gradient(135deg, #1a0008 0%, #0d0d0d 100%);
+            border: 1px solid #2a0010;
+            border-radius: 14px; padding: 16px;
+            display: flex; align-items: center; gap: 14px;
+            cursor: pointer;
+        }
+        .kedai-banner i { font-size: 28px; color: #fe2c55; flex-shrink: 0; }
+        .kedai-banner h3 { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
+        .kedai-banner p { font-size: 12px; color: #555; margin: 0; }
+
+        /* ── Search Results ── */
+        #search-results-discover { padding: 10px 0; }
+        .search-result-item {
+            display: flex; gap: 12px; padding: 12px 16px;
+            border-bottom: 1px solid #0d0d0d; align-items: center;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .search-result-item:active { background: #0a0a0a; }
+
+        /* ── Skeleton ── */
+        .skeleton { background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeInUp 0.35s ease; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header style="padding: 14px 16px 0; position: sticky; top: 0; background: rgba(0,0,0,0.97); z-index: 100; backdrop-filter: blur(12px);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 2px;">
+            <strong style="font-size: 20px; font-weight: 800;">Discover</strong>
+            <a href="shop.html" style="color: #fe2c55; font-size: 13px; font-weight: 700;">
+                <i class="fa-solid fa-bag-shopping"></i> Kedai
+            </a>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="discover-search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="discover-search-input" placeholder="Cari video, kreator, #hashtag..."
+                   oninput="handleDiscoverSearch(this.value)" autocomplete="off">
+            <i class="fa-solid fa-xmark" id="clear-search" style="color:#333;cursor:pointer;display:none;" onclick="clearSearch()"></i>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="discover-tabs">
+            <button class="dtab active" onclick="switchDiscoverTab('trending', this)">🔥 Trending</button>
+            <button class="dtab" onclick="switchDiscoverTab('terbaru', this)">🆕 Terbaru</button>
+            <button class="dtab" onclick="switchDiscoverTab('kreator', this)">⭐ Kreator</button>
+            <button class="dtab" onclick="switchDiscoverTab('hashtag', this)"># Hashtag</button>
+        </div>
+    </header>
+
+    <!-- Search Results (hidden by default) -->
+    <div id="search-results-discover" style="display:none;"></div>
+
+    <!-- Main Content -->
+    <div id="discover-content">
+
+        <!-- Skeleton Loading -->
+        <div id="discover-skeleton" style="padding: 16px;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:20px;">
+                <div class="skeleton" style="aspect-ratio:9/16;"></div>
+                <div class="skeleton" style="aspect-ratio:9/16;"></div>
+                <div class="skeleton" style="aspect-ratio:9/16;"></div>
+                <div class="skeleton" style="aspect-ratio:9/16;"></div>
+                <div class="skeleton" style="aspect-ratio:9/16;"></div>
+                <div class="skeleton" style="aspect-ratio:9/16;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item active"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
+        <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
+    </nav>
+
+    <script src="app.js"></script>
+    <script>
+        let currentDiscoverTab = 'trending';
+        let searchTimer = null;
+
+        // Init
+        initDiscover();
+
+        function switchDiscoverTab(tab, el) {
+            currentDiscoverTab = tab;
+            document.querySelectorAll('.dtab').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            renderDiscoverTab(tab);
+        }
+
+        function handleDiscoverSearch(query) {
+            const clearBtn = document.getElementById('clear-search');
+            const resultsEl = document.getElementById('search-results-discover');
+            const contentEl = document.getElementById('discover-content');
+
+            if (query.trim().length === 0) {
+                clearSearch();
+                return;
+            }
+
+            clearBtn.style.display = 'block';
+            resultsEl.style.display = 'block';
+            contentEl.style.display = 'none';
+
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => searchDiscover(query.trim()), 350);
+        }
+
+        function clearSearch() {
+            document.getElementById('discover-search-input').value = '';
+            document.getElementById('clear-search').style.display = 'none';
+            document.getElementById('search-results-discover').style.display = 'none';
+            document.getElementById('discover-content').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
