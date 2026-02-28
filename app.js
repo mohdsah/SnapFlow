@@ -1,8 +1,8 @@
 // ==========================================
 // 1. KONFIGURASI SUPABASE
 // ==========================================
-const supabaseUrl = "https://andsuzhyaencxfiamyed.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZHN1emh5YWVuY3hmaWFteWVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMzAzMTgsImV4cCI6MjA4NTgwNjMxOH0.N_Nytjgmch9Ztq8a-8m2UaZJRZMMcsfMP0iwv2S9KAQ";
+const supabaseUrl = "https://trrfsredzugdyppevcbw.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRycmZzcmVkenVnZHlwcGV2Y2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMzY5NTgsImV4cCI6MjA4NzgxMjk1OH0.o2siKHUQddz89mVBto0vEk9lIUZF5xYvp8eKBbXcc7s";
 const snapSupabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
