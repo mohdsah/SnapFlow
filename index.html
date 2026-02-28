@@ -73,6 +73,9 @@
         <button class="feed-tab-btn" id="tab-mengikuti" onclick="switchFeedTab('mengikuti', this)">Mengikuti</button>
     </div>
 
+    <!-- Stories Strip -->
+    <div id="stories-strip" style="display:none;flex-direction:row;gap:12px;overflow-x:auto;padding:10px 14px;scrollbar-width:none;position:fixed;top:62px;left:0;right:0;z-index:90;background:linear-gradient(to bottom,rgba(0,0,0,0.7),transparent);"></div>
+
     <!-- Video Feed -->
     <main id="video-feed">
         <div style="height: 100vh; display: flex; align-items: center; justify-content: center; color: #333; flex-direction: column; gap: 12px;">
@@ -108,7 +111,7 @@
         </div>
         <div id="comment-list" class="comment-list"></div>
         <div class="comment-input-area">
-            <input type="text" placeholder="Tambah komen..." id="new-comment">
+            <input type="text" placeholder="Tambah komen... (taip @ untuk tag rakan)" id="new-comment" oninput="handleCommentInput(event)" autocomplete="off">
             <button onclick="sendComment()" style="background: transparent; border: none; color: #fe2c55; font-size: 22px; padding: 4px;">
                 <i class="fa-solid fa-paper-plane"></i>
             </button>
@@ -138,6 +141,13 @@
     </nav>
 
     <script src="app.js"></script>
+
+    <script>
+        // Muatkan stories strip
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStoriesStrip();
+        });
+    </script>
 
     <!-- PWA Service Worker -->
     <script>

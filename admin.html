@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin Dashboard | SnapFlow</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background:#000; color:#fff; margin:0; min-height:100vh; }
+        .stat-card { background:#111; border:1px solid #1a1a1a; border-radius:14px; padding:18px; }
+        .stat-num { font-size:28px; font-weight:800; display:block; }
+        .stat-label { font-size:12px; color:#555; margin-top:4px; display:block; }
+        .admin-section { padding:0 16px 20px; }
+        .admin-section h2 { font-size:15px; font-weight:800; margin:0 0 12px; color:#888; text-transform:uppercase; letter-spacing:0.5px; }
+        .report-card { background:#111; border:1px solid #1a1a1a; border-radius:12px; padding:14px; margin-bottom:8px; }
+        .badge-red { background:#2a0008; border:1px solid #3a0010; color:#fe2c55; font-size:11px; padding:3px 8px; border-radius:20px; font-weight:700; }
+        .badge-yellow { background:#1a1400; border:1px solid #2a2000; color:#ffcc00; font-size:11px; padding:3px 8px; border-radius:20px; font-weight:700; }
+        .badge-green { background:#001a0a; border:1px solid #002a10; color:#00f2ea; font-size:11px; padding:3px 8px; border-radius:20px; font-weight:700; }
+        .admin-btn { padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; border:none; transition:all 0.2s; }
+        .admin-btn.danger { background:#2a0008; color:#fe2c55; border:1px solid #3a0010; }
+        .admin-btn.primary { background:#fe2c55; color:#fff; }
+        .admin-btn.secondary { background:#1a1a1a; color:#fff; border:1px solid #333; }
+        .loader-spin { width:24px; height:24px; border:3px solid #222; border-top-color:#fe2c55; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- Auth Gate -->
+    <div id="auth-gate" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;">
+        <div class="loader-spin"></div>
+        <p style="color:#555;font-size:13px;">Mengesahkan akses...</p>
+    </div>
+
+    <!-- Dashboard (hidden until auth verified) -->
+    <div id="admin-dashboard" style="display:none;">
+
+        <header style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #111; position:sticky; top:0; background:rgba(0,0,0,0.97); z-index:100; backdrop-filter:blur(12px);">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="background:#fe2c55;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fa-solid fa-shield-halved" style="font-size:14px;"></i>
+                </div>
+                <strong style="font-size:17px;font-weight:800;">Admin Dashboard</strong>
+            </div>
+            <a href="profile.html" style="color:#555;font-size:13px;">Keluar</a>
+        </header>
+
+        <!-- Stats Overview -->
+        <div style="padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:4px;">
+            <div class="stat-card">
+                <span class="stat-num" id="total-videos">—</span>
+                <span class="stat-label">🎬 Jumlah Video</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-num" id="total-users">—</span>
+                <span class="stat-label">👥 Pengguna Aktif</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-num" id="total-likes">—</span>
+                <span class="stat-label">❤️ Jumlah Likes</span>
+            </div>
+            <div class="stat-card" style="border-color:#2a0010;">
+                <span class="stat-num" id="total-reports" style="color:#fe2c55;">—</span>
+                <span class="stat-label">🚩 Laporan Terbuka</span>
+            </div>
+        </div>
+
+        <!-- Quick Stats Bar -->
+        <div style="margin:0 16px 20px;padding:12px 16px;background:#111;border-radius:12px;border:1px solid #1a1a1a;display:flex;justify-content:space-around;text-align:center;">
+            <div>
+                <p style="margin:0;font-size:18px;font-weight:800;" id="stat-stories">—</p>
+                <p style="margin:3px 0 0;font-size:11px;color:#555;">Stories Aktif</p>
+            </div>
+            <div style="width:1px;background:#1a1a1a;"></div>
+            <div>
+                <p style="margin:0;font-size:18px;font-weight:800;" id="stat-comments">—</p>
+                <p style="margin:3px 0 0;font-size:11px;color:#555;">Komen</p>
+            </div>
+            <div style="width:1px;background:#1a1a1a;"></div>
+            <div>
+                <p style="margin:0;font-size:18px;font-weight:800;" id="stat-follows">—</p>
+                <p style="margin:3px 0 0;font-size:11px;color:#555;">Follows</p>
+            </div>
+        </div>
+
+        <!-- Laporan Video -->
+        <div class="admin-section">
+            <h2>🚩 Laporan Video Terbuka</h2>
+            <div id="reports-list">
+                <div style="text-align:center;padding:20px;color:#444;"><div class="loader-spin"></div></div>
+            </div>
+        </div>
+
+        <!-- Video Terkini -->
+        <div class="admin-section">
+            <h2>🎬 Video Terkini</h2>
+            <div id="recent-videos-list">
+                <div style="text-align:center;padding:20px;color:#444;"><div class="loader-spin"></div></div>
+            </div>
+        </div>
+
+        <!-- Top Kreator -->
+        <div class="admin-section">
+            <h2>🏆 Top Kreator</h2>
+            <div id="top-creators-list">
+                <div style="text-align:center;padding:20px;color:#444;"><div class="loader-spin"></div></div>
+            </div>
+        </div>
+
+        <!-- Butang Tindakan -->
+        <div class="admin-section">
+            <h2>⚙️ Tindakan</h2>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                <button class="admin-btn secondary" onclick="cleanupExpiredStories().then(()=>showToast('Stories dibersihkan!','success'))">
+                    <i class="fa-solid fa-broom"></i> Bersihkan Stories Expired
+                </button>
+                <button class="admin-btn secondary" onclick="refreshDashboard()">
+                    <i class="fa-solid fa-rotate"></i> Muat Semula
+                </button>
+                <button class="admin-btn danger" onclick="if(confirm('Padam SEMUA laporan yang dah direview?')) clearReviewedReports()">
+                    <i class="fa-solid fa-trash"></i> Padam Laporan Selesai
+                </button>
+            </div>
+        </div>
+
+        <div style="height:30px;"></div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        const ADMIN_EMAILS = [
+            // Tambah emel admin anda di sini
+            // 'admin@snapflow.com',
+            // 'owner@snapflow.com'
+        ];
+
+        async function checkAdminAccess() {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+
+            // Semak: logged in + emel admin (atau uncomment untuk dev mode)
+            // DEV MODE: buang comment pada baris bawah untuk bypass semak
+            // const isAdmin = true;
+
+            const isAdmin = user && (
+                ADMIN_EMAILS.includes(user.email) ||
+                user.user_metadata?.is_admin === true
+            );
+
+            if (!isAdmin) {
+                document.getElementById('auth-gate').innerHTML = `
+                    <i class="fa-solid fa-shield-xmark" style="font-size:48px;color:#fe2c55;margin-bottom:16px;"></i>
+                    <h2 style="margin:0 0 8px;">Akses Dinafikan</h2>
+                    <p style="color:#555;font-size:13px;text-align:center;padding:0 30px;">Halaman ini hanya untuk pentadbir SnapFlow.</p>
+                    <a href="profile.html" style="margin-top:16px;background:#1a1a1a;color:#fff;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;">Kembali ke Profil</a>`;
+                return;
+            }
+
+            document.getElementById('auth-gate').style.display = 'none';
+            document.getElementById('admin-dashboard').style.display = 'block';
+            refreshDashboard();
+        }
+
+        async function refreshDashboard() {
+            await Promise.all([
+                loadAdminStats(),
+                loadAdminReports(),
+                loadRecentVideos(),
+                loadTopCreators()
+            ]);
+        }
+
+        async function loadAdminStats() {
+            const [
+                { count: totalVideos },
+                { count: totalReports },
+                { count: totalComments },
+                { count: totalFollows },
+                { data: likesData },
+                { count: storiesCount }
+            ] = await Promise.all([
+                snapSupabase.from('videos').select('*', { count:'exact', head:true }),
+                snapSupabase.from('reports').select('*', { count:'exact', head:true }).eq('status','pending'),
+                snapSupabase.from('comments').select('*', { count:'exact', head:true }),
+                snapSupabase.from('follows').select('*', { count:'exact', head:true }),
+                snapSupabase.from('videos').select('likes_count'),
+                snapSupabase.from('stories').select('*', { count:'exact', head:true })
+                    .gt('created_at', new Date(Date.now()-86400000).toISOString()),
+            ]);
+
+            const totalLikes = (likesData||[]).reduce((s,v)=>s+(v.likes_count||0),0);
+            const { data: uniqueUsers } = await snapSupabase.from('videos').select('user_id');
+            const uniqueCount = new Set((uniqueUsers||[]).map(v=>v.user_id)).size;
+
+            document.getElementById('total-videos').innerText = (totalVideos||0).toLocaleString();
+            document.getElementById('total-users').innerText = uniqueCount.toLocaleString();
+            document.getElementById('total-likes').innerText = (totalLikes).toLocaleString();
+            document.getElementById('total-reports').innerText = (totalReports||0);
+            document.getElementById('stat-stories').innerText = (storiesCount||0);
+            document.getElementById('stat-comments').innerText = (totalComments||0).toLocaleString();
+            document.getElementById('stat-follows').innerText = (totalFollows||0).toLocaleString();
+        }
+
+        async function loadAdminReports() {
+            const el = document.getElementById('reports-list');
+            const { data: reports } = await snapSupabase.from('reports')
+                .select('*, videos(caption, username)').eq('status','pending')
+                .order('created_at',{ascending:false}).limit(10);
+
+            if (!reports || reports.length === 0) {
+                el.innerHTML = '<div style="text-align:center;padding:20px;color:#555;font-size:13px;">✅ Tiada laporan terbuka</div>';
+                return;
+            }
+
+            el.innerHTML = reports.map(r => `
+                <div class="report-card">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;">
+                        <div>
+                            <span class="badge-red">Laporan #${r.id}</span>
+                            <p style="margin:6px 0 3px;font-size:13px;font-weight:700;">${escapeHtml(r.reason)}</p>
+                            <p style="margin:0;font-size:12px;color:#555;">Video: "${escapeHtml((r.videos?.caption||'—').slice(0,40))}" oleh @${escapeHtml(r.videos?.username||'—')}</p>
+                            <p style="margin:4px 0 0;font-size:11px;color:#333;">${timeAgo(r.created_at)}</p>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="admin-btn danger" onclick="adminDeleteVideo(${r.video_id}, ${r.id})">
+                            <i class="fa-solid fa-trash"></i> Padam Video
+                        </button>
+                        <button class="admin-btn secondary" onclick="dismissReport(${r.id})">
+                            <i class="fa-solid fa-check"></i> Abaikan
+                        </button>
+                        <a href="index.html#video-${r.video_id}" class="admin-btn secondary" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;">
+                            <i class="fa-solid fa-eye"></i> Tonton
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadRecentVideos() {
+            const el = document.getElementById('recent-videos-list');
+            const { data: videos } = await snapSupabase.from('videos')
+                .select('*').order('created_at',{ascending:false}).limit(8);
+
+            el.innerHTML = (videos||[]).map(v => `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #0d0d0d;">
+                    <video src="${escapeHtml(v.video_url)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" preload="none" muted></video>
+                    <div style="flex:1;min-width:0;">
+                        <p style="margin:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(v.caption||'Tiada kapsyen')}</p>
+                        <p style="margin:3px 0 0;font-size:11px;color:#555;">@${escapeHtml(v.username||'—')} · ❤️ ${v.likes_count||0} · ${timeAgo(v.created_at)}</p>
+                    </div>
+                    <button class="admin-btn danger" style="padding:6px 10px;" onclick="if(confirm('Padam video ini?')) adminDeleteVideo(${v.id}, null)">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function loadTopCreators() {
+            const el = document.getElementById('top-creators-list');
+            const { data: vids } = await snapSupabase.from('videos').select('user_id, username, likes_count');
+            const map = {};
+            (vids||[]).forEach(v => {
+                if (!map[v.user_id]) map[v.user_id] = { username: v.username||'User', totalLikes:0, videoCount:0 };
+                map[v.user_id].totalLikes  += v.likes_count||0;
+                map[v.user_id].videoCount  += 1;
+            });
+            const top = Object.entries(map).sort((a,b)=>b[1].totalLikes-a[1].totalLikes).slice(0,5);
+            const medals = ['🥇','🥈','🥉'];
+
+            el.innerHTML = top.map(([uid, c], i) => `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #0d0d0d;">
+                    <span style="font-size:${i<3?'20px':'14px'};width:28px;text-align:center;">${i<3?medals[i]:`#${i+1}`}</span>
+                    <div style="width:40px;height:40px;border-radius:50%;background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(c.username)}&background=random&size=80');background-size:cover;flex-shrink:0;"></div>
+                    <div style="flex:1;">
+                        <p style="margin:0;font-size:13px;font-weight:700;">@${escapeHtml(c.username)}</p>
+                        <p style="margin:2px 0 0;font-size:11px;color:#555;">${c.videoCount} video · ${c.totalLikes.toLocaleString()} likes</p>
+                    </div>
+                    ${c.totalLikes >= 1000 ? '<span class="badge-green">✓ Verified</span>' : ''}
+                </div>
+            `).join('');
+        }
+
+        async function adminDeleteVideo(videoId, reportId) {
+            if (!videoId) return;
+            await snapSupabase.from('videos').delete().eq('id', videoId);
+            if (reportId) await snapSupabase.from('reports').update({status:'reviewed'}).eq('id', reportId);
+            showToast('Video dipadam ✅', 'success');
+            refreshDashboard();
+        }
+
+        async function dismissReport(reportId) {
+            await snapSupabase.from('reports').update({status:'dismissed'}).eq('id', reportId);
+            showToast('Laporan diabaikan.', 'info');
+            loadAdminReports();
+        }
+
+        async function clearReviewedReports() {
+            await snapSupabase.from('reports').delete().in('status',['reviewed','dismissed']);
+            showToast('Laporan selesai dipadam.', 'success');
+            loadAdminStats();
+        }
+
+        checkAdminAccess();
+    </script>
+</body>
+</html>

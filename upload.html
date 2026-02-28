@@ -53,6 +53,60 @@
             <i class="fa-solid fa-arrow-rotate-left"></i> Pilih Fail Lain
         </button>
 
+        <!-- Video Filters -->
+        <div id="filter-section" style="display:none; margin-top:16px;">
+            <label style="font-size:13px;color:#666;margin-bottom:8px;display:block;">🎨 Filter Video</label>
+            <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none;">
+                <button class="filter-btn active" onclick="applyFilter('none',this)" data-filter="none"
+                    style="flex-shrink:0;background:#222;border:2px solid #fe2c55;color:#fff;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                    Asal
+                </button>
+                <button class="filter-btn" onclick="applyFilter('grayscale(100%)',this)" data-filter="grayscale"
+                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                    ⬛ B&W
+                </button>
+                <button class="filter-btn" onclick="applyFilter('sepia(80%)',this)" data-filter="sepia"
+                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                    🟤 Sepia
+                </button>
+                <button class="filter-btn" onclick="applyFilter('brightness(1.3) contrast(1.1)',this)" data-filter="vivid"
+                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                    ✨ Cerah
+                </button>
+                <button class="filter-btn" onclick="applyFilter('hue-rotate(180deg) saturate(1.5)',this)" data-filter="cyber"
+                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                    💙 Cyber
+                </button>
+                <button class="filter-btn" onclick="applyFilter('saturate(2) contrast(1.2)',this)" data-filter="pop"
+                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                    🌈 Pop
+                </button>
+                <button class="filter-btn" onclick="applyFilter('contrast(1.4) brightness(0.85)',this)" data-filter="drama"
+                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                    🎭 Drama
+                </button>
+            </div>
+
+            <!-- Compression toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:12px 14px;background:#111;border-radius:10px;border:1px solid #1a1a1a;">
+                <div>
+                    <p style="margin:0;font-size:13px;font-weight:700;">📦 Mampat Video</p>
+                    <p style="margin:3px 0 0;font-size:11px;color:#555;" id="compress-status">Aktifkan untuk jimat storan</p>
+                </div>
+                <label style="position:relative;display:inline-block;width:44px;height:24px;">
+                    <input type="checkbox" id="compress-toggle" style="opacity:0;width:0;height:0;" onchange="toggleCompress(this)">
+                    <span id="compress-slider" style="position:absolute;cursor:pointer;inset:0;background:#333;border-radius:24px;transition:0.3s;"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Butang Duet -->
+        <div style="margin-top:12px;">
+            <button onclick="openDuetPicker()" style="width:100%;background:transparent;border:1px solid #333;color:#aaa;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">
+                <i class="fa-solid fa-film" style="color:#00f2ea;"></i> Buat Duet dengan Video Lain
+            </button>
+        </div>
+
         <div style="margin-top: 20px;">
             <label style="font-size: 13px; color: #666; margin-bottom: 8px; display: block;">Kapsyen</label>
             <textarea id="video-caption" placeholder="Tulis kapsyen menarik... #SnapFlow #viral #trending"></textarea>
@@ -66,8 +120,35 @@
             <p style="font-size: 13px; color: #555; text-align: center; margin-top: 8px;">Memuat naik...</p>
         </div>
 
+        <!-- Draft & Jadual -->
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
+            <!-- Toggle Draf -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#111;border-radius:10px;border:1px solid #1a1a1a;">
+                <div>
+                    <p style="margin:0;font-size:13px;font-weight:700;">📝 Simpan sebagai Draf</p>
+                    <p style="margin:3px 0 0;font-size:11px;color:#555;">Simpan tanpa publish</p>
+                </div>
+                <label style="position:relative;display:inline-block;width:44px;height:24px;">
+                    <input type="checkbox" id="draft-toggle" style="opacity:0;width:0;height:0;" onchange="toggleDraftMode(this)">
+                    <span id="draft-slider" style="position:absolute;cursor:pointer;inset:0;background:#333;border-radius:24px;transition:0.3s;"></span>
+                </label>
+            </div>
+
+            <!-- Jadual Publish -->
+            <div id="schedule-wrap" style="padding:12px 14px;background:#111;border-radius:10px;border:1px solid #1a1a1a;">
+                <p style="margin:0 0 8px;font-size:13px;font-weight:700;">📅 Jadual Publish</p>
+                <input type="datetime-local" id="schedule-datetime"
+                       min=""
+                       style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;">
+                <p style="margin:6px 0 0;font-size:11px;color:#555;">Kosongkan untuk publish segera</p>
+            </div>
+        </div>
+
         <button id="upload-btn" onclick="startUpload()" class="login-btn-main" style="margin-top: 20px;">
             <i class="fa-solid fa-share-nodes"></i> Kongsi Sekarang
+        </button>
+        <button onclick="loadDrafts()" style="width:100%;background:transparent;border:1px solid #222;color:#555;padding:12px;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px;">
+            <i class="fa-solid fa-folder-open"></i> Lihat Draf Tersimpan
         </button>
     </main>
 
@@ -80,6 +161,56 @@
     </nav>
 
     <script src="app.js"></script>
+    <script>
+        // Set min datetime ke sekarang
+        const dtInput = document.getElementById('schedule-datetime');
+        if (dtInput) {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            dtInput.min = now.toISOString().slice(0,16);
+        }
+
+        function toggleDraftMode(toggle) {
+            const slider   = document.getElementById('draft-slider');
+            const uploadBtn = document.getElementById('upload-btn');
+            const schedWrap = document.getElementById('schedule-wrap');
+            if (slider) slider.style.background = toggle.checked ? '#fe2c55' : '#333';
+            if (uploadBtn) uploadBtn.innerHTML = toggle.checked
+                ? '<i class="fa-solid fa-floppy-disk"></i> Simpan Draf'
+                : '<i class="fa-solid fa-share-nodes"></i> Kongsi Sekarang';
+            if (schedWrap) schedWrap.style.opacity = toggle.checked ? '0.4' : '1';
+        }
+
+        function loadDrafts() {
+            const drafts = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key?.startsWith('snapflow_draft_')) {
+                    try { drafts.push({ key, ...JSON.parse(localStorage.getItem(key)) }); } catch {}
+                }
+            }
+            if (drafts.length === 0) return showToast('Tiada draf tersimpan.', 'info');
+
+            const modal = document.createElement('div');
+            modal.innerHTML = \`
+                <div onclick="this.parentElement.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;"></div>
+                <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:20px;z-index:9001;max-height:70vh;overflow-y:auto;border-top:1px solid #222;">
+                    <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+                    <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;">📝 Draf Tersimpan</h3>
+                    \${drafts.sort((a,b)=>b.key.localeCompare(a.key)).map(d => \`
+                        <div style="padding:12px 0;border-bottom:1px solid #1a1a1a;">
+                            <p style="margin:0;font-size:13px;font-weight:700;">\${d.fileName || 'Video'}</p>
+                            <p style="margin:3px 0;font-size:12px;color:#555;">\${d.caption?.slice(0,60) || 'Tiada kapsyen'}</p>
+                            <p style="margin:3px 0 8px;font-size:11px;color:#333;">\${new Date(d.savedAt).toLocaleString('ms-MY')}</p>
+                            <button onclick="localStorage.removeItem('\${d.key}');this.closest('[style]').remove();showToast('Draf dipadam.','info');"
+                                style="background:transparent;border:1px solid #333;color:#fe2c55;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;">
+                                Padam
+                            </button>
+                        </div>\`).join('')}
+                </div>\`;
+            document.body.appendChild(modal);
+        }
+    </script>
 
     <!-- PWA Service Worker -->
     <script>

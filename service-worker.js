@@ -263,3 +263,66 @@ self.addEventListener('sync', (event) => {
 });
 
 console.log('[SW] SnapFlow Service Worker loaded ✅');
+
+// ==========================================
+// FCM PUSH NOTIFICATION HANDLER
+// ==========================================
+
+// Terima mesej dari halaman utama untuk init FCM
+self.addEventListener('message', (event) => {
+    if (event.data?.type === 'INIT_FCM') {
+        console.log('[SW] FCM config received');
+        // Dalam implementasi sebenar: guna Firebase SDK untuk register FCM token
+        self.fcmConfig = event.data.config;
+    }
+});
+
+// Handle push notification dari FCM
+self.addEventListener('push', (event) => {
+    if (!event.data) return;
+
+    let payload;
+    try { payload = event.data.json(); }
+    catch { payload = { title: 'SnapFlow', body: event.data.text() }; }
+
+    const title   = payload.notification?.title || payload.title || 'SnapFlow';
+    const options = {
+        body:    payload.notification?.body || payload.body || 'Notifikasi baharu',
+        icon:    payload.notification?.icon || 'https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192',
+        badge:   'https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=72',
+        vibrate: [200, 100, 200],
+        tag:     payload.tag || 'snapflow',
+        renotify: true,
+        data:    payload.data || {},
+        actions: [
+            { action: 'open',    title: 'Buka App' },
+            { action: 'dismiss', title: 'Abaikan'  }
+        ]
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Handle klik pada notifikasi
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+
+    if (event.action === 'dismiss') return;
+
+    const url = event.notification.data?.url || '/index.html';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            // Buka tab yang ada jika sudah terbuka
+            for (const client of clientList) {
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    client.focus();
+                    client.navigate(url);
+                    return;
+                }
+            }
+            // Buka tab baru
+            if (clients.openWindow) return clients.openWindow(url);
+        })
+    );
+});

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pengikut | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background:#000; color:#fff; margin:0; padding-bottom:calc(var(--nav-height) + 10px); }
+        .user-row { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #0d0d0d; transition:background 0.15s; }
+        .user-row:active { background:#080808; }
+        .user-avatar-lg { width:48px; height:48px; border-radius:50%; background-size:cover; background-color:#1a1a1a; flex-shrink:0; }
+        .follow-action-btn { padding:7px 18px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; border:none; transition:all 0.2s; }
+        .follow-action-btn.following { background:#1a1a1a; color:#fff; border:1px solid #333; }
+        .follow-action-btn.not-following { background:#fe2c55; color:#fff; }
+    </style>
+</head>
+<body>
+
+    <header style="padding:14px 20px; display:flex; align-items:center; gap:14px; border-bottom:1px solid #111; position:sticky; top:0; background:rgba(0,0,0,0.97); z-index:100; backdrop-filter:blur(12px);">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="cursor:pointer; font-size:18px; color:#888;"></i>
+        <strong id="page-title" style="font-size:18px; font-weight:800;">Pengikut</strong>
+    </header>
+
+    <!-- Tab Bar -->
+    <div style="display:flex; border-bottom:1px solid #111; position:sticky; top:53px; background:#000; z-index:99;">
+        <button id="tab-followers" onclick="switchFollowTab('followers')"
+            style="flex:1; background:transparent; border:none; border-bottom:2px solid #fff; color:#fff; padding:12px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;">
+            Pengikut <span id="followers-badge" style="background:#fe2c55;color:#fff;font-size:10px;padding:2px 6px;border-radius:20px;margin-left:4px;">0</span>
+        </button>
+        <button id="tab-following" onclick="switchFollowTab('following')"
+            style="flex:1; background:transparent; border:none; border-bottom:2px solid transparent; color:#555; padding:12px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;">
+            Mengikuti <span id="following-badge" style="background:#333;color:#888;font-size:10px;padding:2px 6px;border-radius:20px;margin-left:4px;">0</span>
+        </button>
+    </div>
+
+    <!-- Search -->
+    <div style="padding:10px 16px; border-bottom:1px solid #0d0d0d;">
+        <input type="text" id="follow-search" placeholder="Cari..." oninput="filterFollowList(this.value)"
+            style="width:100%; background:#111; border:1px solid #1a1a1a; color:#fff; padding:10px 14px; border-radius:10px; font-size:14px; font-family:inherit; box-sizing:border-box; outline:none;">
+    </div>
+
+    <!-- List -->
+    <div id="follow-list">
+        <div style="text-align:center; padding:40px; color:#444;">
+            <div class="loader-spin"></div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
+        <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html" class="nav-item active"><i class="fa-solid fa-user"></i><span>Profil</span></a>
+    </nav>
+
+    <script src="app.js"></script>
+    <script>
+        let currentTab = 'followers';
+        let allUsers = [];
+
+        // Baca tab dari URL param
+        const urlTab = new URLSearchParams(window.location.search).get('tab');
+        if (urlTab === 'following') {
+            currentTab = 'following';
+            switchFollowTab('following');
+        } else {
+            loadFollowPage('followers');
+        }
+
+        function switchFollowTab(tab) {
+            currentTab = tab;
+            document.getElementById('follow-search').value = '';
+
+            ['followers','following'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                btn.style.borderBottomColor = t === tab ? '#fff' : 'transparent';
+                btn.style.color = t === tab ? '#fff' : '#555';
+            });
+
+            document.getElementById('page-title').innerText = tab === 'followers' ? 'Pengikut' : 'Mengikuti';
+            loadFollowPage(tab);
+        }
+
+        async function loadFollowPage(tab) {
+            const list = document.getElementById('follow-list');
+            list.innerHTML = '<div style="text-align:center;padding:40px;color:#444;"><div class="loader-spin"></div></div>';
+
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (!user) {
+                list.innerHTML = '<div style="text-align:center;padding:40px;color:#555;">Log masuk dahulu.</div>';
+                return;
+            }
+
+            // Ambil IDs
+            let uids = [];
+            if (tab === 'followers') {
+                const { data } = await snapSupabase.from('follows').select('follower_id').eq('following_id', user.id);
+                uids = (data || []).map(r => r.follower_id);
+            } else {
+                const { data } = await snapSupabase.from('follows').select('following_id').eq('follower_id', user.id);
+                uids = (data || []).map(r => r.following_id);
+            }
+
+            document.getElementById(tab === 'followers' ? 'followers-badge' : 'following-badge').innerText = uids.length;
+
+            if (uids.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align:center;padding:60px 20px;color:#555;">
+                        <i class="fa-solid fa-${tab==='followers'?'user-group':'user-plus'}" style="font-size:44px;color:#222;margin-bottom:16px;display:block;"></i>
+                        <p style="font-size:15px;font-weight:700;color:#fff;">${tab==='followers' ? 'Belum ada pengikut' : 'Belum mengikuti sesiapa'}</p>
+                        <p style="font-size:13px;margin-top:6px;">${tab==='followers' ? 'Kongsi profil anda!' : 'Terokai kreator dalam Discover'}</p>
+                        ${tab==='following' ? '<a href="discover.html" style="display:inline-block;margin-top:14px;background:#fe2c55;color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:13px;">Terokai Kreator</a>' : ''}
+                    </div>`;
+                return;
+            }
+
+            // Dapatkan info users dari videos table (guna username)
+            const { data: vidData } = await snapSupabase
+                .from('videos').select('user_id, username').in('user_id', uids);
+
+            // Aggregate unique users
+            const userMap = {};
+            (vidData || []).forEach(v => {
+                if (!userMap[v.user_id]) userMap[v.user_id] = { id: v.user_id, username: v.username || 'User' };
+            });
+
+            // Ensure all uids are covered
+            uids.forEach(uid => {
+                if (!userMap[uid]) userMap[uid] = { id: uid, username: 'User' };
+            });
+
+            allUsers = Object.values(userMap);
+
+            // Get my following list to know who I'm following
+            const { data: myFollows } = await snapSupabase
+                .from('follows').select('following_id').eq('follower_id', user.id);
+            const myFollowingSet = new Set((myFollows || []).map(f => f.following_id));
+
+            renderFollowList(allUsers, myFollowingSet, user.id, tab);
+        }
+
+        function renderFollowList(users, myFollowingSet, myId, tab) {
+            const list = document.getElementById('follow-list');
+            if (users.length === 0) {
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:#555;">Tiada hasil.</div>';
+                return;
+            }
+
+            list.innerHTML = users.map((u, i) => {
+                const isMe = u.id === myId;
+                const isFollowing = myFollowingSet.has(u.id);
+                return `
+                <div class="user-row" style="animation:fadeInUp 0.2s ease ${i*0.03}s both;">
+                    <div class="user-avatar-lg" style="background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(u.username)}&background=random&size=100');"></div>
+                    <div style="flex:1;min-width:0;">
+                        <strong style="font-size:14px;display:block;">@${escapeHtml(u.username)}</strong>
+                        <span style="font-size:12px;color:#555;">${isMe ? 'Anda' : ''}</span>
+                    </div>
+                    ${!isMe ? `
+                    <button id="fbtn-${u.id}" class="follow-action-btn ${isFollowing ? 'following' : 'not-following'}"
+                        onclick="toggleFollowFromList('${u.id}', '${escapeHtml(u.username)}', this)">
+                        ${isFollowing ? 'Mengikuti' : 'Ikuti'}
+                    </button>` : ''}
+                    ${tab === 'followers' && !isMe ? `
+                    <button onclick="removeFollower('${u.id}')" style="background:transparent;border:none;color:#333;cursor:pointer;font-size:14px;margin-left:4px;" title="Buang pengikut">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function filterFollowList(query) {
+            const q = query.toLowerCase();
+            const filtered = q ? allUsers.filter(u => u.username.toLowerCase().includes(q)) : allUsers;
+            // Re-render with filter
+            snapSupabase.auth.getUser().then(({ data: { user } }) => {
+                snapSupabase.from('follows').select('following_id').eq('follower_id', user.id).then(({ data }) => {
+                    const set = new Set((data||[]).map(f=>f.following_id));
+                    renderFollowList(filtered, set, user.id, currentTab);
+                });
+            });
+        }
+
+        async function toggleFollowFromList(targetId, targetUsername, btn) {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (!user) return;
+            const isFollowing = btn.classList.contains('following');
+            if (isFollowing) {
+                await snapSupabase.from('follows').delete().eq('follower_id', user.id).eq('following_id', targetId);
+                btn.className = 'follow-action-btn not-following';
+                btn.innerText = 'Ikuti';
+            } else {
+                await snapSupabase.from('follows').insert([{ follower_id: user.id, following_id: targetId }]);
+                btn.className = 'follow-action-btn following';
+                btn.innerText = 'Mengikuti';
+            }
+        }
+
+        async function removeFollower(followerId) {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (!user) return;
+            if (!confirm('Buang pengikut ini?')) return;
+            await snapSupabase.from('follows').delete().eq('follower_id', followerId).eq('following_id', user.id);
+            loadFollowPage(currentTab);
+            showToast('Pengikut dibuang.', 'info');
+        }
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+</html>

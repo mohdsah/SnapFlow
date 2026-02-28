@@ -903,3 +903,187 @@ body.light-mode .bottom-nav a {
 body.light-mode .comment-item {
     border-bottom-color: #eee;
 }
+
+/* ==========================================
+   CIRI BARU: STORIES, REACTIONS, MENTIONS
+   ========================================== */
+
+/* ── Stories Strip ── */
+#stories-strip::-webkit-scrollbar { display: none; }
+
+.story-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.story-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.15s;
+}
+
+.story-avatar:active { transform: scale(0.92); }
+
+.story-label {
+    font-size: 10px;
+    color: #ccc;
+    font-weight: 600;
+    max-width: 64px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Reaction Picker animation ── */
+@keyframes reactionPickerIn {
+    from { opacity: 0; transform: scale(0.7) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Mention Dropdown ── */
+#mention-dropdown {
+    animation: fadeInUp 0.15s ease;
+}
+
+/* ── Thumbnail Canvas ── */
+.profile-video-item canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ==========================================
+   CIRI BARU: DUET, FILTER, BLOK, COMPRESSION
+   ========================================== */
+
+/* ── Filter Buttons ── */
+.filter-btn {
+    transition: border-color 0.2s, color 0.2s, transform 0.15s;
+}
+.filter-btn:active { transform: scale(0.93); }
+
+/* ── Compression toggle ── */
+#compress-slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+input:checked + #compress-slider::before {
+    transform: translateX(20px);
+}
+
+/* ── Duet Banner ── */
+#duet-banner {
+    animation: fadeInUp 0.25s ease;
+}
+
+/* ── Duet split video ── */
+.duet-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+.duet-divider {
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 60%;
+    background: rgba(255,255,255,0.35);
+    z-index: 2;
+}
+
+/* ── Upload filter section ── */
+#filter-section {
+    animation: fadeInUp 0.2s ease;
+}
+
+/* ── Blocked user badge ── */
+.blocked-badge {
+    background: #1a0005;
+    border: 1px solid #3a0010;
+    color: #fe2c55;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 700;
+}
+
+/* ==========================================
+   CIRI BARU: VERIFIED BADGE, PUSH, SCHEDULE
+   ========================================== */
+
+/* ── Verified Badge inline ── */
+.verified-inline {
+    display: inline-flex;
+    background: #1da1f2;
+    border-radius: 50%;
+    width: 15px; height: 15px;
+    align-items: center; justify-content: center;
+    margin-left: 3px;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+/* ── Jadual upload datetime input ── */
+#schedule-datetime::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.5;
+    cursor: pointer;
+}
+
+/* ── Admin Dashboard ── */
+.admin-btn { transition: opacity 0.15s, transform 0.15s; }
+.admin-btn:active { opacity: 0.7; transform: scale(0.96); }
+
+/* ── Follow action buttons ── */
+.follow-action-btn { transition: all 0.2s; }
+.follow-action-btn:active { opacity: 0.7; transform: scale(0.95); }
+
+/* ── Draft toggle slider ── */
+#draft-slider::before {
+    content: "";
+    position: absolute;
+    height: 18px; width: 18px;
+    left: 3px; bottom: 3px;
+    background: white; border-radius: 50%;
+    transition: transform 0.3s;
+}
+#draft-toggle:checked + #draft-slider { background: #fe2c55 !important; }
+#draft-toggle:checked + #draft-slider::before { transform: translateX(20px); }
+
+/* ── Push notification prompt button ── */
+.push-enable-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #111;
+    border: 1px solid #222;
+    color: #ccc;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.push-enable-btn:hover { border-color: #fe2c55; color: #fe2c55; }

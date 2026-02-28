@@ -49,11 +49,19 @@
         <!-- Avatar -->
         <div id="profile-avatar" style="width: 90px; height: 90px; border-radius: 50%; background: #1a1a1a; margin: 0 auto 14px; background-size: cover; background-position: center; border: 2.5px solid #2a2a2a;"></div>
 
-        <h3 id="display-fullname" style="margin: 0; font-size: 20px; font-weight: 700;">Nama</h3>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;">
+            <h3 id="display-fullname" style="margin: 0; font-size: 20px; font-weight: 700;">Nama</h3>
+            <span id="verified-badge" style="display:none;background:#1da1f2;border-radius:50%;width:20px;height:20px;align-items:center;justify-content:center;flex-shrink:0;" title="Akaun Disahkan">
+                <i class="fa-solid fa-check" style="font-size:11px;color:#fff;"></i>
+            </span>
+        </div>
         <p id="display-handle" style="color: #555; margin: 5px 0 22px; font-size: 14px;">@username</p>
 
         <!-- Action Buttons -->
         <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 28px;">
+            <button class="action-btn" onclick="window.location.href='followers.html'">
+                <i class="fa-solid fa-users" style="font-size:12px;"></i> Pengikut
+            </button>
             <button class="action-btn" onclick="window.location.href='edit-profile.html'">
                 <i class="fa-solid fa-pen" style="font-size:12px;"></i> Edit Profil
             </button>

@@ -1,8 +1,8 @@
 // ==========================================
 // 1. KONFIGURASI SUPABASE
 // ==========================================
-const supabaseUrl = "https://trrfsredzugdyppevcbw.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRycmZzcmVkenVnZHlwcGV2Y2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMzY5NTgsImV4cCI6MjA4NzgxMjk1OH0.o2siKHUQddz89mVBto0vEk9lIUZF5xYvp8eKBbXcc7s";
+const supabaseUrl = "https://andsuzhyaencxfiamyed.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZHN1emh5YWVuY3hmaWFteWVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMzAzMTgsImV4cCI6MjA4NTgwNjMxOH0.N_Nytjgmch9Ztq8a-8m2UaZJRZMMcsfMP0iwv2S9KAQ";
 const snapSupabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
@@ -341,6 +341,10 @@ async function loadHomeFeed() {
                         <i class="fa-solid fa-bookmark" id="bookmark-icon-${vid.id}" style="color:#fff;"></i>
                         <span>Simpan</span>
                     </div>
+                    <div class="action-item" onclick="showReactionPicker(${vid.id}, this)">
+                        <i class="fa-solid fa-face-smile" style="color:#fff;" id="react-icon-${vid.id}"></i>
+                        <span>React</span>
+                    </div>
                     <div class="action-item" onclick="showShareSheet(${vid.id}, '${escapeHtml(vid.caption || '')}')">
                         <i class="fa-solid fa-share" style="color:#fff;"></i>
                         <span>Kongsi</span>
@@ -354,6 +358,8 @@ async function loadHomeFeed() {
                 <div class="video-info">
                     <h3>@${escapeHtml(username)}</h3>
                     <p>${renderCaption(vid.caption || '')}</p>
+                    <!-- Reaction bar -->
+                    <div id="reaction-bar-${vid.id}" style="display:none;flex-wrap:wrap;gap:5px;margin-top:6px;"></div>
                 </div>
             </div>`;
         }).join('');
@@ -361,6 +367,9 @@ async function loadHomeFeed() {
         setupObserver();
         updateAllCommentCounts();
         updateBookmarkIcons();
+        filterBlockedFromFeed();
+        // Init reactions untuk semua video (buat secara lazy)
+        videos.forEach(vid => initVideoReactions(vid.id));
 
     } catch (err) {
         console.error("loadHomeFeed error:", err);
@@ -921,6 +930,12 @@ async function handleSearch(event) {
 // ==========================================
 // 10. UPLOAD VIDEO/GAMBAR
 // ==========================================
+// State untuk upload
+let currentFilter  = 'none';
+let compressEnabled = false;
+let isDuetMode     = false;
+let duetSourceVideo = null; // { id, url }
+
 function previewFile(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -928,6 +943,7 @@ function previewFile(event) {
     const previewImg = document.getElementById('preview-img');
     const previewVid = document.getElementById('preview-vid');
     const placeholder = document.getElementById('placeholder-content');
+    const filterSection = document.getElementById('filter-section');
 
     if (placeholder) placeholder.style.display = 'none';
 
@@ -935,56 +951,146 @@ function previewFile(event) {
 
     if (file.type.startsWith('video/')) {
         if (previewImg) previewImg.style.display = 'none';
-        if (previewVid) { previewVid.src = url; previewVid.style.display = 'block'; }
+        if (previewVid) {
+            previewVid.src = url;
+            previewVid.style.display = 'block';
+            previewVid.style.filter = 'none';
+        }
+        if (filterSection) filterSection.style.display = 'block';
+
+        // Tunjuk saiz fail + cadangan compress
+        const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+        const statusEl = document.getElementById('compress-status');
+        if (statusEl) {
+            statusEl.innerText = `Saiz asal: ${sizeMB}MB${file.size > 20*1024*1024 ? ' — Disyorkan dimampatkan' : ''}`;
+        }
+        if (file.size > 20*1024*1024) {
+            const toggle = document.getElementById('compress-toggle');
+            if (toggle) { toggle.checked = true; toggleCompress(toggle); }
+        }
     } else {
         if (previewVid) previewVid.style.display = 'none';
-        if (previewImg) { previewImg.src = url; previewImg.style.display = 'block'; }
+        if (previewImg) {
+            previewImg.src = url;
+            previewImg.style.display = 'block';
+            previewImg.style.filter = 'none';
+        }
+        if (filterSection) filterSection.style.display = 'block';
     }
+
+    // Reset filter buttons
+    currentFilter = 'none';
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.style.borderColor = 'transparent';
+        b.style.color = '#aaa';
+    });
+    const firstBtn = document.querySelector('.filter-btn');
+    if (firstBtn) { firstBtn.style.borderColor = '#fe2c55'; firstBtn.style.color = '#fff'; }
+}
+
+// ── Terapkan filter pada preview ─────────────────
+function applyFilter(filterValue, btn) {
+    currentFilter = filterValue;
+
+    // Kemas kini butang
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.style.borderColor = 'transparent';
+        b.style.color = '#aaa';
+    });
+    btn.style.borderColor = '#fe2c55';
+    btn.style.color = '#fff';
+
+    // Apply filter pada preview
+    const vid = document.getElementById('preview-vid');
+    const img = document.getElementById('preview-img');
+    if (vid && vid.style.display !== 'none') vid.style.filter = filterValue === 'none' ? '' : filterValue;
+    if (img && img.style.display !== 'none') img.style.filter = filterValue === 'none' ? '' : filterValue;
+
+    // Nota: filter CSS tidak embedded dalam video — filter hanya untuk preview visual
+    // Untuk embed sebenar guna canvas (terlalu berat untuk mobile)
+}
+
+function toggleCompress(toggle) {
+    compressEnabled = toggle.checked;
+    const slider = document.getElementById('compress-slider');
+    const status  = document.getElementById('compress-status');
+    if (slider) slider.style.background = compressEnabled ? '#fe2c55' : '#333';
+    const file = document.getElementById('file-input')?.files[0];
+    const sizeMB = file ? (file.size / 1024 / 1024).toFixed(1) : '?';
+    if (status) status.innerText = compressEnabled
+        ? `Aktif — anggaran jimat ~40% dari ${sizeMB}MB`
+        : `Tidak aktif — saiz asal ${sizeMB}MB`;
 }
 
 async function startUpload() {
     const fileInput = document.getElementById('file-input');
-    const caption = document.getElementById('video-caption')?.value?.trim();
-    const btn = document.getElementById('upload-btn');
+    const caption   = document.getElementById('video-caption')?.value?.trim();
+    const btn       = document.getElementById('upload-btn');
 
     if (!fileInput?.files[0]) return showToast('Sila pilih fail dahulu.', 'warning');
 
-    const file = fileInput.files[0];
-    const maxSize = 50 * 1024 * 1024; // 50MB
+    let file = fileInput.files[0];
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) return showToast('Fail terlalu besar. Maksimum 50MB.', 'error');
 
-    setLoading(btn, true, 'Kongsi Sekarang');
+    setLoading(btn, true, 'Memproses...');
 
     try {
         const { data: { user } } = await snapSupabase.auth.getUser();
         if (!user) { setLoading(btn, false, 'Kongsi Sekarang'); return showToast('Sila log masuk.', 'warning'); }
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-        const bucket = file.type.startsWith('video/') ? 'videos' : 'images';
+        // ── Video Compression (jika aktif) ───────────────
+        if (compressEnabled && file.type.startsWith('video/')) {
+            showToast('Memampatkan video...', 'info');
+            try {
+                file = await compressVideo(file);
+                const newMB = (file.size / 1024 / 1024).toFixed(1);
+                showToast(`Video dimampatkan: ${newMB}MB ✅`, 'success');
+            } catch (e) {
+                console.warn('Compression gagal, guna fail asal:', e);
+            }
+        }
 
-        const { data: uploadData, error: uploadError } = await snapSupabase.storage
+        setLoading(btn, true, 'Memuat naik...');
+
+        const fileExt  = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        const bucket   = file.type.startsWith('video/') ? 'videos' : 'images';
+
+        const { error: uploadError } = await snapSupabase.storage
             .from(bucket).upload(fileName, file, { upsert: false });
-
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = snapSupabase.storage.from(bucket).getPublicUrl(fileName);
 
-        const { error: dbError } = await snapSupabase.from('videos').insert([{
-            user_id: user.id,
-            video_url: publicUrl,
-            caption: caption || '',
-            username: user.user_metadata?.full_name || 'User',
-            likes_count: 0
-        }]);
+        // Tambah filter label dalam caption jika bukan 'none'
+        const filterLabel  = currentFilter !== 'none' ? ` [filter:${currentFilter.replace(/[()%,.]/g,'')}]` : '';
+        const duetLabel    = isDuetMode && duetSourceVideo ? ` [duet:${duetSourceVideo.id}]` : '';
+        const finalCaption = (caption || '') + filterLabel + duetLabel;
 
+        const { error: dbError } = await snapSupabase.from('videos').insert([{
+            user_id:    user.id,
+            video_url:  publicUrl,
+            caption:    finalCaption,
+            username:   user.user_metadata?.full_name || 'User',
+            likes_count: 0,
+            is_duet:    isDuetMode,
+            duet_source_id: isDuetMode && duetSourceVideo ? duetSourceVideo.id : null,
+            scheduled_at:  scheduleAt || null,
+            is_published:  scheduleAt ? false : true,
+        }]);
         if (dbError) throw dbError;
 
-        showToast('Video berjaya dikongsikan! 🎉', 'success');
-        setTimeout(() => window.location.href = 'index.html', 1200);
+        if (scheduleAt) {
+            const dt = new Date(scheduleAt).toLocaleString('ms-MY');
+            showToast(`Video dijadualkan pada ${dt} 📅`, 'success');
+        } else {
+            showToast('Video berjaya dikongsikan! 🎉', 'success');
+        }
+        setTimeout(() => window.location.href = 'index.html', 1500);
 
     } catch (err) {
-        console.error("Upload error:", err);
+        console.error('Upload error:', err);
         showToast('Ralat semasa upload: ' + err.message, 'error');
         setLoading(btn, false, 'Kongsi Sekarang');
     }
@@ -1036,6 +1142,28 @@ async function loadProfileData() {
         setEl('followers-count', followersCount || 0);
         setEl('following-count', followingCount || 0);
 
+        // ── Verified Badge (auto pada 1000 pengikut) ──────────
+        const isVerified = (followersCount || 0) >= 1000;
+        const badge = document.getElementById('verified-badge');
+        if (badge) badge.style.display = isVerified ? 'inline-flex' : 'none';
+
+        // Simpan status verified dalam metadata
+        if (isVerified && !user.user_metadata?.verified) {
+            await snapSupabase.auth.updateUser({ data: { verified: true } });
+        }
+
+        // Kemas kini followers count dalam stat — boleh klik ke halaman followers
+        const fcEl = document.getElementById('followers-count');
+        if (fcEl) {
+            fcEl.style.cursor = 'pointer';
+            fcEl.onclick = () => window.location.href = 'followers.html?tab=followers';
+        }
+        const fgEl = document.getElementById('following-count');
+        if (fgEl) {
+            fgEl.style.cursor = 'pointer';
+            fgEl.onclick = () => window.location.href = 'followers.html?tab=following';
+        }
+
         if (!myVideos || myVideos.length === 0) {
             profileGrid.innerHTML = `
                 <div style="grid-column:span 3;text-align:center;color:#555;padding:50px 20px;">
@@ -1047,13 +1175,16 @@ async function loadProfileData() {
         }
 
         profileGrid.innerHTML = myVideos.map(vid => `
-            <div class="profile-video-item" onclick="viewVideo(${vid.id})">
-                <video src="${escapeHtml(vid.video_url)}" preload="none"></video>
+            <div class="profile-video-item" onclick="viewVideo(${vid.id})" id="pvitem-${vid.id}">
+                <canvas id="thumb-${vid.id}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111;"></canvas>
                 <div class="profile-video-overlay">
                     <i class="fa-solid fa-heart"></i> ${vid.likes_count || 0}
                 </div>
             </div>
         `).join('');
+
+        // Jana thumbnail untuk setiap video selepas render
+        myVideos.forEach(vid => generateThumbnail(vid.video_url, vid.id));
 
     } catch (error) {
         console.error("Ralat Load Profile:", error);
@@ -2913,3 +3044,1143 @@ function unpinVideo(event) {
         showToast('Pin dibuang.', 'info');
     });
 }
+
+// ==========================================
+// 26. THUMBNAIL AUTO-JANA (Canvas)
+// ==========================================
+
+const thumbnailCache = {}; // Cache supaya tidak jana semula
+
+function generateThumbnail(videoUrl, videoId) {
+    if (thumbnailCache[videoId]) {
+        drawThumbnailToCanvas(thumbnailCache[videoId], videoId);
+        return;
+    }
+
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.muted = true;
+    video.crossOrigin = 'anonymous';
+    video.preload = 'metadata';
+
+    video.addEventListener('loadeddata', () => {
+        // Lompat ke saat ke-1 untuk elak frame hitam
+        video.currentTime = Math.min(1, video.duration * 0.1);
+    });
+
+    video.addEventListener('seeked', () => {
+        try {
+            const canvas = document.getElementById(`thumb-${videoId}`);
+            if (!canvas) return;
+
+            // Set dimensi canvas ikut ratio video
+            canvas.width  = video.videoWidth  || 360;
+            canvas.height = video.videoHeight || 640;
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Cache sebagai dataURL
+            thumbnailCache[videoId] = canvas.toDataURL('image/jpeg', 0.7);
+
+            // Kosongkan video element untuk jimat memori
+            video.src = '';
+            video.load();
+        } catch (e) {
+            // Cross-origin error — guna placeholder
+            drawPlaceholderThumbnail(videoId);
+        }
+    });
+
+    video.addEventListener('error', () => drawPlaceholderThumbnail(videoId));
+    video.load();
+}
+
+function drawThumbnailToCanvas(dataUrl, videoId) {
+    const canvas = document.getElementById(`thumb-${videoId}`);
+    if (!canvas) return;
+    const img = new Image();
+    img.onload = () => {
+        canvas.width  = img.width;
+        canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+    };
+    img.src = dataUrl;
+}
+
+function drawPlaceholderThumbnail(videoId) {
+    const canvas = document.getElementById(`thumb-${videoId}`);
+    if (!canvas) return;
+    canvas.width  = 360;
+    canvas.height = 640;
+    const ctx = canvas.getContext('2d');
+    // Gradient placeholder
+    const grad = ctx.createLinearGradient(0, 0, 0, 640);
+    grad.addColorStop(0, '#1a1a1a');
+    grad.addColorStop(1, '#0d0d0d');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 360, 640);
+    // Ikon video
+    ctx.fillStyle = '#333';
+    ctx.font = '48px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🎬', 180, 340);
+}
+
+// ==========================================
+// 27. REACTIONS PADA VIDEO
+// ==========================================
+
+const REACTIONS = [
+    { emoji: '❤️', key: 'love'  },
+    { emoji: '😂', key: 'haha'  },
+    { emoji: '🔥', key: 'fire'  },
+    { emoji: '😮', key: 'wow'   },
+    { emoji: '🤩', key: 'star'  },
+    { emoji: '😢', key: 'sad'   },
+];
+
+// Cache reactions per video
+const videoReactions = {}; // { videoId: { love: 12, haha: 3, ... }, myReaction: 'love' }
+
+async function loadVideoReactions(videoId) {
+    try {
+        const { data } = await snapSupabase
+            .from('reactions')
+            .select('reaction_type, user_id')
+            .eq('video_id', videoId);
+
+        const { data: { user } } = await snapSupabase.auth.getUser();
+
+        const counts = {};
+        REACTIONS.forEach(r => counts[r.key] = 0);
+        let myReaction = null;
+
+        (data || []).forEach(r => {
+            counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+            if (user && r.user_id === user.id) myReaction = r.reaction_type;
+        });
+
+        videoReactions[videoId] = { ...counts, myReaction };
+        return videoReactions[videoId];
+    } catch {
+        return null;
+    }
+}
+
+function showReactionPicker(videoId, triggerEl) {
+    document.getElementById('reaction-picker')?.remove();
+
+    const picker = document.createElement('div');
+    picker.id = 'reaction-picker';
+
+    const rect = triggerEl.getBoundingClientRect();
+    picker.style.cssText = `
+        position: fixed;
+        bottom: ${window.innerHeight - rect.top + 8}px;
+        right: 16px;
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 50px;
+        padding: 8px 12px;
+        display: flex;
+        gap: 6px;
+        z-index: 5000;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        animation: reactionPickerIn 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    `;
+
+    const myReaction = videoReactions[videoId]?.myReaction;
+
+    picker.innerHTML = REACTIONS.map(r => `
+        <button onclick="toggleReaction(${videoId}, '${r.key}', this)"
+            style="background:${myReaction === r.key ? 'rgba(254,44,85,0.2)' : 'transparent'};
+                   border:${myReaction === r.key ? '1px solid #fe2c55' : 'none'};
+                   font-size:22px; cursor:pointer; border-radius:50%; width:40px; height:40px;
+                   display:flex; align-items:center; justify-content:center;
+                   transition:transform 0.15s;" id="rpick-${videoId}-${r.key}"
+            onmouseover="this.style.transform='scale(1.3)'"
+            onmouseout="this.style.transform='scale(1)'">
+            ${r.emoji}
+        </button>
+    `).join('');
+
+    document.body.appendChild(picker);
+
+    // Tutup bila klik luar
+    setTimeout(() => {
+        document.addEventListener('click', function closePicker(e) {
+            if (!picker.contains(e.target)) {
+                picker.remove();
+                document.removeEventListener('click', closePicker);
+            }
+        });
+    }, 100);
+}
+
+async function toggleReaction(videoId, reactionKey, btn) {
+    document.getElementById('reaction-picker')?.remove();
+
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu.', 'warning');
+
+    const current = videoReactions[videoId]?.myReaction;
+
+    if (current === reactionKey) {
+        // Buang reaction
+        await snapSupabase.from('reactions').delete()
+            .eq('video_id', videoId).eq('user_id', user.id);
+        videoReactions[videoId].myReaction = null;
+        videoReactions[videoId][reactionKey] = Math.max(0, (videoReactions[videoId][reactionKey] || 1) - 1);
+        showToast('Reaction dibuang.', 'info');
+    } else {
+        // Buang reaction lama jika ada
+        if (current) {
+            await snapSupabase.from('reactions').delete()
+                .eq('video_id', videoId).eq('user_id', user.id);
+            if (videoReactions[videoId]) videoReactions[videoId][current] = Math.max(0, (videoReactions[videoId][current] || 1) - 1);
+        }
+        // Tambah reaction baru
+        await snapSupabase.from('reactions').upsert([{
+            video_id: videoId, user_id: user.id, reaction_type: reactionKey
+        }]);
+        if (!videoReactions[videoId]) videoReactions[videoId] = {};
+        videoReactions[videoId].myReaction = reactionKey;
+        videoReactions[videoId][reactionKey] = (videoReactions[videoId][reactionKey] || 0) + 1;
+
+        const found = REACTIONS.find(r => r.key === reactionKey);
+        showToast(`${found?.emoji} Reaction dihantar!`, 'success');
+    }
+
+    updateReactionBar(videoId);
+}
+
+function updateReactionBar(videoId) {
+    const bar = document.getElementById(`reaction-bar-${videoId}`);
+    if (!bar) return;
+    const data = videoReactions[videoId] || {};
+    const myReaction = data.myReaction;
+    const topReactions = REACTIONS
+        .filter(r => data[r.key] > 0)
+        .sort((a, b) => data[b.key] - data[a.key])
+        .slice(0, 3);
+
+    if (topReactions.length === 0) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    bar.innerHTML = topReactions.map(r => `
+        <span style="font-size:12px;background:${myReaction===r.key?'rgba(254,44,85,0.25)':'rgba(255,255,255,0.1)'};
+              border-radius:20px;padding:3px 8px;display:flex;align-items:center;gap:3px;cursor:pointer;"
+              onclick="showReactionPicker(${videoId}, this)">
+            ${r.emoji} <span style="font-size:11px;color:#ccc;">${data[r.key]}</span>
+        </span>
+    `).join('');
+}
+
+async function initVideoReactions(videoId) {
+    await loadVideoReactions(videoId);
+    updateReactionBar(videoId);
+}
+
+// ==========================================
+// 28. TAG RAKAN DALAM KOMEN (@mention)
+// ==========================================
+
+let mentionUsers = []; // Cache senarai kreator untuk autocomplete
+let mentionDropdownActive = false;
+
+async function fetchMentionUsers() {
+    if (mentionUsers.length > 0) return; // Dah ada cache
+    try {
+        const { data } = await snapSupabase
+            .from('videos').select('user_id, username').limit(50);
+        const seen = new Set();
+        mentionUsers = (data || []).filter(v => {
+            if (seen.has(v.user_id)) return false;
+            seen.add(v.user_id);
+            return true;
+        }).map(v => ({ id: v.user_id, username: v.username || 'User' }));
+    } catch {}
+}
+
+function handleCommentInput(e) {
+    const input = e.target;
+    const val   = input.value;
+    const caret = input.selectionStart;
+
+    // Cari @ sebelum caret
+    const textBefore = val.slice(0, caret);
+    const match = textBefore.match(/@(\w*)$/);
+
+    if (match) {
+        const query = match[1].toLowerCase();
+        showMentionDropdown(input, query);
+    } else {
+        closeMentionDropdown();
+    }
+}
+
+function showMentionDropdown(input, query) {
+    fetchMentionUsers();
+    const filtered = mentionUsers
+        .filter(u => u.username.toLowerCase().includes(query))
+        .slice(0, 5);
+
+    document.getElementById('mention-dropdown')?.remove();
+    if (filtered.length === 0) return;
+
+    const dd = document.createElement('div');
+    dd.id = 'mention-dropdown';
+
+    const inputRect = input.getBoundingClientRect();
+    dd.style.cssText = `
+        position: fixed;
+        bottom: ${window.innerHeight - inputRect.top + 4}px;
+        left: ${inputRect.left}px;
+        right: 16px;
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 12px;
+        overflow: hidden;
+        z-index: 6000;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    `;
+
+    dd.innerHTML = filtered.map(u => `
+        <div onclick="insertMention('${escapeHtml(u.username)}')"
+             style="padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;border-bottom:1px solid #222;transition:background 0.15s;"
+             onmouseover="this.style.background='#222'" onmouseout="this.style.background='transparent'">
+            <div style="width:32px;height:32px;border-radius:50%;background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(u.username)}&background=random&size=64');background-size:cover;flex-shrink:0;"></div>
+            <span style="font-size:14px;font-weight:600;">@${escapeHtml(u.username)}</span>
+        </div>
+    `).join('');
+
+    document.body.appendChild(dd);
+    mentionDropdownActive = true;
+}
+
+function insertMention(username) {
+    const input = document.getElementById('new-comment');
+    if (!input) return;
+
+    const val   = input.value;
+    const caret = input.selectionStart;
+    const textBefore = val.slice(0, caret);
+    const atIdx = textBefore.lastIndexOf('@');
+
+    const before = val.slice(0, atIdx);
+    const after  = val.slice(caret);
+    input.value  = `${before}@${username} ${after}`;
+    input.focus();
+    const newPos = atIdx + username.length + 2;
+    input.setSelectionRange(newPos, newPos);
+
+    closeMentionDropdown();
+}
+
+function closeMentionDropdown() {
+    document.getElementById('mention-dropdown')?.remove();
+    mentionDropdownActive = false;
+}
+
+// ==========================================
+// 29. STORIES 24 JAM
+// ==========================================
+
+async function loadStoriesStrip() {
+    const strip = document.getElementById('stories-strip');
+    if (!strip) return;
+
+    try {
+        const { data: { user } } = await snapSupabase.auth.getUser();
+
+        // Ambil stories yang belum expired (24 jam)
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { data: stories } = await snapSupabase
+            .from('stories')
+            .select('*')
+            .gt('created_at', cutoff)
+            .order('created_at', { ascending: false });
+
+        // Tambah butang "Cerita Saya" jika logged in
+        let html = '';
+        if (user) {
+            const myStory = (stories || []).find(s => s.user_id === user.id);
+            html += `
+                <div class="story-item" onclick="openAddStory()">
+                    <div class="story-avatar" style="${myStory ? `background-image:url('${escapeHtml(myStory.media_url)}');background-size:cover;` : 'background:#1a1a1a;'}border:2px solid ${myStory ? '#fe2c55' : '#333'};">
+                        ${!myStory ? '<div style="position:absolute;bottom:-2px;right:-2px;background:#fe2c55;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;border:2px solid #000;">+</div>' : ''}
+                    </div>
+                    <span class="story-label">Cerita Saya</span>
+                </div>`;
+        }
+
+        // Stories dari kreator lain
+        const others = (stories || []).filter(s => s.user_id !== user?.id);
+        const uniqueUsers = {};
+        others.forEach(s => { if (!uniqueUsers[s.user_id]) uniqueUsers[s.user_id] = s; });
+
+        Object.values(uniqueUsers).forEach(s => {
+            const username = s.username || 'User';
+            html += `
+                <div class="story-item" onclick="openStory(${s.id})">
+                    <div class="story-avatar" style="background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random&size=120');background-size:cover;border:2.5px solid #fe2c55;"></div>
+                    <span class="story-label">@${escapeHtml(username.slice(0, 8))}</span>
+                </div>`;
+        });
+
+        if (!html) { strip.style.display = 'none'; return; }
+        strip.style.display = 'flex';
+        strip.innerHTML = html;
+
+    } catch (err) {
+        console.warn('Stories strip error:', err);
+        strip.style.display = 'none';
+    }
+}
+
+async function openStory(storyId) {
+    const { data: story } = await snapSupabase
+        .from('stories').select('*').eq('id', storyId).single();
+    if (!story) return;
+
+    document.getElementById('story-viewer')?.remove();
+    const viewer = document.createElement('div');
+    viewer.id = 'story-viewer';
+
+    const createdAt = new Date(story.created_at);
+    const msAgo = Date.now() - createdAt.getTime();
+    const hoursLeft = Math.max(0, 24 - Math.floor(msAgo / 3600000));
+
+    viewer.style.cssText = `
+        position:fixed;inset:0;background:#000;z-index:9500;
+        display:flex;flex-direction:column;
+    `;
+    viewer.innerHTML = `
+        <!-- Progress bar -->
+        <div style="height:3px;background:#333;margin:12px 12px 0;">
+            <div id="story-progress" style="height:100%;background:#fff;width:0%;transition:width 5s linear;"></div>
+        </div>
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">
+            <div style="width:36px;height:36px;border-radius:50%;background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(story.username||'U')}&background=random&size=80');background-size:cover;border:2px solid #fe2c55;"></div>
+            <div>
+                <strong style="font-size:13px;">@${escapeHtml(story.username || 'User')}</strong>
+                <p style="margin:0;font-size:11px;color:#888;">${hoursLeft}j lagi sebelum tamat</p>
+            </div>
+            <button onclick="document.getElementById('story-viewer').remove()" style="margin-left:auto;background:transparent;border:none;color:#fff;font-size:22px;cursor:pointer;">✕</button>
+        </div>
+        <!-- Media -->
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:0 14px 14px;position:relative;">
+            ${story.media_type === 'video'
+                ? `<video src="${escapeHtml(story.media_url)}" autoplay muted playsinline loop style="max-width:100%;max-height:100%;border-radius:12px;object-fit:cover;"></video>`
+                : `<img src="${escapeHtml(story.media_url)}" style="max-width:100%;max-height:100%;border-radius:12px;object-fit:cover;" alt="story">`
+            }
+            ${story.caption ? `<div style="position:absolute;bottom:24px;left:24px;right:24px;background:rgba(0,0,0,0.6);padding:10px 14px;border-radius:10px;font-size:14px;text-align:center;">${escapeHtml(story.caption)}</div>` : ''}
+        </div>`;
+
+    document.body.appendChild(viewer);
+
+    // Mula progress bar
+    setTimeout(() => {
+        const bar = document.getElementById('story-progress');
+        if (bar) bar.style.width = '100%';
+    }, 100);
+
+    // Auto-tutup selepas 5 saat
+    setTimeout(() => viewer.remove(), 5100);
+}
+
+async function openAddStory() {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu.', 'warning');
+
+    document.getElementById('add-story-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'add-story-modal';
+    modal.innerHTML = `
+        <div onclick="document.getElementById('add-story-modal').remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:24px;z-index:9001;border-top:1px solid #222;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 20px;"></div>
+            <h3 style="margin:0 0 6px;font-size:17px;font-weight:800;">📸 Tambah Cerita</h3>
+            <p style="margin:0 0 20px;font-size:13px;color:#555;">Cerita anda akan hilang selepas 24 jam</p>
+
+            <input type="file" id="story-file-input" accept="image/*,video/*" style="display:none;" onchange="previewStoryFile(this)">
+
+            <div id="story-preview" onclick="document.getElementById('story-file-input').click()"
+                 style="width:100%;aspect-ratio:9/16;max-height:300px;background:#1a1a1a;border-radius:14px;border:2px dashed #333;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;cursor:pointer;overflow:hidden;margin-bottom:14px;">
+                <i class="fa-solid fa-image" style="font-size:36px;color:#333;"></i>
+                <span style="font-size:13px;color:#444;">Klik untuk pilih gambar / video</span>
+            </div>
+
+            <input type="text" id="story-caption" placeholder="Tulis kapsyen cerita (optional)..."
+                   style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:12px;border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:14px;">
+
+            <button onclick="uploadStory()" style="width:100%;background:#fe2c55;color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+                <i class="fa-solid fa-paper-plane"></i> Kongsi Cerita
+            </button>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+function previewStoryFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const preview = document.getElementById('story-preview');
+    const url = URL.createObjectURL(file);
+
+    if (file.type.startsWith('video')) {
+        preview.innerHTML = `<video src="${url}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></video>`;
+    } else {
+        preview.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" alt="preview">`;
+    }
+}
+
+async function uploadStory() {
+    const fileInput = document.getElementById('story-file-input');
+    const caption   = document.getElementById('story-caption')?.value?.trim() || '';
+
+    if (!fileInput?.files[0]) return showToast('Pilih gambar atau video dahulu.', 'warning');
+
+    const file = fileInput.files[0];
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return;
+
+    showToast('Memuat naik cerita...', 'info');
+
+    try {
+        const ext  = file.name.split('.').pop();
+        const path = `stories/${user.id}/${Date.now()}.${ext}`;
+        const bucket = file.type.startsWith('video') ? 'videos' : 'images';
+
+        const { error: uploadErr } = await snapSupabase.storage
+            .from(bucket).upload(path, file, { upsert: true });
+        if (uploadErr) throw uploadErr;
+
+        const { data: { publicUrl } } = snapSupabase.storage.from(bucket).getPublicUrl(path);
+
+        await snapSupabase.from('stories').insert([{
+            user_id:    user.id,
+            username:   user.user_metadata?.full_name || 'User',
+            media_url:  publicUrl,
+            media_type: file.type.startsWith('video') ? 'video' : 'image',
+            caption,
+        }]);
+
+        document.getElementById('add-story-modal')?.remove();
+        showToast('Cerita berjaya dikongsi! 🎉', 'success');
+        loadStoriesStrip();
+
+    } catch (err) {
+        showToast('Gagal upload cerita: ' + err.message, 'error');
+    }
+}
+
+// ==========================================
+// 30. VIDEO COMPRESSION (Canvas-based)
+// ==========================================
+
+async function compressVideo(file) {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.src   = URL.createObjectURL(file);
+        video.muted = true;
+        video.playsInline = true;
+
+        video.addEventListener('loadedmetadata', () => {
+            // Target: lebar max 720px, jimat ~40%
+            const targetW = Math.min(video.videoWidth, 720);
+            const ratio   = targetW / video.videoWidth;
+            const targetH = Math.round(video.videoHeight * ratio);
+
+            const canvas  = document.createElement('canvas');
+            canvas.width  = targetW;
+            canvas.height = targetH;
+            const ctx     = canvas.getContext('2d');
+
+            // Guna MediaRecorder untuk encode semula
+            let stream;
+            try {
+                stream = canvas.captureStream(24); // 24fps
+            } catch (e) {
+                return reject(new Error('captureStream tidak disokong'));
+            }
+
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                ? 'video/webm;codecs=vp9'
+                : MediaRecorder.isTypeSupported('video/webm')
+                    ? 'video/webm'
+                    : null;
+
+            if (!mimeType) return reject(new Error('Format tidak disokong'));
+
+            const recorder = new MediaRecorder(stream, {
+                mimeType,
+                videoBitsPerSecond: 1_500_000 // 1.5 Mbps
+            });
+
+            const chunks = [];
+            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: mimeType });
+                const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.webm'), {
+                    type: mimeType,
+                    lastModified: Date.now()
+                });
+                URL.revokeObjectURL(video.src);
+                resolve(compressed);
+            };
+
+            video.addEventListener('play', () => {
+                recorder.start(100);
+                const draw = () => {
+                    if (video.paused || video.ended) {
+                        recorder.stop();
+                        return;
+                    }
+                    ctx.drawImage(video, 0, 0, targetW, targetH);
+                    requestAnimationFrame(draw);
+                };
+                draw();
+            });
+
+            video.play().catch(reject);
+
+            // Timeout 3 minit maksimum
+            setTimeout(() => {
+                if (recorder.state !== 'inactive') recorder.stop();
+            }, 180_000);
+        });
+
+        video.addEventListener('error', reject);
+        video.load();
+    });
+}
+
+// ==========================================
+// 31. DUET / STITCH VIDEO
+// ==========================================
+
+async function openDuetPicker() {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu untuk buat Duet.', 'warning');
+
+    // Ambil video trending untuk dijadikan duet
+    const { data: videos } = await snapSupabase
+        .from('videos')
+        .select('id, video_url, caption, username, likes_count')
+        .order('likes_count', { ascending: false })
+        .limit(12);
+
+    document.getElementById('duet-picker')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'duet-picker';
+    modal.innerHTML = `
+        <div onclick="closeDuetPicker()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9000;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                    padding:20px;z-index:9001;max-height:80vh;overflow-y:auto;border-top:1px solid #222;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <i class="fa-solid fa-film" style="color:#00f2ea;font-size:18px;"></i>
+                <h3 style="margin:0;font-size:16px;font-weight:800;">Pilih Video untuk Duet</h3>
+            </div>
+            <p style="font-size:12px;color:#555;margin:0 0 14px;">
+                Video anda akan dipapar sebelah video ini dalam split-screen
+            </p>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;">
+                ${(videos || []).map(v => `
+                    <div onclick="selectDuetVideo(${v.id}, '${escapeHtml(v.video_url)}', '${escapeHtml(v.username || 'User')}')"
+                         style="position:relative;aspect-ratio:9/16;background:#1a1a1a;
+                                border-radius:6px;overflow:hidden;cursor:pointer;">
+                        <video src="${escapeHtml(v.video_url)}" preload="metadata" muted
+                               style="width:100%;height:100%;object-fit:cover;"
+                               onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>
+                        <div style="position:absolute;bottom:0;left:0;right:0;
+                                    background:linear-gradient(to top,rgba(0,0,0,0.8),transparent);
+                                    padding:6px;font-size:10px;color:#fff;">
+                            @${escapeHtml((v.username || 'User').slice(0,10))}
+                        </div>
+                    </div>`).join('')}
+            </div>
+            <button onclick="closeDuetPicker()"
+                style="width:100%;background:transparent;border:none;color:#555;
+                       padding:14px;font-size:14px;cursor:pointer;font-family:inherit;margin-top:10px;">
+                Batal
+            </button>
+        </div>`;
+
+    document.body.appendChild(modal);
+}
+
+function closeDuetPicker() {
+    document.getElementById('duet-picker')?.remove();
+}
+
+function selectDuetVideo(videoId, videoUrl, username) {
+    closeDuetPicker();
+    isDuetMode      = true;
+    duetSourceVideo = { id: videoId, url: videoUrl, username };
+
+    // Tunjuk preview duet
+    const previewArea = document.querySelector('.upload-box');
+    const banner = document.getElementById('duet-banner');
+    if (banner) banner.remove();
+
+    const div = document.createElement('div');
+    div.id = 'duet-banner';
+    div.style.cssText = `
+        display:flex; align-items:center; gap:10px; padding:12px 14px;
+        background:linear-gradient(135deg,#001a1a,#000d0d);
+        border:1px solid #00f2ea33; border-radius:12px; margin-top:12px;
+    `;
+    div.innerHTML = `
+        <i class="fa-solid fa-film" style="color:#00f2ea;font-size:18px;flex-shrink:0;"></i>
+        <div style="flex:1;min-width:0;">
+            <p style="margin:0;font-size:13px;font-weight:700;color:#00f2ea;">Mod Duet Aktif</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                Duet dengan @${escapeHtml(username)}
+            </p>
+        </div>
+        <button onclick="cancelDuet()" style="background:transparent;border:none;color:#555;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button>
+    `;
+
+    previewArea?.parentNode?.insertBefore(div, previewArea.nextSibling);
+    showToast(`Duet dengan @${username} dipilih! 🎬`, 'success');
+}
+
+function cancelDuet() {
+    isDuetMode      = false;
+    duetSourceVideo = null;
+    document.getElementById('duet-banner')?.remove();
+    showToast('Mod Duet dibuang.', 'info');
+}
+
+// Duet player — papar dua video sebelah menyebelah dalam feed
+function buildDuetPlayer(mainUrl, sourceUrl, videoId) {
+    return `
+        <div style="position:relative;width:100%;height:100%;display:flex;">
+            <video src="${escapeHtml(mainUrl)}" style="width:50%;height:100%;object-fit:cover;"
+                   autoplay loop muted playsinline></video>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+                        width:2px;height:60%;background:rgba(255,255,255,0.4);z-index:2;"></div>
+            <video src="${escapeHtml(sourceUrl)}" style="width:50%;height:100%;object-fit:cover;"
+                   autoplay loop muted playsinline></video>
+            <div style="position:absolute;bottom:8px;left:8px;font-size:10px;
+                        background:rgba(0,0,0,0.6);padding:3px 8px;border-radius:20px;color:#00f2ea;">
+                🎬 Duet
+            </div>
+        </div>`;
+}
+
+// ==========================================
+// 32. SISTEM BLOK PENGGUNA
+// ==========================================
+
+// Simpan senarai blok dalam localStorage (boleh migrate ke Supabase kemudian)
+let blockedUsers = new Set(JSON.parse(localStorage.getItem('snapflow_blocked') || '[]'));
+
+function saveBlockedUsers() {
+    localStorage.setItem('snapflow_blocked', JSON.stringify([...blockedUsers]));
+}
+
+function isUserBlocked(userId) {
+    return blockedUsers.has(userId);
+}
+
+async function blockUser(targetUserId, targetUsername) {
+    if (!targetUserId) return;
+    document.getElementById('snap-options-sheet')?.remove();
+
+    const confirmed = confirm(`Blok @${targetUsername}?\n\nMereka tidak akan muncul dalam feed anda.`);
+    if (!confirmed) return;
+
+    blockedUsers.add(targetUserId);
+    saveBlockedUsers();
+
+    // Buang semua video dari pengguna ini dalam DOM
+    document.querySelectorAll(`.video-container[data-owner="${targetUserId}"]`).forEach(el => el.remove());
+
+    showToast(`@${targetUsername} telah diblok. 🚫`, 'info');
+}
+
+function unblockUser(targetUserId) {
+    blockedUsers.delete(targetUserId);
+    saveBlockedUsers();
+    showToast('Pengguna telah dinyahblok.', 'success');
+    renderBlockedList();
+}
+
+function showBlockedList() {
+    document.getElementById('blocked-list-modal')?.remove();
+
+    const ids = [...blockedUsers];
+    const modal = document.createElement('div');
+    modal.id = 'blocked-list-modal';
+    modal.innerHTML = `
+        <div onclick="document.getElementById('blocked-list-modal').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                    padding:20px;z-index:9001;max-height:70vh;overflow-y:auto;border-top:1px solid #222;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+            <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;">🚫 Pengguna Diblok</h3>
+            <div id="blocked-list-inner">
+                ${ids.length === 0
+                    ? '<p style="text-align:center;color:#555;padding:30px;">Tiada pengguna diblok.</p>'
+                    : ids.map(id => `
+                        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #1a1a1a;">
+                            <div style="width:40px;height:40px;border-radius:50%;background:#222;
+                                        display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-user" style="color:#555;"></i>
+                            </div>
+                            <div style="flex:1;">
+                                <p style="margin:0;font-size:13px;color:#888;">ID: ${id.slice(0,12)}...</p>
+                            </div>
+                            <button onclick="unblockUser('${id}')"
+                                style="background:transparent;border:1px solid #333;color:#fff;
+                                       padding:6px 14px;border-radius:8px;font-size:12px;cursor:pointer;
+                                       font-family:inherit;font-weight:700;">
+                                Nyahblok
+                            </button>
+                        </div>`).join('')}
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+function renderBlockedList() {
+    document.getElementById('blocked-list-modal')?.remove();
+    showBlockedList();
+}
+
+// Tambah "Blok" dalam menu options video
+const _origShowVideoOptions = showVideoOptions;
+window.showVideoOptions = function(videoId, videoOwnerId) {
+    _origShowVideoOptions(videoId, videoOwnerId);
+
+    // Inject butang blok selepas 50ms (selepas sheet render)
+    setTimeout(() => {
+        const sheet = document.getElementById('snap-options-sheet');
+        if (!sheet || !videoOwnerId) return;
+
+        snapSupabase.auth.getUser().then(({ data: { user } }) => {
+            if (!user || user.id === videoOwnerId) return; // Jangan blok diri sendiri
+
+            const inner = sheet.querySelector('div:last-child div');
+            if (!inner) return;
+
+            const blockBtn = document.createElement('button');
+            blockBtn.innerHTML = `<i class="fa-solid fa-ban" style="width:20px;color:#ff4757;"></i> Blok Pengguna Ini`;
+            blockBtn.style.cssText = `
+                width:100%;background:transparent;border:none;color:#fff;padding:14px;
+                text-align:left;font-size:15px;cursor:pointer;font-family:inherit;
+                display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;`;
+
+            // Dapatkan username dari DOM
+            const container = document.querySelector(`[data-video-id="${videoId}"]`);
+            const usernameEl = container?.querySelector('.video-info h3');
+            const username   = usernameEl ? usernameEl.innerText.replace('@','') : 'Pengguna';
+
+            blockBtn.onclick = () => blockUser(videoOwnerId, username);
+
+            // Tambah sebelum butang batal
+            const cancelBtn = inner.querySelector('button:last-child');
+            inner.insertBefore(blockBtn, cancelBtn);
+        });
+    }, 60);
+};
+
+// Filter video dari pengguna diblok semasa load feed
+function filterBlockedFromFeed() {
+    if (blockedUsers.size === 0) return;
+    blockedUsers.forEach(userId => {
+        document.querySelectorAll(`.video-container[data-owner="${userId}"]`).forEach(el => el.remove());
+    });
+}
+
+// ==========================================
+// 33. AUTO-HAPUS STORIES EXPIRED
+// ==========================================
+
+// Jalankan cleanup setiap kali app dibuka
+async function cleanupExpiredStories() {
+    try {
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+        // Ambil stories yang dah expired
+        const { data: expired } = await snapSupabase
+            .from('stories')
+            .select('id, media_url, user_id')
+            .lt('created_at', cutoff);
+
+        if (!expired || expired.length === 0) return;
+
+        // Padam dari database
+        const ids = expired.map(s => s.id);
+        await snapSupabase.from('stories').delete().in('id', ids);
+
+        // Padam fail dari Storage (optional — jimat ruang)
+        for (const story of expired) {
+            try {
+                const url  = new URL(story.media_url);
+                const path = url.pathname.split('/object/public/')[1];
+                if (path) {
+                    const [bucket, ...fileParts] = path.split('/');
+                    await snapSupabase.storage.from(bucket).remove([fileParts.join('/')]);
+                }
+            } catch { /* fail mungkin dah takde */ }
+        }
+
+        console.log(`[Stories] ${ids.length} cerita tamat tempoh dipadam.`);
+    } catch (err) {
+        console.warn('[Stories] Cleanup error:', err.message);
+    }
+}
+
+// Jalankan cleanup semasa app load (bukan setiap saat)
+const _lastCleanup = localStorage.getItem('sf_story_cleanup');
+const _oneHourAgo  = Date.now() - 60 * 60 * 1000;
+if (!_lastCleanup || parseInt(_lastCleanup) < _oneHourAgo) {
+    cleanupExpiredStories().then(() => {
+        localStorage.setItem('sf_story_cleanup', Date.now().toString());
+    });
+}
+
+// ==========================================
+// SUPABASE EDGE FUNCTION (Stories Cleanup)
+// ==========================================
+// Simpan kod ini dalam: supabase/functions/cleanup-stories/index.ts
+// Deploy: npx supabase functions deploy cleanup-stories
+// Jadual: Supabase Cron Jobs → setiap jam → invoke function ini
+//
+// Kod Edge Function (TypeScript):
+// ─────────────────────────────────────────
+// import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Deno.serve(async () => {
+//   const supabase = createClient(
+//     Deno.env.get('SUPABASE_URL')!,
+//     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+//   )
+//   const cutoff = new Date(Date.now() - 86400000).toISOString()
+//   const { data } = await supabase.from('stories').select('id').lt('created_at', cutoff)
+//   if (data?.length) {
+//     await supabase.from('stories').delete().in('id', data.map(s => s.id))
+//   }
+//   return new Response(JSON.stringify({ deleted: data?.length ?? 0 }))
+// })
+
+// ==========================================
+// 34. NOTIFIKASI PUSH (FCM + Service Worker)
+// ==========================================
+
+const FCM_CONFIG = {
+    // Isi nilai ini dari Firebase Console → Project Settings → Web App
+    apiKey:            "GANTI_DENGAN_FCM_API_KEY",
+    authDomain:        "snapflow-app.firebaseapp.com",
+    projectId:         "snapflow-app",
+    messagingSenderId: "GANTI_DENGAN_SENDER_ID",
+    appId:             "GANTI_DENGAN_APP_ID",
+    vapidKey:          "GANTI_DENGAN_VAPID_KEY"
+    // Cara dapat VAPID key:
+    // Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+};
+
+// Minta kebenaran notifikasi + simpan FCM token ke Supabase
+async function requestPushPermission() {
+    if (!('Notification' in window)) return showToast('Browser tidak sokong notifikasi.', 'warning');
+    if (!('serviceWorker' in navigator)) return;
+
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            showToast('Notifikasi tidak dibenarkan.', 'warning');
+            return;
+        }
+
+        // Hantar mesej ke service worker untuk daftar FCM
+        const reg = await navigator.serviceWorker.ready;
+        reg.active?.postMessage({ type: 'INIT_FCM', config: FCM_CONFIG });
+
+        // Simulate token save (sebenar guna Firebase SDK)
+        showToast('Notifikasi push diaktifkan! 🔔', 'success');
+
+        // Simpan preferences dalam Supabase
+        const { data: { user } } = await snapSupabase.auth.getUser();
+        if (user) {
+            // Nota: dalam implementasi sebenar, simpan FCM token dalam table 'push_tokens'
+            console.log('[FCM] Notifikasi aktif untuk user:', user.id);
+        }
+
+    } catch (err) {
+        console.warn('[FCM] Error:', err);
+        showToast('Gagal aktifkan notifikasi.', 'error');
+    }
+}
+
+// Hantar notifikasi tempatan (tanpa FCM — untuk testing)
+function showLocalNotification(title, body, icon = '') {
+    if (Notification.permission !== 'granted') return;
+    const notif = new Notification(title, {
+        body,
+        icon: icon || 'https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=64',
+        badge: 'https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=32',
+        vibrate: [200, 100, 200],
+        tag: 'snapflow-notif',
+        renotify: true
+    });
+    notif.onclick = () => { window.focus(); notif.close(); };
+    setTimeout(() => notif.close(), 6000);
+}
+
+// Intercept realtime notifikasi → tunjuk push notification
+function setupPushFromRealtime() {
+    if (!snapSupabase) return;
+
+    snapSupabase
+        .channel('push-notifs')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications'
+        }, async (payload) => {
+            const notif = payload.new;
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (!user || notif.user_id !== user.id) return;
+
+            const typeMsg = {
+                like:    '❤️ Seseorang menyukai video anda!',
+                comment: '💬 Seseorang mengomen video anda!',
+                follow:  '👤 Seseorang mula mengikuti anda!',
+                mention: '📢 Anda disebut dalam komen!'
+            };
+
+            const msg = typeMsg[notif.type] || 'Notifikasi baharu dari SnapFlow';
+            showLocalNotification('SnapFlow', msg);
+        })
+        .subscribe();
+}
+
+// Auto-setup push dari realtime bila app load
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof snapSupabase !== 'undefined') setupPushFromRealtime();
+});
+
+// ==========================================
+// 35. VERIFIED BADGE — Fungsi Pembantu
+// ==========================================
+
+// Semak sama ada user verified (untuk papar dalam video feed)
+const verifiedUsers = new Set(
+    JSON.parse(localStorage.getItem('snapflow_verified') || '[]')
+);
+
+async function refreshVerifiedCache() {
+    try {
+        // Ambil semua user yang ada >= 1000 followers
+        const { data: follows } = await snapSupabase
+            .from('follows').select('following_id');
+
+        const count = {};
+        (follows || []).forEach(f => {
+            count[f.following_id] = (count[f.following_id] || 0) + 1;
+        });
+
+        const verified = Object.entries(count)
+            .filter(([, c]) => c >= 1000)
+            .map(([uid]) => uid);
+
+        verifiedUsers.clear();
+        verified.forEach(uid => verifiedUsers.add(uid));
+        localStorage.setItem('snapflow_verified', JSON.stringify(verified));
+    } catch (e) {
+        console.warn('refreshVerifiedCache error:', e);
+    }
+}
+
+// Panggil sekali sejam
+const _lastVerifiedRefresh = localStorage.getItem('sf_verified_refresh');
+if (!_lastVerifiedRefresh || Date.now() - parseInt(_lastVerifiedRefresh) > 3600000) {
+    refreshVerifiedCache().then(() => {
+        localStorage.setItem('sf_verified_refresh', Date.now().toString());
+    });
+}
+
+function getVerifiedBadgeHTML(userId) {
+    if (!verifiedUsers.has(userId)) return '';
+    return `<span style="display:inline-flex;background:#1da1f2;border-radius:50%;width:14px;height:14px;align-items:center;justify-content:center;margin-left:3px;flex-shrink:0;" title="Kreator Disahkan"><i class="fa-solid fa-check" style="font-size:8px;color:#fff;"></i></span>`;
+}
+
+// ==========================================
+// 36. JADUAL PUBLISH — Edge Function Trigger
+// ==========================================
+
+// Semak video yang dah tiba masa publish
+async function checkScheduledVideos() {
+    try {
+        const { data: { user } } = await snapSupabase.auth.getUser();
+        if (!user) return;
+
+        const now = new Date().toISOString();
+        const { data: scheduled } = await snapSupabase
+            .from('videos')
+            .select('id, caption, scheduled_at')
+            .eq('user_id', user.id)
+            .eq('is_published', false)
+            .lte('scheduled_at', now)
+            .not('scheduled_at', 'is', null);
+
+        if (!scheduled || scheduled.length === 0) return;
+
+        // Publish video-video yang dah tiba masa
+        for (const vid of scheduled) {
+            await snapSupabase.from('videos')
+                .update({ is_published: true })
+                .eq('id', vid.id);
+            console.log(`[Schedule] Video ${vid.id} diterbitkan pada ${now}`);
+        }
+
+        if (scheduled.length > 0) {
+            showToast(`${scheduled.length} video berjadual kini diterbitkan! 📅`, 'success');
+            // Refresh feed jika ada
+            if (typeof loadHomeFeed === 'function') loadHomeFeed();
+        }
+    } catch (err) {
+        console.warn('[Schedule] Semak gagal:', err.message);
+    }
+}
+
+// Semak setiap 5 minit bila app terbuka
+setInterval(checkScheduledVideos, 5 * 60 * 1000);
+checkScheduledVideos(); // Semak terus masa load
+
+// ==========================================
+// SUPABASE EDGE FUNCTION — publish-scheduled
+// ==========================================
+// Simpan dalam: supabase/functions/publish-scheduled/index.ts
+// Jadual cron: */5 * * * * (setiap 5 minit)
+//
+// import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Deno.serve(async () => {
+//   const supabase = createClient(
+//     Deno.env.get('SUPABASE_URL')!,
+//     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+//   )
+//   const now = new Date().toISOString()
+//   const { data, error } = await supabase
+//     .from('videos')
+//     .update({ is_published: true })
+//     .eq('is_published', false)
+//     .lte('scheduled_at', now)
+//     .not('scheduled_at', 'is', null)
+//     .select('id, user_id, caption')
+//   // Hantar notifikasi kepada pemilik video
+//   if (data?.length) {
+//     for (const vid of data) {
+//       await supabase.from('notifications').insert([{
+//         user_id: vid.user_id, type: 'system',
+//         message: `Video "${vid.caption?.slice(0,30)}" kini diterbitkan!`
+//       }])
+//     }
+//   }
+//   return new Response(JSON.stringify({ published: data?.length ?? 0 }))
+// })
