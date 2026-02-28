@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Duet & Stitch | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing:border-box; }
+        body { background:#000; color:#fff; margin:0; overflow:hidden; height:100vh;
+               display:flex; flex-direction:column; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+        /* Dual video layout */
+        #dual-screen {
+            flex:1; display:flex; position:relative; overflow:hidden; min-height:0;
+        }
+
+        /* Duet: side by side */
+        .duet-mode #original-pane,
+        .duet-mode #user-pane  { width:50%; height:100%; }
+
+        /* Stitch: original on top, user full */
+        .stitch-mode #original-pane {
+            position:absolute; top:10px; right:10px; width:100px; height:160px;
+            border-radius:10px; overflow:hidden; border:2px solid #fff; z-index:10;
+        }
+        .stitch-mode #user-pane { width:100%; height:100%; }
+
+        .video-pane { position:relative; overflow:hidden; background:#0a0a0a; flex-shrink:0; }
+        .video-pane video { width:100%; height:100%; object-fit:cover; display:block; }
+        .pane-label {
+            position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+            background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+            padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700;
+            white-space:nowrap;
+        }
+        .pane-badge-orig { border:1px solid #fe2c55; color:#fe2c55; }
+        .pane-badge-user { border:1px solid #00f2ea; color:#00f2ea; }
+
+        /* Controls overlay */
+        #controls-overlay {
+            position:absolute; left:0; right:0; bottom:0;
+            background:linear-gradient(transparent, rgba(0,0,0,0.8));
+            padding:16px 14px 20px;
+        }
+
+        /* REC indicator */
+        .rec-dot { width:10px; height:10px; background:#fe2c55; border-radius:50%;
+                   animation:recBlink 1s ease-in-out infinite; display:inline-block; }
+        @keyframes recBlink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+        /* Countdown */
+        #countdown-display {
+            position:absolute; inset:0; display:none;
+            align-items:center; justify-content:center;
+            background:rgba(0,0,0,0.5); z-index:20; font-size:80px; font-weight:900;
+        }
+
+        /* Progress bar */
+        #rec-progress {
+            height:4px; background:#333; border-radius:2px; overflow:hidden; margin-bottom:12px;
+        }
+        #rec-bar {
+            height:100%; background:#fe2c55; width:0%; transition:width 0.1s linear;
+        }
+
+        .ctrl-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+        .ctrl-btn {
+            width:42px; height:42px; border-radius:50%; border:none; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; font-size:18px;
+            transition:all 0.15s; background:rgba(255,255,255,0.1); color:#fff;
+        }
+        .ctrl-btn:active { transform:scale(0.9); }
+
+        #record-btn {
+            width:64px; height:64px; border-radius:50%; background:#fe2c55; border:4px solid #fff;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            transition:all 0.2s; flex-shrink:0;
+        }
+        #record-btn.recording { background:#fff; animation:recPulse 1s ease-in-out infinite; }
+        @keyframes recPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.06);} }
+
+        /* Top bar */
+        .top-bar {
+            display:flex; align-items:center; gap:10px; padding:12px 14px;
+            position:absolute; top:0; left:0; right:0; z-index:30;
+            background:linear-gradient(rgba(0,0,0,0.6),transparent);
+        }
+
+        /* Mode tabs */
+        .mode-tab { background:rgba(255,255,255,0.1); border:1.5px solid transparent; color:#888;
+                    padding:6px 16px; border-radius:20px; font-size:13px; font-weight:700;
+                    cursor:pointer; font-family:inherit; transition:all 0.2s; }
+        .mode-tab.active { border-color:#fff; color:#fff; background:rgba(255,255,255,0.15); }
+
+        /* Preview modal */
+        #preview-modal { display:none; position:fixed; inset:0; background:#000; z-index:100;
+                         flex-direction:column; }
+    </style>
+</head>
+<body>
+
+    <!-- Dual Screen -->
+    <div id="dual-screen" class="duet-mode">
+
+        <!-- Original video pane -->
+        <div class="video-pane" id="original-pane">
+            <video id="original-video" loop muted playsinline></video>
+            <div class="pane-label pane-badge-orig" id="orig-label">Original</div>
+        </div>
+
+        <!-- User camera pane -->
+        <div class="video-pane" id="user-pane">
+            <video id="user-camera" autoplay muted playsinline></video>
+            <div class="pane-label pane-badge-user">Kamera Anda</div>
+        </div>
+
+        <!-- Top bar -->
+        <div class="top-bar">
+            <button onclick="exitDuet()"
+                style="background:rgba(0,0,0,0.5);border:none;color:#fff;width:34px;height:34px;
+                       border-radius:50%;cursor:pointer;font-size:16px;backdrop-filter:blur(6px);">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Mode tabs -->
+            <div style="display:flex;gap:6px;margin-left:auto;">
+                <button class="mode-tab active" id="tab-duet"   onclick="setMode('duet',this)">Duet</button>
+                <button class="mode-tab"        id="tab-stitch" onclick="setMode('stitch',this)">Stitch</button>
+            </div>
+        </div>
+
+        <!-- Countdown overlay -->
+        <div id="countdown-display"></div>
+
+        <!-- Controls overlay -->
+        <div id="controls-overlay">
+            <!-- Recording progress -->
+            <div id="rec-progress" style="display:none;">
+                <div id="rec-bar"></div>
+            </div>
+
+            <!-- REC status -->
+            <div id="rec-status" style="display:none;text-align:center;margin-bottom:8px;font-size:13px;font-weight:700;">
+                <span class="rec-dot"></span> REC &nbsp;<span id="rec-timer-txt">0:00</span>
+                &nbsp;/&nbsp; <span id="rec-limit-txt">0:60</span>
+            </div>
+
+            <div class="ctrl-row">
+                <!-- Flip camera -->
+                <button class="ctrl-btn" onclick="flipUserCamera()" title="Flip kamera">
+                    <i class="fa-solid fa-camera-rotate"></i>
+                </button>
+
+                <!-- Speed control -->
+                <button class="ctrl-btn" id="speed-btn" onclick="cycleSpeed()" title="Laju">
+                    <span id="speed-label" style="font-size:12px;font-weight:800;">1x</span>
+                </button>
+
+                <!-- RECORD button -->
+                <div id="record-btn" onclick="toggleRecord()">
+                    <i class="fa-solid fa-circle" style="font-size:22px;" id="rec-icon"></i>
+                </div>
+
+                <!-- Mute original -->
+                <button class="ctrl-btn" id="mute-orig-btn" onclick="toggleOriginalMute()" title="Bunyi original">
+                    <i class="fa-solid fa-volume-high" id="orig-vol-icon"></i>
+                </button>
+
+                <!-- Timer setting -->
+                <button class="ctrl-btn" id="timer-btn" onclick="cycleTimer()" title="Timer">
+                    <i class="fa-solid fa-stopwatch" style="font-size:16px;"></i>
+                    <span id="timer-label" style="font-size:9px;position:absolute;margin-top:16px;">OFF</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal (after recording) -->
+    <div id="preview-modal">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #111;">
+            <button onclick="discardRecording()"
+                style="background:transparent;border:none;color:#888;font-size:14px;cursor:pointer;font-family:inherit;">
+                Rakam Semula
+            </button>
+            <strong style="flex:1;text-align:center;font-size:15px;font-weight:800;">Pratonton</strong>
+            <button onclick="proceedToUpload()"
+                style="background:#fe2c55;border:none;color:#fff;padding:8px 16px;border-radius:20px;
+                       font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">
+                Seterusnya →
+            </button>
+        </div>
+
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;background:#0a0a0a;">
+            <video id="preview-video" controls playsinline
+                style="max-height:70vh;max-width:100%;object-fit:contain;border-radius:8px;"></video>
+        </div>
+
+        <div style="padding:16px;border-top:1px solid #111;">
+            <div style="display:flex;gap:10px;">
+                <div style="flex:1;background:#111;border-radius:10px;padding:12px;text-align:center;">
+                    <p id="preview-duration" style="margin:0;font-size:18px;font-weight:900;">—</p>
+                    <p style="margin:4px 0 0;font-size:11px;color:#555;">Durasi</p>
+                </div>
+                <div style="flex:1;background:#111;border-radius:10px;padding:12px;text-align:center;">
+                    <p id="preview-mode" style="margin:0;font-size:18px;font-weight:900;">—</p>
+                    <p style="margin:4px 0 0;font-size:11px;color:#555;">Mod</p>
+                </div>
+                <div style="flex:1;background:#111;border-radius:10px;padding:12px;text-align:center;">
+                    <p id="preview-size" style="margin:0;font-size:18px;font-weight:900;">—</p>
+                    <p style="margin:4px 0 0;font-size:11px;color:#555;">Saiz</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // --- State ---
+        let originalVideoId  = null;
+        let originalVideoUrl = null;
+        let originalCreator  = null;
+        let userStream       = null;
+        let mediaRecorder    = null;
+        let recordedChunks   = [];
+        let recordedBlob     = null;
+        let isRecording      = false;
+        let useFrontCam      = true;
+        let isOrigMuted      = true;  // original muted by default (user controls)
+        let currentMode      = 'duet';
+        let playbackSpeed    = 1;
+        let countdownTimer   = 0;    // 0=off, 3=3s, 5=5s, 10=10s
+        let recSeconds       = 0;
+        let recInterval      = null;
+        let maxDuration      = 60;   // seconds
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Get params from URL
+            const params = new URLSearchParams(window.location.search);
+            originalVideoId  = params.get('videoId');
+            originalVideoUrl = params.get('videoUrl');
+            originalCreator  = params.get('creator') || 'Kreator';
+
+            if (!originalVideoUrl) {
+                showToast('URL video tidak ditemui.', 'error');
+                setTimeout(() => window.history.back(), 1500);
+                return;
+            }
+
+            // Load original video
+            const origVid = document.getElementById('original-video');
+            origVid.src   = decodeURIComponent(originalVideoUrl);
+            origVid.muted = true;
+            document.getElementById('orig-label').innerText = `@${originalCreator}`;
+
+            // Get user camera
+            await initUserCamera();
+        });
+
+        async function initUserCamera() {
+            try {
+                userStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: useFrontCam ? 'user' : 'environment',
+                             width: { ideal: 720 }, height: { ideal: 1280 } },
+                    audio: true,
+                });
+                document.getElementById('user-camera').srcObject = userStream;
+                showToast('Kamera bersedia! Tekan ⏺ untuk mula rakam.', 'info');
+            } catch (err) {
+                showToast('Kamera tidak dibenarkan: ' + err.message, 'error');
+            }
+        }
+
+        function setMode(mode, btn) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const screen = document.getElementById('dual-screen');
+            screen.className = mode + '-mode';
+
+            // In stitch mode: show original for first 5s then user takes over
+            if (mode === 'stitch') {
+                showToast('Stitch: video original dimainkan dahulu, kemudian kamera anda.', 'info');
+                document.getElementById('rec-limit-txt').innerText = '0:15'; // Stitch max 15s
+                maxDuration = 15;
+            } else {
+                document.getElementById('rec-limit-txt').innerText = '0:60';
+                maxDuration = 60;
+            }
+        }
+
+        async function toggleRecord() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                if (countdownTimer > 0) {
+                    await runCountdown(countdownTimer);
+                }
+                startRecording();
+            }
+        }
+
+        function runCountdown(seconds) {
+            return new Promise(resolve => {
+                const el = document.getElementById('countdown-display');
+                el.style.display = 'flex';
+                let remaining = seconds;
+                el.innerText = remaining;
+                const iv = setInterval(() => {
+                    remaining--;
+                    if (remaining <= 0) {
+                        clearInterval(iv);
+                        el.style.display = 'none';
+                        resolve();
+                    } else {
+                        el.innerText = remaining;
+                    }
+                }, 1000);
+            });
+        }
+
+        function startRecording() {
+            if (!userStream) return showToast('Kamera belum bersedia.', 'warning');
+
+            recordedChunks = [];
+
+            // Combine user audio with canvas if needed (simplified: record user stream only)
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+                ? 'video/webm;codecs=vp9,opus'
+                : 'video/webm';
+
+            mediaRecorder = new MediaRecorder(userStream, { mimeType });
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder.onstop = buildPreview;
+            mediaRecorder.start(100);
+
+            // Play original video from start
+            const origVid = document.getElementById('original-video');
+            origVid.currentTime = 0;
+            origVid.muted        = isOrigMuted;
+            origVid.playbackRate = playbackSpeed;
+            origVid.play();
+
+            // UI
+            isRecording = true;
+            document.getElementById('record-btn').classList.add('recording');
+            document.getElementById('rec-icon').className = 'fa-solid fa-stop';
+            document.getElementById('rec-status').style.display = 'block';
+            document.getElementById('rec-progress').style.display = 'block';
+
+            recSeconds = 0;
+            recInterval = setInterval(() => {
+                recSeconds++;
+                document.getElementById('rec-timer-txt').innerText = fmtSecs(recSeconds);
+                document.getElementById('rec-bar').style.width = (recSeconds / maxDuration * 100) + '%';
+                if (recSeconds >= maxDuration) stopRecording();
+            }, 1000);
+        }
+
+        function stopRecording() {
+            if (!isRecording) return;
+            isRecording = false;
+            clearInterval(recInterval);
+            mediaRecorder?.stop();
+
+            document.getElementById('original-video').pause();
+            document.getElementById('record-btn').classList.remove('recording');
+            document.getElementById('rec-icon').className    = 'fa-solid fa-circle';
+            document.getElementById('rec-status').style.display  = 'none';
+            document.getElementById('rec-progress').style.display = 'none';
+            document.getElementById('rec-bar').style.width = '0%';
+        }
+
+        function buildPreview() {
+            recordedBlob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url    = URL.createObjectURL(recordedBlob);
+
+            document.getElementById('preview-video').src = url;
+            document.getElementById('preview-duration').innerText = fmtSecs(recSeconds);
+            document.getElementById('preview-mode').innerText  = currentMode === 'duet' ? 'Duet' : 'Stitch';
+            document.getElementById('preview-size').innerText  = formatBytes(recordedBlob.size);
+
+            const modal   = document.getElementById('preview-modal');
+            modal.style.display = 'flex';
+            modal.style.flexDirection = 'column';
+        }
+
+        function discardRecording() {
+            document.getElementById('preview-modal').style.display = 'none';
+            document.getElementById('preview-video').src = '';
+            recordedBlob   = null;
+            recordedChunks = [];
+        }
+
+        async function proceedToUpload() {
+            if (!recordedBlob) return;
+
+            // Convert Blob to File
+            const file = new File([recordedBlob],
+                `duet_${Date.now()}.webm`,
+                { type: 'video/webm' });
+
+            // Save to localStorage for upload page to pick up
+            const reader = new FileReader();
+            reader.onload = () => {
+                // Too large for localStorage; use sessionStorage or IndexedDB
+                // For demo: pass metadata and redirect
+                localStorage.setItem('sf_duet_meta', JSON.stringify({
+                    mode:            currentMode,
+                    originalVideoId: originalVideoId,
+                    originalCreator: originalCreator,
+                    duration:        recSeconds,
+                }));
+                showToast('Mengalihkan ke halaman upload...', 'info');
+                setTimeout(() => window.location.href = 'upload.html?from=duet', 1000);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function flipUserCamera() {
+            useFrontCam = !useFrontCam;
+            userStream?.getTracks().forEach(t => t.stop());
+            await initUserCamera();
+        }
+
+        function toggleOriginalMute() {
+            isOrigMuted = !isOrigMuted;
+            document.getElementById('original-video').muted = isOrigMuted;
+            const icon = document.getElementById('orig-vol-icon');
+            icon.className = isOrigMuted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
+        }
+
+        function cycleSpeed() {
+            const speeds = [0.5, 1, 1.5, 2];
+            const idx    = speeds.indexOf(playbackSpeed);
+            playbackSpeed = speeds[(idx + 1) % speeds.length];
+            document.getElementById('speed-label').innerText = playbackSpeed + 'x';
+            document.getElementById('original-video').playbackRate = playbackSpeed;
+        }
+
+        function cycleTimer() {
+            const options = [0, 3, 5, 10];
+            const idx  = options.indexOf(countdownTimer);
+            countdownTimer = options[(idx + 1) % options.length];
+            document.getElementById('timer-label').innerText = countdownTimer === 0 ? 'OFF' : countdownTimer + 's';
+            showToast(countdownTimer === 0 ? 'Timer dimatikan.' : `Timer: ${countdownTimer} saat`, 'info');
+        }
+
+        function exitDuet() {
+            userStream?.getTracks().forEach(t => t.stop());
+            window.history.back();
+        }
+
+        function fmtSecs(s) {
+            return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+        }
+
+        function formatBytes(b) {
+            return b > 1048576 ? (b/1048576).toFixed(1)+'MB' : (b/1024).toFixed(0)+'KB';
+        }
+    </script>
+</body>
+</html>

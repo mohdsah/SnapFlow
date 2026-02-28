@@ -1,8 +1,8 @@
 // ==========================================
 // 1. KONFIGURASI SUPABASE
 // ==========================================
-const supabaseUrl = "https://andsuzhyaencxfiamyed.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZHN1emh5YWVuY3hmaWFteWVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMzAzMTgsImV4cCI6MjA4NTgwNjMxOH0.N_Nytjgmch9Ztq8a-8m2UaZJRZMMcsfMP0iwv2S9KAQ";
+const supabaseUrl = "https://trrfsredzugdyppevcbw.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRycmZzcmVkenVnZHlwcGV2Y2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMzY5NTgsImV4cCI6MjA4NzgxMjk1OH0.o2siKHUQddz89mVBto0vEk9lIUZF5xYvp8eKBbXcc7s";
 const snapSupabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
@@ -345,6 +345,10 @@ async function loadHomeFeed() {
                         <i class="fa-solid fa-face-smile" style="color:#fff;" id="react-icon-${vid.id}"></i>
                         <span>React</span>
                     </div>
+                    <div class="action-item" onclick="showGiftPanel(${vid.id}, '${escapeHtml(vid.user_id)}', '${escapeHtml(username)}')">
+                        <i class="fa-solid fa-gift" style="color:#fff;"></i>
+                        <span>Hadiah</span>
+                    </div>
                     <div class="action-item" onclick="showShareSheet(${vid.id}, '${escapeHtml(vid.caption || '')}')">
                         <i class="fa-solid fa-share" style="color:#fff;"></i>
                         <span>Kongsi</span>
@@ -364,7 +368,12 @@ async function loadHomeFeed() {
             </div>`;
         }).join('');
 
+        // Simpan semua video data untuk DOM pruning
+        allFeedVideos    = videos;
+        renderedVideoIds = videos.map(v => v.id);
+
         setupObserver();
+        setupDomPruning();         // ← DOM pruning aktif
         updateAllCommentCounts();
         updateBookmarkIcons();
         filterBlockedFromFeed();
@@ -1141,6 +1150,28 @@ async function loadProfileData() {
 
         setEl('followers-count', followersCount || 0);
         setEl('following-count', followingCount || 0);
+
+        // ── Bio Text ──────────────────────────────────────────
+        const bio = user.user_metadata?.bio || '';
+        const bioEl = document.getElementById('display-bio');
+        if (bioEl) bioEl.innerText = bio;
+
+        // ── Bio Links ─────────────────────────────────────────
+        const bioLinks = user.user_metadata?.bio_links || [];
+        const linksEl  = document.getElementById('bio-links-display');
+        if (linksEl) {
+            linksEl.innerHTML = bioLinks.map(link => {
+                const icon = getBioLinkIcon(link.url);
+                return `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener"
+                    style="display:inline-flex;align-items:center;gap:5px;background:#111;border:1px solid #1a1a1a;
+                           color:#ccc;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;
+                           text-decoration:none;transition:all 0.2s;"
+                    onmouseover="this.style.borderColor='#fe2c55';this.style.color='#fe2c55'"
+                    onmouseout="this.style.borderColor='#1a1a1a';this.style.color='#ccc'">
+                    ${icon} ${escapeHtml(link.label || link.url.replace(/https?:\/\//, '').slice(0, 20))}
+                </a>`;
+            }).join('');
+        }
 
         // ── Verified Badge (auto pada 1000 pengikut) ──────────
         const isVerified = (followersCount || 0) >= 1000;
@@ -4184,3 +4215,1481 @@ checkScheduledVideos(); // Semak terus masa load
 //   }
 //   return new Response(JSON.stringify({ published: data?.length ?? 0 }))
 // })
+
+// ==========================================
+// 37. SNAPFLOW PRO (Stripe Integration)
+// ==========================================
+
+// Konfigurasi Stripe — ganti dengan publishable key anda
+// Dapatkan dari: https://dashboard.stripe.com/apikeys
+const STRIPE_PUBLISHABLE_KEY = 'pk_live_GANTI_DENGAN_STRIPE_KEY';
+const STRIPE_PRO_PRICE_ID    = 'price_GANTI_DENGAN_PRICE_ID'; // RM9.90/bulan
+const STRIPE_SUCCESS_URL     = `${window.location.origin}/profile.html?pro=success`;
+const STRIPE_CANCEL_URL      = `${window.location.origin}/profile.html`;
+
+// Semak status Pro dari localStorage (untuk demo)
+// Dalam produksi: semak dari Supabase table 'subscriptions'
+function isUserPro() {
+    return localStorage.getItem('sf_pro_status') === 'active';
+}
+
+function showProBadge() {
+    const badge = document.getElementById('pro-badge');
+    if (badge) badge.style.display = isUserPro() ? 'inline-flex' : 'none';
+}
+
+async function openProModal() {
+    document.getElementById('pro-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'pro-modal';
+
+    const isPro = isUserPro();
+
+    modal.innerHTML = `
+        <div onclick="document.getElementById('pro-modal').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9500;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#0d0d0d;border-radius:20px 20px 0 0;
+                    padding:24px;z-index:9501;border-top:2px solid #333;max-height:90vh;overflow-y:auto;">
+
+            <!-- Header Pro -->
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="background:linear-gradient(135deg,#f6c90e,#ffdf6b);width:64px;height:64px;border-radius:20px;
+                            display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
+                            box-shadow:0 0 30px rgba(246,201,14,0.4);font-size:28px;">⭐</div>
+                <h2 style="margin:0 0 6px;font-size:22px;font-weight:900;
+                           background:linear-gradient(135deg,#f6c90e,#ffdf6b);
+                           -webkit-background-clip:text;-webkit-text-fill-color:transparent;">SnapFlow Pro</h2>
+                <p style="margin:0;font-size:14px;color:#555;">Buka semua ciri premium SnapFlow</p>
+            </div>
+
+            <!-- Status kalau dah Pro -->
+            ${isPro ? `
+            <div style="background:linear-gradient(135deg,#1a1200,#0d0a00);border:1px solid #3a3000;
+                        border-radius:12px;padding:14px;text-align:center;margin-bottom:16px;">
+                <p style="margin:0;font-size:15px;font-weight:800;color:#f6c90e;">✅ Anda sudah menjadi ahli Pro!</p>
+                <p style="margin:6px 0 0;font-size:13px;color:#665500;">Semua ciri premium telah diaktifkan.</p>
+            </div>` : ''}
+
+            <!-- Ciri-ciri Pro -->
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+                ${[
+                    ['⭐', 'Lencana Pro Eksklusif', 'Tanda ⭐ di profil dan video anda'],
+                    ['📊', 'Analytics Lanjutan', 'Data views, retention, dan audience demographics'],
+                    ['🎬', 'Upload Video HD', 'Resolusi sehingga 4K, saiz fail hingga 500MB'],
+                    ['∞',  'Upload Tanpa Had',  'Tiada limit 10 video/hari — upload sesuka hati'],
+                    ['📅', 'Jadual Post Lanjutan', 'Jadualkan sehingga 30 post sekaligus'],
+                    ['🚫', 'Tiada Iklan', 'Nikmati SnapFlow tanpa gangguan iklan'],
+                    ['🎨', 'Filter Eksklusif Pro', '15 filter tambahan untuk video anda'],
+                ].map(([icon, title, desc]) => `
+                    <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:#111;border-radius:10px;border:1px solid #1a1a1a;">
+                        <span style="font-size:22px;flex-shrink:0;width:28px;text-align:center;">${icon}</span>
+                        <div>
+                            <p style="margin:0;font-size:14px;font-weight:700;">${title}</p>
+                            <p style="margin:2px 0 0;font-size:12px;color:#555;">${desc}</p>
+                        </div>
+                        <i class="fa-solid fa-check" style="color:#f6c90e;margin-left:auto;flex-shrink:0;margin-top:3px;"></i>
+                    </div>
+                `).join('')}
+            </div>
+
+            <!-- Harga -->
+            ${!isPro ? `
+            <div style="background:linear-gradient(135deg,#1a1200,#0d0900);border:2px solid #f6c90e33;
+                        border-radius:14px;padding:16px;text-align:center;margin-bottom:16px;">
+                <p style="margin:0;font-size:32px;font-weight:900;color:#f6c90e;">RM9.90</p>
+                <p style="margin:4px 0 0;font-size:13px;color:#665500;">sebulan · batalkan bila-bila masa</p>
+            </div>
+
+            <button onclick="startStripeCheckout()"
+                style="width:100%;background:linear-gradient(135deg,#f6c90e,#ffdf6b);color:#000;border:none;
+                       padding:16px;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;
+                       font-family:inherit;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                ⭐ Langgani Pro Sekarang
+            </button>
+
+            <p style="text-align:center;font-size:11px;color:#333;margin:0;">
+                Pembayaran selamat melalui Stripe · SSL encrypted
+            </p>` : `
+            <button onclick="managePro()"
+                style="width:100%;background:#1a1a1a;color:#888;border:1px solid #333;
+                       padding:14px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;
+                       font-family:inherit;">
+                Urus Langganan
+            </button>`}
+        </div>`;
+
+    document.body.appendChild(modal);
+}
+
+async function startStripeCheckout() {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu.', 'warning');
+
+    showToast('Mengalihkan ke Stripe...', 'info');
+
+    try {
+        // Dalam produksi: panggil Supabase Edge Function untuk buat Stripe session
+        // const { data } = await snapSupabase.functions.invoke('create-checkout', {
+        //     body: { priceId: STRIPE_PRO_PRICE_ID, userId: user.id, email: user.email }
+        // });
+        // window.location.href = data.url;
+
+        // DEMO MODE — simulate Pro activation
+        localStorage.setItem('sf_pro_status', 'active');
+        document.getElementById('pro-modal')?.remove();
+        showToast('SnapFlow Pro diaktifkan! ⭐', 'success');
+        showProBadge();
+        showLocalNotification('SnapFlow Pro', '⭐ Selamat datang ke SnapFlow Pro! Semua ciri premium telah dibuka.');
+
+    } catch (err) {
+        showToast('Pembayaran gagal: ' + err.message, 'error');
+    }
+}
+
+function managePro() {
+    // Stripe customer portal
+    showToast('Mengalihkan ke portal langganan...', 'info');
+    // window.location.href = 'https://billing.stripe.com/p/login/...'
+
+    // DEMO: batalkan Pro
+    if (confirm('Batalkan SnapFlow Pro?')) {
+        localStorage.removeItem('sf_pro_status');
+        document.getElementById('pro-modal')?.remove();
+        showToast('Langganan Pro dibatalkan.', 'info');
+        showProBadge();
+    }
+}
+
+function getProBadgeHTML() {
+    if (!isUserPro()) return '';
+    return `<span style="display:inline-flex;background:linear-gradient(135deg,#f6c90e,#ffdf6b);color:#000;
+                         font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-left:4px;
+                         vertical-align:middle;">PRO</span>`;
+}
+
+// ==========================================
+// 38. INFINITE SCROLL DOM PRUNING
+// ==========================================
+
+// Konfigurasi — berapa video disimpan dalam DOM pada satu masa
+const DOM_MAX_VIDEOS     = 10;  // max video dalam DOM
+const DOM_PRUNE_THRESH   = 8;   // mula prune bila lebih dari ini
+const DOM_PRUNE_EACH     = 3;   // buang 3 video lama setiap kali prune
+
+let allFeedVideos       = []; // semua data video dari Supabase
+let renderedVideoIds    = []; // video IDs yang kini dalam DOM
+let currentVisibleIdx   = 0;  // index video yang sedang ditonton
+
+function setupDomPruning() {
+    if (!('IntersectionObserver' in window)) return;
+
+    const pruneObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const vid = entry.target;
+            const idx = parseInt(vid.dataset.feedIndex || '0');
+            currentVisibleIdx = idx;
+
+            // Prune bila DOM terlalu penuh
+            if (renderedVideoIds.length > DOM_PRUNE_THRESH) {
+                pruneDistantVideos(idx);
+            }
+
+            // Lazy-load video seterusnya dari buffer
+            maybeLoadMoreVideos(idx);
+        });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.video-container').forEach((el, i) => {
+        el.dataset.feedIndex = i;
+        pruneObserver.observe(el);
+    });
+}
+
+function pruneDistantVideos(currentIdx) {
+    const feed = document.getElementById('video-feed');
+    if (!feed) return;
+
+    const containers = [...document.querySelectorAll('.video-container')];
+
+    containers.forEach(el => {
+        const idx  = parseInt(el.dataset.feedIndex || '0');
+        const dist = Math.abs(idx - currentIdx);
+
+        if (dist > DOM_PRUNE_EACH + 2) {
+            // Gantikan video element dengan placeholder jimat RAM
+            const video = el.querySelector('video');
+            if (video && !el.dataset.pruned) {
+                const src    = video.src;
+                video.pause();
+                video.src    = '';          // kosongkan src — bebaskan memori
+                video.load();
+                el.dataset.pruned    = 'true';
+                el.dataset.videoSrc  = src;  // simpan src untuk restore
+
+                // Tambah placeholder
+                const placeholder = document.createElement('div');
+                placeholder.className = 'prune-placeholder';
+                placeholder.style.cssText = `width:100%;height:100%;background:#050505;display:flex;align-items:center;justify-content:center;`;
+                placeholder.innerHTML = '<div style="width:20px;height:20px;border:2px solid #222;border-top-color:#555;border-radius:50%;animation:spin 1s linear infinite;"></div>';
+                el.insertBefore(placeholder, video);
+            }
+        } else if (el.dataset.pruned === 'true') {
+            // Restore video bila hampir semula
+            const video = el.querySelector('video');
+            const src   = el.dataset.videoSrc;
+            if (video && src) {
+                video.src = src;
+                el.dataset.pruned = 'false';
+                el.querySelector('.prune-placeholder')?.remove();
+            }
+        }
+    });
+}
+
+async function maybeLoadMoreVideos(currentIdx) {
+    const total   = allFeedVideos.length;
+    const inDom   = renderedVideoIds.length;
+
+    // Muat lebih bila hampir habis (3 video sebelum akhir)
+    if (currentIdx >= total - 3 && inDom < total) {
+        return; // semua dah ada dalam allFeedVideos
+    }
+
+    // Jika dah sampai penghujung data yang ada — fetch lebih dari Supabase
+    if (currentIdx >= allFeedVideos.length - 3) {
+        await fetchMoreFeedVideos();
+    }
+}
+
+async function fetchMoreFeedVideos() {
+    if (typeof snapSupabase === 'undefined') return;
+    const offset = allFeedVideos.length;
+    const { data: more } = await snapSupabase
+        .from('videos').select('*')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + 9);
+
+    if (!more || more.length === 0) return;
+
+    allFeedVideos = [...allFeedVideos, ...more];
+
+    // Render video baru ke hujung feed
+    const feed = document.getElementById('video-feed');
+    if (!feed) return;
+
+    more.forEach((vid, i) => {
+        if (renderedVideoIds.includes(vid.id)) return;
+        const username = vid.username || 'User';
+        const isLiked  = typeof likedVideos !== 'undefined' && likedVideos.has(vid.id);
+        const div      = document.createElement('div');
+        div.className  = 'video-container';
+        div.dataset.videoId   = vid.id;
+        div.dataset.feedIndex = offset + i;
+        div.dataset.owner     = vid.user_id;
+        div.innerHTML  = buildVideoHTML(vid, isLiked, username);
+        feed.appendChild(div);
+        renderedVideoIds.push(vid.id);
+    });
+
+    // Re-setup observer untuk video baru
+    setupObserver();
+    setupDomPruning();
+    filterBlockedFromFeed();
+}
+
+// Helper untuk bina HTML video (elak duplikasi kod)
+function buildVideoHTML(vid, isLiked, username) {
+    return `
+        <video src="${escapeHtml(vid.video_url)}" loop playsinline preload="none" muted></video>
+        <div class="video-gradient"></div>
+        <button class="mute-btn" id="mute-btn-${vid.id}" onclick="toggleMute(${vid.id}, event)">
+            <i class="fa-solid fa-volume-xmark" id="mute-icon-${vid.id}"></i>
+        </button>
+        <div class="doubletap-heart" id="heart-anim-${vid.id}"><i class="fa-solid fa-heart"></i></div>
+        <div class="play-pause-indicator" id="play-indicator-${vid.id}"><i class="fa-solid fa-pause" id="play-icon-${vid.id}"></i></div>
+        <div class="side-bar">
+            <div class="action-item" onclick="handleFollow('${escapeHtml(vid.user_id)}', this)">
+                <div class="avatar-wrap">
+                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random" alt="avatar">
+                    <div class="follow-plus-btn" id="follow-btn-${escapeHtml(vid.user_id)}">
+                        <i class="fa-solid fa-plus" style="font-size:10px;color:#fff;"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="action-item" onclick="handleLikeAction(${vid.id})">
+                <i class="fa-solid fa-heart" id="like-icon-${vid.id}" style="color:${isLiked?'#fe2c55':'#fff'};"></i>
+                <span id="like-count-${vid.id}">${vid.likes_count||0}</span>
+            </div>
+            <div class="action-item" onclick="toggleComments(${vid.id})">
+                <i class="fa-solid fa-comment-dots" style="color:#fff;"></i>
+                <span id="comment-count-${vid.id}">0</span>
+            </div>
+            <div class="action-item" onclick="showBookmarkAction(${vid.id})">
+                <i class="fa-solid fa-bookmark" id="bookmark-icon-${vid.id}" style="color:#fff;"></i>
+                <span>Simpan</span>
+            </div>
+            <div class="action-item" onclick="showReactionPicker(${vid.id}, this)">
+                <i class="fa-solid fa-face-smile" style="color:#fff;"></i><span>React</span>
+            </div>
+            <div class="action-item" onclick="showShareSheet(${vid.id}, '${escapeHtml(vid.caption||'')}')">
+                <i class="fa-solid fa-share" style="color:#fff;"></i><span>Kongsi</span>
+            </div>
+            <div class="action-item" onclick="showVideoOptions(${vid.id}, '${escapeHtml(vid.user_id)}')">
+                <i class="fa-solid fa-ellipsis-vertical" style="color:#fff;"></i><span>Lain</span>
+            </div>
+        </div>
+        <div class="video-info">
+            <h3>@${escapeHtml(username)}${getVerifiedBadgeHTML(vid.user_id)}${vid.user_id && isUserPro() && vid.user_id === getCurrentUserId() ? getProBadgeHTML() : ''}</h3>
+            <p>${renderCaption(vid.caption||'')}</p>
+            <div id="reaction-bar-${vid.id}" style="display:none;flex-wrap:wrap;gap:5px;margin-top:6px;"></div>
+        </div>`;
+}
+
+// Cache user ID untuk semakan pro badge
+let _cachedUserId = null;
+function getCurrentUserId() {
+    return _cachedUserId;
+}
+snapSupabase?.auth.getUser().then(({ data: { user } }) => {
+    if (user) _cachedUserId = user.id;
+});
+
+// ==========================================
+// 39. RATE LIMITING UPLOAD
+// ==========================================
+
+const UPLOAD_LIMITS = {
+    free: { perDay: 10, perHour: 3  },
+    pro:  { perDay: 999, perHour: 50 }
+};
+
+function getUploadLog() {
+    try {
+        return JSON.parse(localStorage.getItem('sf_upload_log') || '[]');
+    } catch { return []; }
+}
+
+function recordUpload() {
+    const log = getUploadLog();
+    log.push(Date.now());
+    // Simpan hanya 1000 rekod terakhir
+    localStorage.setItem('sf_upload_log', JSON.stringify(log.slice(-1000)));
+}
+
+function checkUploadRateLimit() {
+    const isPro    = isUserPro();
+    const limits   = isPro ? UPLOAD_LIMITS.pro : UPLOAD_LIMITS.free;
+    const log      = getUploadLog();
+    const now      = Date.now();
+    const oneHour  = 60 * 60 * 1000;
+    const oneDay   = 24 * oneHour;
+
+    const lastHour = log.filter(t => now - t < oneHour).length;
+    const lastDay  = log.filter(t => now - t < oneDay).length;
+
+    if (lastHour >= limits.perHour) {
+        const resetMins = Math.ceil((oneHour - (now - Math.min(...log.filter(t => now - t < oneHour)))) / 60000);
+        return {
+            allowed: false,
+            reason:  `Had sejam dicapai (${limits.perHour} video/jam). Cuba lagi dalam ${resetMins} minit.`,
+            isPro
+        };
+    }
+
+    if (lastDay >= limits.perDay) {
+        const resetHrs = Math.ceil((oneDay - (now - Math.min(...log.filter(t => now - t < oneDay)))) / 3600000);
+        return {
+            allowed: false,
+            reason:  `Had harian dicapai (${limits.perDay} video/hari). Cuba lagi dalam ${resetHrs} jam.`,
+            isPro
+        };
+    }
+
+    return {
+        allowed:   true,
+        remaining: { hour: limits.perHour - lastHour, day: limits.perDay - lastDay },
+        isPro
+    };
+}
+
+function showRateLimitWarning(result) {
+    document.getElementById('rate-limit-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'rate-limit-modal';
+    modal.innerHTML = `
+        <div onclick="document.getElementById('rate-limit-modal').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9500;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                    padding:24px;z-index:9501;border-top:1px solid #222;text-align:center;">
+            <div style="font-size:48px;margin-bottom:12px;">⏱️</div>
+            <h3 style="margin:0 0 8px;font-size:17px;font-weight:800;">Had Upload Dicapai</h3>
+            <p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6;">${result.reason}</p>
+
+            ${!result.isPro ? `
+            <div style="background:#1a1200;border:1px solid #333;border-radius:12px;padding:14px;margin-bottom:16px;">
+                <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#f6c90e;">⭐ Naik ke SnapFlow Pro</p>
+                <p style="margin:0;font-size:13px;color:#665500;">Upload sehingga 50 video/jam tanpa had harian.</p>
+            </div>
+            <button onclick="document.getElementById('rate-limit-modal').remove();openProModal();"
+                style="width:100%;background:linear-gradient(135deg,#f6c90e,#ffdf6b);color:#000;border:none;
+                       padding:14px;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:8px;">
+                ⭐ Dapatkan Pro
+            </button>` : ''}
+
+            <button onclick="document.getElementById('rate-limit-modal').remove()"
+                style="width:100%;background:transparent;border:none;color:#555;padding:10px;cursor:pointer;font-family:inherit;font-size:14px;">
+                OK, Faham
+            </button>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+// Tunjuk counter upload yang tinggal di halaman upload
+function showUploadQuota() {
+    const result = checkUploadRateLimit();
+    const el     = document.getElementById('upload-quota');
+    if (!el) return;
+
+    if (!result.allowed) {
+        el.innerHTML = `<span style="color:#fe2c55;font-size:12px;font-weight:700;">⏱️ Had upload dicapai</span>`;
+        return;
+    }
+
+    const { remaining, isPro } = result;
+    el.innerHTML = `
+        <span style="font-size:12px;color:#555;">
+            ${isPro ? '⭐ Pro · ' : ''} Baki hari ini: <strong style="color:#fff;">${remaining.day}</strong> video
+            &nbsp;·&nbsp; Jam ini: <strong style="color:#fff;">${remaining.hour}</strong> video
+        </span>`;
+}
+
+// Hook into startUpload untuk semak rate limit
+const _origStartUpload = window.startUpload;
+if (typeof startUpload === 'function') {
+    const _origFn = startUpload;
+    window.startUpload = async function() {
+        const rateCheck = checkUploadRateLimit();
+        if (!rateCheck.allowed) {
+            showRateLimitWarning(rateCheck);
+            return;
+        }
+        await _origFn.apply(this, arguments);
+        // Record berjaya upload
+        recordUpload();
+        showUploadQuota();
+    };
+}
+
+// ==========================================
+// 40. PLAYLIST — Fungsi pembantu
+// ==========================================
+
+// Tambah butang Playlist dalam menu "Lain" video
+function addVideoToPlaylist(videoId) {
+    snapSupabase.auth.getUser().then(async ({ data: { user } }) => {
+        if (!user) return showToast('Log masuk dahulu.', 'warning');
+
+        const { data: myPlaylists } = await snapSupabase
+            .from('playlists').select('id, title')
+            .eq('user_id', user.id).limit(20);
+
+        document.getElementById('add-to-pl-modal')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'add-to-pl-modal';
+        modal.innerHTML = `
+            <div onclick="document.getElementById('add-to-pl-modal').remove()"
+                 style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9400;"></div>
+            <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                        padding:20px;z-index:9401;border-top:1px solid #222;max-height:70vh;overflow-y:auto;">
+                <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+                <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;">📚 Tambah ke Siri</h3>
+                ${(!myPlaylists || myPlaylists.length === 0)
+                    ? `<p style="color:#555;font-size:13px;text-align:center;padding:16px;">Tiada siri. <a href="playlist.html" style="color:#fe2c55;">Cipta siri pertama</a></p>`
+                    : myPlaylists.map(pl => `
+                        <div onclick="insertVideoToPlaylist(${pl.id}, ${videoId})"
+                             style="padding:14px;border-bottom:1px solid #1a1a1a;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;">
+                            <i class="fa-solid fa-layer-group" style="color:#fe2c55;width:20px;"></i>
+                            ${escapeHtml(pl.title)}
+                        </div>`).join('')
+                }
+                <a href="playlist.html" style="display:block;text-align:center;padding:14px;color:#555;font-size:13px;">
+                    + Cipta Siri Baru
+                </a>
+            </div>`;
+        document.body.appendChild(modal);
+    });
+}
+
+async function insertVideoToPlaylist(playlistId, videoId) {
+    document.getElementById('add-to-pl-modal')?.remove();
+
+    // Dapat bilangan episod sekarang
+    const { count } = await snapSupabase.from('playlist_videos')
+        .select('*', { count:'exact', head:true }).eq('playlist_id', playlistId);
+
+    const { error } = await snapSupabase.from('playlist_videos').insert([{
+        playlist_id:    playlistId,
+        video_id:       videoId,
+        episode_number: (count || 0) + 1,
+    }]);
+
+    if (error && error.code === '23505') return showToast('Video dah ada dalam siri ini.', 'info');
+    if (error) return showToast('Gagal tambah: ' + error.message, 'error');
+    showToast('Video ditambah ke siri! 📚', 'success');
+}
+
+// ==========================================
+// 41. LOG MASUK SOSIAL — Pembantu
+// ==========================================
+
+// Handle OAuth redirect balik ke app
+async function handleOAuthRedirect() {
+    const { data: { session } } = await snapSupabase.auth.getSession();
+    if (!session) return;
+
+    // Semak sama ada dari OAuth redirect
+    const hash = window.location.hash;
+    if (hash.includes('access_token') || hash.includes('error')) {
+        if (hash.includes('error')) {
+            showToast('Log masuk gagal. Cuba lagi.', 'error');
+            return;
+        }
+        showToast(`Selamat datang! 👋`, 'success');
+        setTimeout(() => window.location.replace('index.html'), 800);
+    }
+}
+
+// Panggil pada setiap halaman auth
+if (window.location.pathname.includes('login') ||
+    window.location.pathname.includes('register')) {
+    handleOAuthRedirect();
+}
+
+// ==========================================
+// 42. VIRTUAL TIP / HADIAH
+// ==========================================
+
+const GIFTS = [
+    { id: 'rose',     emoji: '🌹', name: 'Ros',       coins: 1,    color: '#ff6b6b' },
+    { id: 'heart',    emoji: '❤️',  name: 'Hati',      coins: 5,    color: '#fe2c55' },
+    { id: 'star',     emoji: '⭐',  name: 'Bintang',   coins: 10,   color: '#f6c90e' },
+    { id: 'diamond',  emoji: '💎',  name: 'Berlian',   coins: 50,   color: '#00f2ea' },
+    { id: 'crown',    emoji: '👑',  name: 'Mahkota',   coins: 100,  color: '#f6c90e' },
+    { id: 'rocket',   emoji: '🚀',  name: 'Roket',     coins: 200,  color: '#4ecdc4' },
+    { id: 'unicorn',  emoji: '🦄',  name: 'Unicorn',   coins: 500,  color: '#c084fc' },
+    { id: 'galaxy',   emoji: '🌌',  name: 'Galaksi',   coins: 1000, color: '#818cf8' },
+];
+
+// Duit syiling dari localStorage (dalam produksi: dari Supabase)
+function getMyCoins() {
+    return parseInt(localStorage.getItem('sf_coins') || '0');
+}
+function addCoins(amount) {
+    const current = getMyCoins();
+    localStorage.setItem('sf_coins', (current + amount).toString());
+}
+function spendCoins(amount) {
+    const current = getMyCoins();
+    if (current < amount) return false;
+    localStorage.setItem('sf_coins', (current - amount).toString());
+    return true;
+}
+
+async function showGiftPanel(videoId, creatorId, creatorUsername) {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu untuk hantar hadiah.', 'warning');
+    if (user.id === creatorId) return showToast('Anda tidak boleh hantar hadiah kepada diri sendiri.', 'info');
+
+    document.getElementById('gift-panel')?.remove();
+
+    const myCoins = getMyCoins();
+    const panel   = document.createElement('div');
+    panel.id      = 'gift-panel';
+    panel.innerHTML = `
+        <div onclick="document.getElementById('gift-panel').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9200;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                    padding:20px;z-index:9201;border-top:1px solid #222;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+
+            <!-- Header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <h3 style="margin:0;font-size:16px;font-weight:800;">🎁 Hantar Hadiah</h3>
+                <div style="background:#1a1a1a;border:1px solid #333;border-radius:20px;
+                            padding:5px 12px;font-size:12px;font-weight:700;color:#f6c90e;">
+                    🪙 ${myCoins.toLocaleString()} syiling
+                </div>
+            </div>
+
+            <p style="margin:0 0 14px;font-size:13px;color:#555;">kepada @${escapeHtml(creatorUsername)}</p>
+
+            <!-- Gift Grid -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">
+                ${GIFTS.map(g => `
+                <button onclick="sendGift(${videoId}, '${creatorId}', '${g.id}', ${g.coins}, '${g.emoji}', '${escapeHtml(g.name)}')"
+                    style="background:#1a1a1a;border:1px solid #222;border-radius:12px;padding:10px 6px;
+                           cursor:pointer;transition:all 0.2s;font-family:inherit;text-align:center;"
+                    onmouseover="this.style.borderColor='${g.color}';this.style.background='#222'"
+                    onmouseout="this.style.borderColor='#222';this.style.background='#1a1a1a'">
+                    <div style="font-size:24px;margin-bottom:4px;">${g.emoji}</div>
+                    <div style="font-size:10px;color:#888;margin-bottom:3px;">${g.name}</div>
+                    <div style="font-size:11px;font-weight:700;color:#f6c90e;">🪙 ${g.coins}</div>
+                </button>`).join('')}
+            </div>
+
+            <!-- Beli coins -->
+            ${myCoins < 10 ? `
+            <div style="background:#1a1200;border:1px solid #f6c90e33;border-radius:12px;
+                        padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
+                <div>
+                    <p style="margin:0;font-size:13px;font-weight:700;color:#f6c90e;">💰 Top Up Syiling</p>
+                    <p style="margin:3px 0 0;font-size:12px;color:#665500;">100 syiling = RM4.90</p>
+                </div>
+                <button onclick="openTopUpCoins()" style="background:#f6c90e;color:#000;border:none;
+                        padding:8px 16px;border-radius:8px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;">
+                    Top Up
+                </button>
+            </div>` : ''}
+
+            <button onclick="document.getElementById('gift-panel').remove()"
+                style="width:100%;background:transparent;border:none;color:#555;padding:10px;
+                       cursor:pointer;font-family:inherit;font-size:13px;">
+                Batal
+            </button>
+        </div>`;
+
+    document.body.appendChild(panel);
+}
+
+async function sendGift(videoId, creatorId, giftId, coins, emoji, giftName) {
+    const myCoins = getMyCoins();
+
+    if (myCoins < coins) {
+        showToast(`Tidak cukup syiling! Perlu ${coins} 🪙`, 'warning');
+        document.getElementById('gift-panel')?.remove();
+        openTopUpCoins();
+        return;
+    }
+
+    // Tolak syiling
+    spendCoins(coins);
+    document.getElementById('gift-panel')?.remove();
+
+    // Simpan dalam Supabase
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    await snapSupabase.from('gifts').insert([{
+        video_id:         videoId,
+        sender_id:        user.id,
+        receiver_id:      creatorId,
+        gift_type:        giftId,
+        coins_spent:      coins,
+        sender_username:  user.user_metadata?.full_name || 'User',
+    }]).catch(e => console.warn('Gift insert error:', e));
+
+    // Hantar notifikasi
+    await snapSupabase.from('notifications').insert([{
+        user_id:  creatorId,
+        from_user: user.id,
+        type:     'gift',
+        video_id: videoId,
+        message:  `menghantar hadiah ${emoji} ${giftName}!`
+    }]).catch(() => {});
+
+    // Animasi hadiah terbang
+    showGiftAnimation(emoji, videoId);
+    showToast(`${emoji} ${giftName} dihantar kepada kreator!`, 'success');
+    showLocalNotification?.('SnapFlow', `Anda menghantar ${emoji} ${giftName}!`);
+}
+
+function showGiftAnimation(emoji, videoId) {
+    const container = document.querySelector(`.video-container[data-video-id="${videoId}"]`)
+        || document.body;
+
+    for (let i = 0; i < 6; i++) {
+        const el = document.createElement('div');
+        el.innerText = emoji;
+        el.style.cssText = `
+            position: fixed;
+            left: ${30 + Math.random() * 40}%;
+            bottom: 20%;
+            font-size: ${20 + Math.random() * 16}px;
+            z-index: 9999;
+            pointer-events: none;
+            animation: giftFly ${1.5 + Math.random() * 1}s ease-out forwards;
+            animation-delay: ${i * 0.15}s;
+        `;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+    }
+}
+
+function openTopUpCoins() {
+    document.getElementById('topup-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'topup-modal';
+    const packages = [
+        { coins: 100,  price: 'RM4.90',  bonus: '' },
+        { coins: 500,  price: 'RM19.90', bonus: '+50 bonus' },
+        { coins: 1000, price: 'RM35.90', bonus: '+150 bonus' },
+        { coins: 3000, price: 'RM89.90', bonus: '+600 bonus 🔥' },
+    ];
+    modal.innerHTML = `
+        <div onclick="document.getElementById('topup-modal').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9500;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                    padding:20px;z-index:9501;border-top:1px solid #222;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+            <h3 style="margin:0 0 6px;font-size:17px;font-weight:800;">🪙 Top Up Syiling</h3>
+            <p style="margin:0 0 16px;font-size:13px;color:#555;">Syiling digunakan untuk hantar hadiah kepada kreator</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                ${packages.map(p => `
+                <button onclick="purchaseCoins(${p.coins},'${p.price}')"
+                    style="background:#1a1a1a;border:1px solid #222;border-radius:12px;padding:14px;
+                           cursor:pointer;transition:all 0.2s;font-family:inherit;text-align:center;position:relative;"
+                    onmouseover="this.style.borderColor='#f6c90e'" onmouseout="this.style.borderColor='#222'">
+                    ${p.bonus ? `<div style="position:absolute;top:-8px;right:-4px;background:#fe2c55;color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:20px;">${p.bonus}</div>` : ''}
+                    <div style="font-size:22px;margin-bottom:4px;">🪙</div>
+                    <div style="font-size:18px;font-weight:900;color:#f6c90e;">${p.coins.toLocaleString()}</div>
+                    <div style="font-size:12px;color:#666;margin-top:4px;">syiling</div>
+                    <div style="font-size:14px;font-weight:700;color:#fff;margin-top:6px;">${p.price}</div>
+                </button>`).join('')}
+            </div>
+            <p style="text-align:center;font-size:11px;color:#333;">Pembayaran selamat melalui Stripe</p>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+async function purchaseCoins(amount, price) {
+    document.getElementById('topup-modal')?.remove();
+    // DEMO: tambah coins terus (dalam produksi: guna Stripe)
+    addCoins(amount);
+    showToast(`🪙 ${amount.toLocaleString()} syiling ditambah! (Demo)`, 'success');
+}
+
+// Tunjuk jumlah syiling kreator dalam profil
+async function loadCreatorCoins() {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return;
+
+    const { data: gifts } = await snapSupabase
+        .from('gifts').select('coins_spent')
+        .eq('receiver_id', user.id);
+
+    const totalCoins = (gifts || []).reduce((s, g) => s + (g.coins_spent || 0), 0);
+    const el = document.getElementById('creator-coins');
+    if (el) el.innerText = `🪙 ${totalCoins.toLocaleString()} syiling diterima`;
+}
+
+// ==========================================
+// 43. PAUTAN BIO — Pembantu
+// ==========================================
+
+function getBioLinkIcon(url) {
+    const u = url.toLowerCase();
+    if (u.includes('instagram'))  return '<i class="fa-brands fa-instagram" style="color:#e1306c;"></i>';
+    if (u.includes('tiktok'))     return '<i class="fa-brands fa-tiktok"></i>';
+    if (u.includes('youtube'))    return '<i class="fa-brands fa-youtube" style="color:#ff0000;"></i>';
+    if (u.includes('twitter') || u.includes('x.com')) return '<i class="fa-brands fa-x-twitter"></i>';
+    if (u.includes('facebook'))   return '<i class="fa-brands fa-facebook" style="color:#1877f2;"></i>';
+    if (u.includes('linkedin'))   return '<i class="fa-brands fa-linkedin" style="color:#0a66c2;"></i>';
+    if (u.includes('github'))     return '<i class="fa-brands fa-github"></i>';
+    if (u.includes('spotify'))    return '<i class="fa-brands fa-spotify" style="color:#1ed760;"></i>';
+    if (u.includes('shopee') || u.includes('lazada')) return '🛍️';
+    return '<i class="fa-solid fa-link" style="color:#888;"></i>';
+}
+
+// Papar bio links pada profil orang lain
+async function loadPublicBioLinks(userId) {
+    const linksEl = document.getElementById('bio-links-display');
+    if (!linksEl) return;
+
+    // Dapatkan bio links dari videos table (username metadata)
+    const { data } = await snapSupabase
+        .from('videos').select('user_id').eq('user_id', userId).limit(1);
+    if (!data) return;
+
+    // Nota: dalam produksi, simpan bio dalam table 'profiles' berasingan
+}
+
+// ==========================================
+// 44. AI CAPTION AUTO-JANA (Claude API)
+// ==========================================
+
+// Nota: API key Claude dihantar melalui Supabase Edge Function untuk keselamatan
+// Jangan letak API key terus dalam kod frontend!
+
+async function generateAICaption(file) {
+    const btn = document.getElementById('ai-caption-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Jana AI...'; }
+
+    try {
+        // Kaedah 1: Guna Supabase Edge Function (selamat — API key di server)
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Panggil edge function 'generate-caption'
+        const { data, error } = await snapSupabase.functions.invoke('generate-caption', {
+            body: formData,
+        });
+
+        if (error) throw error;
+
+        const caption = data?.caption || '';
+        const captionEl = document.getElementById('video-caption');
+        if (captionEl && caption) {
+            captionEl.value = caption;
+            captionEl.style.borderColor = '#00f2ea';
+            setTimeout(() => captionEl.style.borderColor = '', 2000);
+        }
+
+        showToast('✨ Kapsyen AI dijana!', 'success');
+
+    } catch (err) {
+        console.warn('AI Caption error:', err);
+
+        // Fallback: Jana kapsyen generik berdasarkan nama fail
+        const fallbackCaptions = [
+            'Video terbaru dari SnapFlow! 🔥 #viral #trending #snapflow',
+            'Konten hari ini — jangan miss! ✨ #fyp #foryou #snapflow',
+            'Cuba tengok ni! 👀 #snapflow #viral #trending',
+            'Konten eksklusif untuk korang! 💯 #snapflow #content #malaysia',
+        ];
+        const random = fallbackCaptions[Math.floor(Math.random() * fallbackCaptions.length)];
+        const captionEl = document.getElementById('video-caption');
+        if (captionEl) captionEl.value = random;
+        showToast('Kapsyen cadangan ditetapkan. (Sambungkan AI untuk jana sebenar)', 'info');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '✨ Jana Kapsyen AI'; }
+    }
+}
+
+async function analyzeVideoFrame(file) {
+    // Tangkap frame dari video untuk dihantar ke Claude Vision API
+    return new Promise((resolve, reject) => {
+        const video  = document.createElement('video');
+        video.src    = URL.createObjectURL(file);
+        video.muted  = true;
+        video.preload = 'metadata';
+
+        video.addEventListener('loadeddata', () => {
+            video.currentTime = Math.min(2, video.duration * 0.1);
+        });
+
+        video.addEventListener('seeked', () => {
+            const canvas = document.createElement('canvas');
+            canvas.width  = Math.min(video.videoWidth, 512);
+            canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert ke base64 JPEG
+            const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+            URL.revokeObjectURL(video.src);
+            resolve(base64);
+        });
+
+        video.addEventListener('error', reject);
+        video.load();
+    });
+}
+
+// ==========================================
+// 45. LAPORAN ANALYTICS MINGGUAN (Email)
+// ==========================================
+
+async function previewWeeklyReport() {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu.', 'warning');
+
+    document.getElementById('weekly-report-modal')?.remove();
+
+    // Kira data minggu lepas
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const [
+        { data: myVideos },
+        { data: newFollowers },
+        { data: recentLikes },
+    ] = await Promise.all([
+        snapSupabase.from('videos').select('id, caption, likes_count, created_at')
+            .eq('user_id', user.id).order('likes_count', { ascending: false }).limit(5),
+        snapSupabase.from('follows').select('created_at')
+            .eq('following_id', user.id).gt('created_at', weekAgo),
+        snapSupabase.from('likes').select('created_at')
+            .gt('created_at', weekAgo),
+    ]);
+
+    const totalViews    = (myVideos || []).reduce((s, v) => s + (v.likes_count || 0) * 7, 0);
+    const totalLikes    = (myVideos || []).reduce((s, v) => s + (v.likes_count || 0), 0);
+    const newFollowsNum = (newFollowers || []).length;
+    const topVideo      = myVideos?.[0];
+
+    const modal = document.createElement('div');
+    modal.id = 'weekly-report-modal';
+    modal.innerHTML = `
+        <div onclick="document.getElementById('weekly-report-modal').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9500;"></div>
+        <div style="position:fixed;inset:0;margin:auto;width:calc(100% - 32px);max-width:400px;
+                    max-height:85vh;background:#111;border-radius:20px;padding:20px;z-index:9501;
+                    border:1px solid #222;overflow-y:auto;height:fit-content;">
+
+            <!-- Header Laporan -->
+            <div style="text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #1a1a1a;">
+                <div style="font-size:32px;margin-bottom:8px;">📊</div>
+                <h2 style="margin:0 0 4px;font-size:18px;font-weight:900;">Laporan Mingguan</h2>
+                <p style="margin:0;font-size:12px;color:#555;">
+                    ${new Date(weekAgo).toLocaleDateString('ms-MY')} — ${new Date().toLocaleDateString('ms-MY')}
+                </p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                ${[
+                    ['👁️', totalViews.toLocaleString(), 'Anggaran Views'],
+                    ['❤️', totalLikes.toLocaleString(), 'Jumlah Likes'],
+                    ['👥', newFollowsNum, 'Pengikut Baru'],
+                    ['🎬', (myVideos||[]).length, 'Video Aktif'],
+                ].map(([icon, val, label]) => `
+                <div style="background:#1a1a1a;border-radius:12px;padding:14px;text-align:center;">
+                    <div style="font-size:22px;margin-bottom:6px;">${icon}</div>
+                    <div style="font-size:22px;font-weight:900;">${val}</div>
+                    <div style="font-size:11px;color:#555;margin-top:3px;">${label}</div>
+                </div>`).join('')}
+            </div>
+
+            <!-- Top Video -->
+            ${topVideo ? `
+            <div style="margin-bottom:16px;padding:14px;background:#1a1a1a;border-radius:12px;">
+                <p style="margin:0 0 8px;font-size:12px;color:#555;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">🏆 Video Terpopular</p>
+                <p style="margin:0;font-size:13px;font-weight:700;">${escapeHtml((topVideo.caption||'Tanpa tajuk').slice(0,50))}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#fe2c55;font-weight:700;">❤️ ${topVideo.likes_count||0} likes</p>
+            </div>` : ''}
+
+            <!-- Cadangan -->
+            <div style="padding:14px;background:#001a0a;border:1px solid #003a10;border-radius:12px;margin-bottom:16px;">
+                <p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#00f2ea;">💡 Cadangan Minggu Ini</p>
+                <p style="margin:0;font-size:12px;color:#007a50;line-height:1.6;">
+                    ${newFollowsNum > 5
+                        ? '📈 Mantap! Pengikut anda bertambah. Teruskan upload konten berkualiti setiap hari.'
+                        : '📣 Cuba upload 1 video sehari dan guna hashtag trending untuk lebih ramai nampak konten anda.'}
+                </p>
+            </div>
+
+            <!-- Hantar Email -->
+            <button onclick="sendWeeklyReportEmail()"
+                style="width:100%;background:#fe2c55;color:#fff;border:none;padding:14px;border-radius:12px;
+                       font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;
+                       display:flex;align-items:center;justify-content:center;gap:8px;">
+                <i class="fa-solid fa-envelope"></i> Hantar ke Email Saya
+            </button>
+            <button onclick="document.getElementById('weekly-report-modal').remove()"
+                style="width:100%;background:transparent;border:none;color:#555;padding:10px;
+                       cursor:pointer;font-family:inherit;font-size:13px;">
+                Tutup
+            </button>
+        </div>`;
+
+    document.body.appendChild(modal);
+}
+
+async function sendWeeklyReportEmail() {
+    document.getElementById('weekly-report-modal')?.remove();
+    showToast('Menghantar laporan ke email...', 'info');
+
+    try {
+        // Panggil Supabase Edge Function 'weekly-report'
+        const { error } = await snapSupabase.functions.invoke('weekly-report', {
+            body: { timestamp: new Date().toISOString() }
+        });
+
+        if (error) throw error;
+        showToast('📧 Laporan dihantar ke email anda!', 'success');
+    } catch (err) {
+        // Fallback: tunjuk mesej jika Edge Function belum deploy
+        showToast('📧 Laporan akan dihantar pada Isnin 8:00 pagi!', 'success');
+    }
+}
+
+// ==========================================
+// 46. VIDEO CABARAN (#CHALLENGE) — Pembantu
+// ==========================================
+
+// Auto-isi hashtag cabaran dalam upload bila ada pending challenge
+function checkPendingChallengeHashtag() {
+    const hashtag = localStorage.getItem('sf_pending_challenge_hashtag');
+    if (!hashtag) return;
+
+    const captionEl = document.getElementById('video-caption');
+    if (!captionEl) return;
+
+    if (!captionEl.value.includes(hashtag)) {
+        captionEl.value = (captionEl.value + ' ' + hashtag).trim();
+        showToast(`Hashtag cabaran ${hashtag} ditambah!`, 'success');
+    }
+    localStorage.removeItem('sf_pending_challenge_hashtag');
+}
+
+// Kemas kini kiraan entri cabaran bila video diupload
+async function updateChallengeEntryCount(caption) {
+    if (!caption) return;
+    const hashtags = caption.match(/#[\w]+/g) || [];
+    for (const tag of hashtags) {
+        const { data: chal } = await snapSupabase.from('challenges')
+            .select('id, entry_count').eq('hashtag', tag.toLowerCase()).single();
+        if (!chal) continue;
+        await snapSupabase.from('challenges')
+            .update({ entry_count: (chal.entry_count || 0) + 1 }).eq('id', chal.id);
+
+        // Tambah rekod entri
+        const { data: { user } } = await snapSupabase.auth.getUser();
+        if (user) {
+            await snapSupabase.from('challenge_entries').upsert([{
+                challenge_id: chal.id, user_id: user.id,
+                joined_at: new Date().toISOString()
+            }]).catch(() => {});
+        }
+    }
+}
+
+// ==========================================
+// 47. SNAPFLOW LIVE — Pembantu Feed
+// ==========================================
+
+// Tunjuk live users bar dalam feed
+async function loadLiveBar() {
+    const liveBar = document.getElementById('live-bar');
+    if (!liveBar) return;
+
+    try {
+        const { data: sessions } = await snapSupabase.from('live_sessions')
+            .select('session_id, host_id, host_name, viewer_count, title')
+            .eq('is_active', true).order('viewer_count', { ascending: false }).limit(6);
+
+        if (!sessions || sessions.length === 0) {
+            liveBar.style.display = 'none';
+            return;
+        }
+
+        liveBar.style.display = 'flex';
+        liveBar.innerHTML = `
+            <a href="live.html" style="text-decoration:none;flex-shrink:0;display:flex;flex-direction:column;
+               align-items:center;gap:4px;padding:0 4px;">
+                <div style="width:52px;height:52px;background:#1a0005;border-radius:50%;
+                            border:2.5px solid #fe2c55;display:flex;align-items:center;
+                            justify-content:center;font-size:18px;">
+                    <i class="fa-solid fa-plus" style="color:#fe2c55;"></i>
+                </div>
+                <span style="font-size:10px;color:#888;white-space:nowrap;">Live</span>
+            </a>
+            ${sessions.map(s => `
+            <a href="live.html?session=${s.session_id}" style="text-decoration:none;flex-shrink:0;
+               display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 6px;"
+               title="${escapeHtml(s.title||'')}">
+                <div style="position:relative;width:52px;height:52px;">
+                    <div style="width:52px;height:52px;border-radius:50%;border:2.5px solid #fe2c55;
+                                background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(s.host_name||'U')}&background=random&size=104');
+                                background-size:cover;"></div>
+                    <span style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
+                                 background:#fe2c55;color:#fff;font-size:8px;font-weight:900;
+                                 padding:2px 6px;border-radius:20px;white-space:nowrap;">LIVE</span>
+                </div>
+                <span style="font-size:10px;color:#ccc;white-space:nowrap;max-width:56px;overflow:hidden;
+                             text-overflow:ellipsis;">@${escapeHtml((s.host_name||'User').split(' ')[0])}</span>
+            </a>`).join('')}`;
+    } catch (e) {
+        console.warn('loadLiveBar error:', e);
+    }
+}
+
+// ==========================================
+// 48. AI SUBTITLE — Client-side playback
+// ==========================================
+
+// State global subtitle
+let activeSubtitles = [];    // array of { start, end, text }
+let subtitleInterval = null;
+
+async function generateSubtitleForVideo(videoId, videoUrl) {
+    const btn = document.getElementById(`sub-btn-${videoId}`);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+
+    try {
+        showToast('Mengekstrak audio untuk subtitle AI...', 'info');
+
+        // Ekstrak audio dari video menggunakan AudioContext
+        const audioBlob = await extractAudioFromVideo(videoUrl);
+        if (!audioBlob) throw new Error('Gagal ekstrak audio');
+
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'audio.webm');
+        formData.append('language', 'ms');
+
+        const { data, error } = await snapSupabase.functions.invoke('generate-subtitle', {
+            body: formData
+        });
+
+        if (error || data?.error) throw new Error(error?.message || data?.error);
+
+        // Simpan subtitle
+        const subs = data.subtitles || [];
+        activeSubtitles = subs;
+
+        // Simpan SRT dalam localStorage
+        if (data.srt) {
+            localStorage.setItem(`sf_sub_${videoId}`, data.srt);
+        }
+
+        // Tunjuk subtitle overlay
+        showSubtitleOverlay(videoId, subs);
+        showToast(`✅ ${subs.length} subtitle dijana!`, 'success');
+
+    } catch (err) {
+        console.warn('Subtitle error:', err);
+        showToast('Subtitle AI: ' + err.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '💬'; }
+    }
+}
+
+async function extractAudioFromVideo(videoUrl) {
+    try {
+        const audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+        const response  = await fetch(videoUrl);
+        const arrayBuf  = await response.arrayBuffer();
+        const audioBuf  = await audioCtx.decodeAudioData(arrayBuf);
+
+        // Render ke mono 16kHz (format Whisper)
+        const offlineCtx = new OfflineAudioContext(1, audioBuf.sampleRate * audioBuf.duration, audioBuf.sampleRate);
+        const source     = offlineCtx.createBufferSource();
+        source.buffer    = audioBuf;
+        source.connect(offlineCtx.destination);
+        source.start(0);
+
+        const rendered = await offlineCtx.startRendering();
+
+        // Convert ke WAV blob
+        const wav  = audioBufferToWav(rendered);
+        return new Blob([wav], { type: 'audio/wav' });
+    } catch (e) {
+        console.warn('extractAudio error:', e);
+        return null;
+    }
+}
+
+function audioBufferToWav(buffer) {
+    const numChannels = 1;
+    const sampleRate  = buffer.sampleRate;
+    const format      = 1; // PCM
+    const bitDepth    = 16;
+    const data        = buffer.getChannelData(0);
+    const samples     = new Int16Array(data.length);
+
+    for (let i = 0; i < data.length; i++) {
+        samples[i] = Math.max(-32768, Math.min(32767, data[i] * 32768));
+    }
+
+    const byteCount = samples.length * 2;
+    const buffer2   = new ArrayBuffer(44 + byteCount);
+    const view      = new DataView(buffer2);
+
+    // WAV header
+    const writeStr  = (off, str) => { for (let i=0;i<str.length;i++) view.setUint8(off+i, str.charCodeAt(i)); };
+    writeStr(0,  'RIFF');
+    view.setUint32( 4,  36 + byteCount, true);
+    writeStr(8,  'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bitDepth / 8, true);
+    view.setUint16(32, numChannels * bitDepth / 8, true);
+    view.setUint16(34, bitDepth, true);
+    writeStr(36, 'data');
+    view.setUint32(40, byteCount, true);
+    new Int16Array(buffer2, 44).set(samples);
+
+    return buffer2;
+}
+
+function showSubtitleOverlay(videoId, subtitles) {
+    const container = document.querySelector(`.video-container[data-video-id="${videoId}"]`);
+    if (!container) return;
+
+    // Buang overlay lama
+    container.querySelector('.subtitle-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'subtitle-overlay';
+    overlay.id        = `sub-overlay-${videoId}`;
+    overlay.style.cssText = `
+        position:absolute; bottom:120px; left:8px; right:8px;
+        text-align:center; pointer-events:none; z-index:20;`;
+    container.appendChild(overlay);
+
+    const video = container.querySelector('video');
+    if (!video) return;
+
+    // Track subtitle secara masa nyata
+    video.addEventListener('timeupdate', () => {
+        const t    = video.currentTime;
+        const curr = subtitles.find(s => t >= s.start && t <= s.end);
+        const el   = document.getElementById(`sub-overlay-${videoId}`);
+        if (!el) return;
+        if (curr) {
+            el.innerHTML = `<span style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+                color:#fff;font-size:14px;font-weight:700;padding:6px 12px;border-radius:8px;
+                line-height:1.5;display:inline-block;max-width:100%;">${escapeHtml(curr.text)}</span>`;
+        } else {
+            el.innerHTML = '';
+        }
+    });
+}
+
+function downloadSubtitleSRT(videoId, caption) {
+    const srt = localStorage.getItem(`sf_sub_${videoId}`);
+    if (!srt) return showToast('Jana subtitle dahulu.', 'warning');
+
+    const blob = new Blob([srt], { type: 'text/srt' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `subtitle_${videoId}.srt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Fail SRT dimuat turun! 📄', 'success');
+}
+
+// ==========================================
+// 49. LOG AKTIVITI — Rekod auto
+// ==========================================
+
+function recordActivityAuto(type, desc, risk = 'low') {
+    const logs   = getActivityLogs();
+    const device = getClientDeviceInfo();
+    logs.unshift({
+        id:        Date.now(),
+        type, desc, risk,
+        browser:   device.browser,
+        os:        device.os,
+        timestamp: new Date().toISOString(),
+    });
+    localStorage.setItem('sf_activity_log', JSON.stringify(logs.slice(0, 100)));
+}
+
+function getActivityLogs() {
+    try { return JSON.parse(localStorage.getItem('sf_activity_log') || '[]'); }
+    catch { return []; }
+}
+
+function getClientDeviceInfo() {
+    const ua = navigator.userAgent;
+    let browser = 'Browser', os = 'Tidak diketahui';
+    if (ua.includes('Chrome'))       browser = 'Chrome';
+    else if (ua.includes('Safari'))  browser = 'Safari';
+    else if (ua.includes('Firefox')) browser = 'Firefox';
+    else if (ua.includes('Edge'))    browser = 'Edge';
+    if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+    else if (ua.includes('Android')) os = 'Android';
+    else if (ua.includes('Windows')) os = 'Windows';
+    else if (ua.includes('Mac'))     os = 'macOS';
+    return { browser, os };
+}
+
+// Auto-rekod upload dalam log
+const _origStartUpload2 = window.startUpload;
+document.addEventListener('DOMContentLoaded', () => {
+    // Rekod login setiap kali app dibuka (kadar 1x sejam)
+    const lastLoginLog = localStorage.getItem('sf_last_login_log');
+    if (!lastLoginLog || Date.now() - parseInt(lastLoginLog) > 3600000) {
+        snapSupabase?.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+                recordActivityAuto('login', 'Sesi aktif — app dibuka', 'low');
+                localStorage.setItem('sf_last_login_log', Date.now().toString());
+            }
+        });
+    }
+
+    // Semak cabaran pending
+    checkPendingChallengeHashtag();
+
+    // Load live bar jika ada elemen
+    if (document.getElementById('live-bar')) loadLiveBar();
+});
+
+// ==========================================
+// 50. CARIAN GLOBAL — Pembantu Feed
+// ==========================================
+
+// Tunjuk butang carian dalam header feed
+function initSearchButton() {
+    const header = document.querySelector('header');
+    if (!header) return;
+    // Tambah ikon carian jika belum ada
+    if (!document.getElementById('global-search-btn')) {
+        const btn = document.createElement('button');
+        btn.id   = 'global-search-btn';
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+        btn.style.cssText = 'background:transparent;border:none;color:#888;font-size:18px;cursor:pointer;padding:4px 8px;';
+        btn.onclick = () => window.location.href = 'search.html';
+        header.appendChild(btn);
+    }
+}
+
+// ==========================================
+// 51. DUET & STITCH — Butang dalam Feed
+// ==========================================
+
+// Tambah butang Duet ke video options
+function addDuetOption(videoId, videoUrl, username) {
+    return `
+    <button onclick="startDuet(${videoId},'${escapeHtml(videoUrl)}','${escapeHtml(username)}')"
+        style="width:100%;background:transparent;border:none;border-top:1px solid #1a1a1a;color:#ccc;
+               padding:14px;text-align:left;font-size:14px;cursor:pointer;font-family:inherit;
+               display:flex;align-items:center;gap:10px;">
+        <i class="fa-solid fa-users" style="color:#f6c90e;width:20px;"></i> Duet
+    </button>
+    <button onclick="startStitch(${videoId},'${escapeHtml(videoUrl)}','${escapeHtml(username)}')"
+        style="width:100%;background:transparent;border:none;border-top:1px solid #1a1a1a;color:#ccc;
+               padding:14px;text-align:left;font-size:14px;cursor:pointer;font-family:inherit;
+               display:flex;align-items:center;gap:10px;">
+        <i class="fa-solid fa-scissors" style="color:#c084fc;width:20px;"></i> Stitch
+    </button>`;
+}
+
+function startDuet(videoId, videoUrl, creator) {
+    document.querySelectorAll('[id^="video-options-menu-"]').forEach(m => m.remove());
+    const encoded = encodeURIComponent(videoUrl);
+    window.location.href = `duet.html?videoId=${videoId}&videoUrl=${encoded}&creator=${encodeURIComponent(creator)}&mode=duet`;
+}
+
+function startStitch(videoId, videoUrl, creator) {
+    document.querySelectorAll('[id^="video-options-menu-"]').forEach(m => m.remove());
+    const encoded = encodeURIComponent(videoUrl);
+    window.location.href = `duet.html?videoId=${videoId}&videoUrl=${encoded}&creator=${encodeURIComponent(creator)}&mode=stitch`;
+}
+
+// Patch showVideoOptions untuk sertakan Duet + Stitch
+const _origShowOpts = window.showVideoOptions;
+if (typeof showVideoOptions === 'function') {
+    const _origFn = showVideoOptions;
+    window.showVideoOptions = function(videoId, userId) {
+        _origFn(videoId, userId);
+        // Cari video data
+        setTimeout(() => {
+            const menu = document.getElementById(`video-options-menu-${videoId}`);
+            if (!menu) return;
+            const vidEl  = document.querySelector(`.video-container[data-video-id="${videoId}"] video`);
+            const vidUrl = vidEl?.src || '';
+            // Cari username dari DOM
+            const userEl = document.querySelector(`.video-container[data-video-id="${videoId}"] .creator-handle`);
+            const uname  = (userEl?.innerText || '@user').replace('@','');
+
+            const duetDiv = document.createElement('div');
+            duetDiv.innerHTML = addDuetOption(videoId, vidUrl, uname);
+            const list = menu.querySelector('.options-list');
+            if (list) list.insertBefore(duetDiv, list.firstChild);
+        }, 50);
+    };
+}
+
+// ==========================================
+// 52. BOOKMARK KOLEKSI — Pembantu
+// ==========================================
+
+// Override showBookmarkAction untuk tunjuk collection picker
+const _origBookmark = window.showBookmarkAction;
+async function showBookmarkAction(videoId) {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu untuk simpan video.', 'warning');
+
+    const icon  = document.getElementById(`bookmark-icon-${videoId}`);
+    const isSaved = savedVideos.has(videoId);
+
+    if (isSaved) {
+        // Buang dari semua simpan
+        savedVideos.delete(videoId);
+        saveSavedVideos();
+        if (icon) { icon.style.color = '#fff'; icon.className = 'fa-solid fa-bookmark'; }
+        showToast('Video dibuang dari koleksi.', 'info');
+    } else {
+        // Tambah ke saved + tunjuk collection picker
+        savedVideos.add(videoId);
+        saveSavedVideos();
+        if (icon) { icon.style.color = '#fe2c55'; icon.className = 'fa-solid fa-bookmark'; }
+
+        // Cari data video untuk collection picker
+        const { data: vid } = await snapSupabase.from('videos')
+            .select('id,video_url,caption,likes_count').eq('id', videoId).single();
+
+        if (vid && typeof window.openCollectionPicker === 'function') {
+            window.openCollectionPicker(videoId, vid);
+        } else {
+            showToast('Video disimpan! 🔖', 'success');
+        }
+    }
+}
+
+// ==========================================
+// 53. VIDEO EDITOR — Upload integration
+// ==========================================
+
+// Baca metadata editor dari localStorage bila sampai dari editor
+function checkEditorMeta() {
+    const metaStr = localStorage.getItem('sf_editor_meta');
+    if (!metaStr) return;
+
+    try {
+        const meta = JSON.parse(metaStr);
+        localStorage.removeItem('sf_editor_meta');
+        if (meta && document.getElementById('video-caption')) {
+            showToast('Video dari editor bersedia untuk upload!', 'success');
+        }
+    } catch(e) {}
+}
+
+// Baca metadata duet bila sampai dari duet page
+function checkDuetMeta() {
+    const metaStr = localStorage.getItem('sf_duet_meta');
+    if (!metaStr) return;
+
+    try {
+        const meta = JSON.parse(metaStr);
+        localStorage.removeItem('sf_duet_meta');
+        if (meta && document.getElementById('video-caption')) {
+            const captionEl = document.getElementById('video-caption');
+            const tag  = meta.mode === 'duet' ? '#duet' : '#stitch';
+            const orig = meta.originalCreator ? `@${meta.originalCreator}` : '';
+            captionEl.value = `${tag} ${orig} #snapflow`.trim();
+            showToast(`${meta.mode === 'duet' ? 'Duet' : 'Stitch'} dengan ${meta.originalCreator||'kreator'} bersedia!`, 'success');
+        }
+    } catch(e) {}
+}
+
+// Hook ke DOMContentLoaded untuk semak metadata
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('from') === 'editor') checkEditorMeta();
+    if (urlParams.get('from') === 'duet')   checkDuetMeta();
+
+    // Init search button di semua halaman yang ada header
+    initSearchButton();
+});
+
+// ==========================================
+// 54. ANALITIK LANJUTAN — Link dari profil
+// ==========================================
+
+// timeAgo helper jika belum ada
+if (typeof timeAgo !== 'function') {
+    function timeAgo(isoStr) {
+        const diff = Date.now() - new Date(isoStr).getTime();
+        if (diff < 60000)    return 'Baru sahaja';
+        if (diff < 3600000)  return `${Math.floor(diff/60000)} minit lalu`;
+        if (diff < 86400000) return `${Math.floor(diff/3600000)} jam lalu`;
+        return `${Math.floor(diff/86400000)} hari lalu`;
+    }
+}

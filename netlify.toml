@@ -48,3 +48,9 @@
   for = "/app.js"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+
+# Custom 404 page
+[[redirects]]
+  from = "/*"
+  to   = "/404.html"
+  status = 404

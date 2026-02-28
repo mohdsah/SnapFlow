@@ -386,3 +386,298 @@ DROP POLICY IF EXISTS "Semua boleh baca videos" ON public.videos;
 CREATE POLICY "Semua boleh baca videos published"
     ON public.videos FOR SELECT
     USING (is_published = true OR auth.uid() = user_id);
+
+-- ============================================================
+-- KEMASKINI: Playlists & Playlist Videos
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.playlists (
+    id          BIGSERIAL    PRIMARY KEY,
+    user_id     UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    username    TEXT,
+    title       TEXT         NOT NULL,
+    description TEXT,
+    cover_url   TEXT,
+    is_public   BOOLEAN      NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.playlist_videos (
+    id              BIGSERIAL    PRIMARY KEY,
+    playlist_id     BIGINT       NOT NULL REFERENCES public.playlists(id) ON DELETE CASCADE,
+    video_id        BIGINT       NOT NULL REFERENCES public.videos(id) ON DELETE CASCADE,
+    episode_number  INTEGER      NOT NULL DEFAULT 1,
+    added_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (playlist_id, video_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_playlists_user_id    ON public.playlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_plvids_playlist_id   ON public.playlist_videos(playlist_id);
+CREATE INDEX IF NOT EXISTS idx_plvids_episode       ON public.playlist_videos(playlist_id, episode_number);
+
+ALTER TABLE public.playlists       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.playlist_videos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Semua boleh baca playlists awam"
+    ON public.playlists FOR SELECT USING (is_public = true OR auth.uid() = user_id);
+CREATE POLICY "User boleh cipta playlist"
+    ON public.playlists FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "User boleh kemaskini playlist sendiri"
+    ON public.playlists FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "User boleh padam playlist sendiri"
+    ON public.playlists FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Semua boleh baca playlist videos"
+    ON public.playlist_videos FOR SELECT USING (true);
+CREATE POLICY "User boleh tambah video ke playlist sendiri"
+    ON public.playlist_videos FOR INSERT
+    WITH CHECK (EXISTS (
+        SELECT 1 FROM public.playlists
+        WHERE id = playlist_id AND user_id = auth.uid()
+    ));
+CREATE POLICY "User boleh padam dari playlist sendiri"
+    ON public.playlist_videos FOR DELETE
+    USING (EXISTS (
+        SELECT 1 FROM public.playlists
+        WHERE id = playlist_id AND user_id = auth.uid()
+    ));
+
+-- Tambah ke Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.playlists;
+
+-- ============================================================
+-- KEMASKINI: Subscriptions (SnapFlow Pro)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+    id                  BIGSERIAL    PRIMARY KEY,
+    user_id             UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    stripe_customer_id  TEXT,
+    stripe_sub_id       TEXT,
+    status              TEXT         NOT NULL DEFAULT 'inactive'
+                                     CHECK (status IN ('active','inactive','cancelled','past_due')),
+    plan                TEXT         NOT NULL DEFAULT 'free'
+                                     CHECK (plan IN ('free','pro')),
+    current_period_end  TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_subs_user_id  ON public.subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subs_status   ON public.subscriptions(status);
+
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "User boleh baca sub sendiri"
+    ON public.subscriptions FOR SELECT USING (auth.uid() = user_id);
+-- Insert/Update hanya melalui Edge Function (service_role)
+
+-- ============================================================
+-- KEMASKINI: Virtual Gifts / Hadiah
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.gifts (
+    id               BIGSERIAL    PRIMARY KEY,
+    video_id         BIGINT       REFERENCES public.videos(id) ON DELETE SET NULL,
+    sender_id        UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    receiver_id      UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    gift_type        TEXT         NOT NULL,
+    coins_spent      INTEGER      NOT NULL DEFAULT 0,
+    sender_username  TEXT,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gifts_receiver   ON public.gifts(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_gifts_video_id   ON public.gifts(video_id);
+CREATE INDEX IF NOT EXISTS idx_gifts_created_at ON public.gifts(created_at);
+
+ALTER TABLE public.gifts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "User boleh baca hadiah yang diterima"
+    ON public.gifts FOR SELECT USING (auth.uid() = receiver_id OR auth.uid() = sender_id);
+CREATE POLICY "User boleh hantar hadiah"
+    ON public.gifts FOR INSERT WITH CHECK (auth.uid() = sender_id);
+
+-- Tambah ke Realtime untuk animasi hadiah masa nyata
+ALTER PUBLICATION supabase_realtime ADD TABLE public.gifts;
+
+-- ============================================================
+-- KEMASKINI: User Profiles (bio + links)
+-- ============================================================
+-- Bio dan bio_links disimpan dalam auth.users user_metadata
+-- Tiada table berasingan diperlukan — terus dalam Supabase Auth
+
+-- ============================================================
+-- KEMASKINI: Coins / Virtual Currency (ringkas)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.coin_transactions (
+    id          BIGSERIAL    PRIMARY KEY,
+    user_id     UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    amount      INTEGER      NOT NULL,
+    type        TEXT         NOT NULL CHECK (type IN ('topup','spent','earned','bonus')),
+    description TEXT,
+    ref_id      BIGINT,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_coins_user_id ON public.coin_transactions(user_id);
+ALTER TABLE public.coin_transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "User boleh baca transaksi sendiri"
+    ON public.coin_transactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Insert melalui service role sahaja"
+    ON public.coin_transactions FOR INSERT WITH CHECK (false);
+-- Gunakan service role dalam Edge Function untuk insert transaksi
+
+-- ============================================================
+-- SETUP: Supabase Auth OAuth
+-- ============================================================
+-- Untuk aktifkan Google + Apple login:
+-- 1. Supabase Dashboard → Authentication → Providers
+-- 2. GOOGLE: Aktifkan, isi Client ID + Secret dari Google Cloud Console
+--    → https://console.cloud.google.com → APIs → Credentials → OAuth 2.0
+--    → Redirect URL: https://<project>.supabase.co/auth/v1/callback
+-- 3. APPLE: Aktifkan, isi Services ID + Key dari Apple Developer
+--    → https://developer.apple.com → Certificates, IDs & Profiles
+--    → Redirect URL: https://<project>.supabase.co/auth/v1/callback
+
+-- ============================================================
+-- KEMASKINI: Video Cabaran (#Challenge)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.challenges (
+    id            BIGSERIAL    PRIMARY KEY,
+    creator_id    UUID         REFERENCES auth.users(id) ON DELETE SET NULL,
+    creator_name  TEXT,
+    title         TEXT         NOT NULL,
+    hashtag       TEXT         NOT NULL UNIQUE,
+    description   TEXT,
+    emoji         TEXT         DEFAULT '🏆',
+    prize         TEXT         DEFAULT 'SnapFlow Pro',
+    entry_count   INTEGER      NOT NULL DEFAULT 0,
+    ends_at       TIMESTAMPTZ,
+    is_active     BOOLEAN      NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.challenge_entries (
+    id           BIGSERIAL    PRIMARY KEY,
+    challenge_id BIGINT       NOT NULL REFERENCES public.challenges(id) ON DELETE CASCADE,
+    user_id      UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    joined_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (challenge_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.challenge_participants (
+    challenge_id BIGINT NOT NULL REFERENCES public.challenges(id) ON DELETE CASCADE,
+    user_id      UUID   NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    PRIMARY KEY (challenge_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_challenges_hashtag    ON public.challenges(hashtag);
+CREATE INDEX IF NOT EXISTS idx_challenges_active     ON public.challenges(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_chal_entries_chal_id  ON public.challenge_entries(challenge_id);
+
+ALTER TABLE public.challenges            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.challenge_entries     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.challenge_participants ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Semua boleh baca cabaran aktif"
+    ON public.challenges FOR SELECT USING (is_active = true);
+CREATE POLICY "User boleh cipta cabaran"
+    ON public.challenges FOR INSERT WITH CHECK (auth.uid() = creator_id);
+CREATE POLICY "Creator boleh kemaskini cabaran sendiri"
+    ON public.challenges FOR UPDATE USING (auth.uid() = creator_id);
+CREATE POLICY "Semua boleh baca entri"
+    ON public.challenge_entries FOR SELECT USING (true);
+CREATE POLICY "User boleh daftar entri"
+    ON public.challenge_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Semua boleh baca peserta"
+    ON public.challenge_participants FOR SELECT USING (true);
+CREATE POLICY "User boleh daftar sebagai peserta"
+    ON public.challenge_participants FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.challenges;
+
+-- ============================================================
+-- KEMASKINI: Live Sessions
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.live_sessions (
+    id            BIGSERIAL    PRIMARY KEY,
+    session_id    TEXT         NOT NULL UNIQUE,
+    host_id       UUID         REFERENCES auth.users(id) ON DELETE CASCADE,
+    host_name     TEXT,
+    title         TEXT,
+    is_active     BOOLEAN      NOT NULL DEFAULT true,
+    viewer_count  INTEGER      NOT NULL DEFAULT 0,
+    started_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    ended_at      TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_active    ON public.live_sessions(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_live_host_id   ON public.live_sessions(host_id);
+
+ALTER TABLE public.live_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Semua boleh baca sesi live aktif"
+    ON public.live_sessions FOR SELECT USING (is_active = true OR auth.uid() = host_id);
+CREATE POLICY "Host boleh cipta sesi"
+    ON public.live_sessions FOR INSERT WITH CHECK (auth.uid() = host_id);
+CREATE POLICY "Host boleh kemaskini sesi sendiri"
+    ON public.live_sessions FOR UPDATE USING (auth.uid() = host_id);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.live_sessions;
+
+-- ============================================================
+-- KEMASKINI: Video Shares Analytics
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.video_shares (
+    id         BIGSERIAL    PRIMARY KEY,
+    video_id   BIGINT       REFERENCES public.videos(id) ON DELETE CASCADE,
+    platform   TEXT,
+    shared_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_shares_video_id  ON public.video_shares(video_id);
+ALTER TABLE public.video_shares ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Semua boleh insert share"
+    ON public.video_shares FOR INSERT WITH CHECK (true);
+
+-- ============================================================
+-- SETUP: Edge Function Secrets
+-- ============================================================
+-- supabase secrets set OPENAI_API_KEY=sk-...      (Whisper Subtitle)
+-- supabase secrets set ANTHROPIC_API_KEY=sk-ant-... (AI Caption)
+-- supabase secrets set RESEND_API_KEY=re_...        (Email Laporan)
+-- supabase secrets set STRIPE_SECRET_KEY=sk_live_...
+-- supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
+-- supabase secrets set APP_URL=https://snapflow-anda.netlify.app
+
+-- ============================================================
+-- KEMASKINI: Duet & Stitch tracking
+-- ============================================================
+
+ALTER TABLE public.videos ADD COLUMN IF NOT EXISTS duet_from   BIGINT REFERENCES public.videos(id) ON DELETE SET NULL;
+ALTER TABLE public.videos ADD COLUMN IF NOT EXISTS stitch_from BIGINT REFERENCES public.videos(id) ON DELETE SET NULL;
+ALTER TABLE public.videos ADD COLUMN IF NOT EXISTS video_type  TEXT DEFAULT 'original' CHECK (video_type IN ('original','duet','stitch'));
+
+CREATE INDEX IF NOT EXISTS idx_videos_duet_from   ON public.videos(duet_from)   WHERE duet_from IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_videos_stitch_from ON public.videos(stitch_from) WHERE stitch_from IS NOT NULL;
+
+-- ============================================================
+-- KEMASKINI: Search analytics (optional)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.search_queries (
+    id         BIGSERIAL    PRIMARY KEY,
+    query      TEXT         NOT NULL,
+    user_id    UUID         REFERENCES auth.users(id) ON DELETE SET NULL,
+    results    INTEGER      DEFAULT 0,
+    searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_query ON public.search_queries(query);
+ALTER TABLE public.search_queries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Insert search queries" ON public.search_queries FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin baca search queries" ON public.search_queries FOR SELECT USING (auth.uid() IS NOT NULL);

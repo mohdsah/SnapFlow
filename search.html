@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Carian | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background:#000; color:#fff; margin:0; overflow-y:auto; padding-bottom:calc(var(--nav-height)+8px); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+        .search-bar-wrap {
+            position:sticky; top:0; background:rgba(0,0,0,0.97); backdrop-filter:blur(12px);
+            padding:12px 14px; z-index:100; border-bottom:1px solid #111;
+            display:flex; gap:10px; align-items:center;
+        }
+        .search-input-wrap {
+            flex:1; position:relative; display:flex; align-items:center;
+        }
+        #global-search-input {
+            width:100%; background:#111; border:1.5px solid #222; color:#fff;
+            padding:11px 40px 11px 38px; border-radius:12px; font-size:15px;
+            font-family:inherit; outline:none; transition:border-color 0.2s; box-sizing:border-box;
+        }
+        #global-search-input:focus { border-color:#444; }
+        .search-icon { position:absolute; left:12px; color:#555; font-size:15px; pointer-events:none; }
+        .clear-btn   { position:absolute; right:10px; color:#555; font-size:14px; cursor:pointer; display:none; }
+
+        .tab-strip { display:flex; border-bottom:1px solid #111; overflow-x:auto; scrollbar-width:none; }
+        .tab-strip::-webkit-scrollbar { display:none; }
+        .stab { flex-shrink:0; background:transparent; border:none; border-bottom:2px solid transparent;
+                color:#555; padding:11px 16px; font-size:13px; font-weight:700; cursor:pointer;
+                font-family:inherit; transition:all 0.2s; white-space:nowrap; }
+        .stab.active { border-bottom-color:#fff; color:#fff; }
+
+        /* Video grid */
+        .vid-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:2px; }
+        .vid-cell { aspect-ratio:9/16; background:#111; overflow:hidden; cursor:pointer; position:relative; }
+        .vid-cell video { width:100%; height:100%; object-fit:cover; }
+        .vid-cell-info { position:absolute; bottom:0; left:0; right:0; padding:6px 8px;
+            background:linear-gradient(transparent,rgba(0,0,0,0.7)); font-size:11px; }
+
+        /* User row */
+        .user-row { display:flex; align-items:center; gap:12px; padding:12px 16px;
+                    border-bottom:1px solid #0d0d0d; cursor:pointer; transition:background 0.15s; }
+        .user-row:active { background:#0a0a0a; }
+        .user-avatar { width:48px; height:48px; border-radius:50%; object-fit:cover; background:#1a1a1a; flex-shrink:0; }
+
+        /* Hashtag row */
+        .hashtag-row { display:flex; align-items:center; gap:12px; padding:12px 16px;
+                       border-bottom:1px solid #0d0d0d; cursor:pointer; transition:background 0.15s; }
+        .hashtag-row:active { background:#0a0a0a; }
+        .hashtag-icon { width:44px; height:44px; background:#1a0005; border-radius:12px;
+                        display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+
+        /* Trending chips */
+        .trend-chip { background:#111; border:1px solid #1a1a1a; border-radius:20px;
+                      padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer;
+                      white-space:nowrap; flex-shrink:0; transition:all 0.2s; }
+        .trend-chip:active { background:#1a1a1a; transform:scale(0.96); }
+
+        .empty-state { text-align:center; padding:60px 24px; color:#555; }
+        .empty-state i { font-size:44px; color:#1a1a1a; display:block; margin-bottom:14px; }
+    </style>
+</head>
+<body>
+
+    <!-- Search Bar -->
+    <div class="search-bar-wrap">
+        <div class="search-input-wrap">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input id="global-search-input" type="search" placeholder="Cari video, pengguna, hashtag..."
+                autocomplete="off" autocorrect="off" spellcheck="false"
+                oninput="onSearchInput(this.value)"
+                onfocus="showClearIfNeeded()">
+            <span class="clear-btn" id="clear-btn" onclick="clearSearch()">
+                <i class="fa-solid fa-circle-xmark"></i>
+            </span>
+        </div>
+        <button onclick="window.history.back()"
+            style="background:transparent;border:none;color:#888;font-size:14px;cursor:pointer;
+                   font-family:inherit;white-space:nowrap;padding:0;">
+            Batal
+        </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-strip" id="search-tabs" style="display:none;">
+        <button class="stab active" onclick="switchSearchTab('all',this)">Semua</button>
+        <button class="stab" onclick="switchSearchTab('videos',this)">Video</button>
+        <button class="stab" onclick="switchSearchTab('users',this)">Pengguna</button>
+        <button class="stab" onclick="switchSearchTab('hashtags',this)">Hashtag</button>
+    </div>
+
+    <!-- Home State: Trending + Recent searches -->
+    <div id="search-home">
+        <!-- Recent searches -->
+        <div id="recent-section" style="display:none; padding:14px 16px 0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <p style="margin:0;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;">Carian Terkini</p>
+                <button onclick="clearRecentSearches()"
+                    style="background:transparent;border:none;color:#555;font-size:13px;cursor:pointer;font-family:inherit;">
+                    Padam Semua
+                </button>
+            </div>
+            <div id="recent-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+        </div>
+
+        <!-- Trending searches -->
+        <div style="padding:14px 16px 0;">
+            <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;">🔥 Trending Sekarang</p>
+            <div id="trending-chips" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none;"></div>
+        </div>
+
+        <!-- Trending videos preview -->
+        <div style="padding:14px 16px 0;">
+            <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;">Video Popular</p>
+        </div>
+        <div id="trending-videos" style=""></div>
+    </div>
+
+    <!-- Results State -->
+    <div id="search-results" style="display:none;"></div>
+
+    <nav class="bottom-nav">
+        <a href="index.html"    class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item active"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
+        <a href="upload.html"   class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html"    class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html"  class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
+    </nav>
+
+    <script src="app.js"></script>
+    <script>
+        let searchTimeout   = null;
+        let currentTab      = 'all';
+        let currentQuery    = '';
+        let recentSearches  = JSON.parse(localStorage.getItem('sf_recent_searches') || '[]');
+
+        const TRENDING_TERMS = ['#viral', '#malaysia', '#masak', '#lawak', '#challenge', '#fyp', '#trending', '#snapflow', '#makan', '#travel'];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderRecentSearches();
+            renderTrendingChips();
+            loadTrendingVideos();
+            document.getElementById('global-search-input').focus();
+        });
+
+        function renderRecentSearches() {
+            const sec  = document.getElementById('recent-section');
+            const list = document.getElementById('recent-list');
+            if (!recentSearches.length) { sec.style.display = 'none'; return; }
+            sec.style.display = 'block';
+            list.innerHTML = recentSearches.slice(0,8).map(q => `
+                <div onclick="doSearch('${escapeHtml(q)}')" class="trend-chip"
+                    style="display:flex;align-items:center;gap:6px;">
+                    <i class="fa-solid fa-clock-rotate-left" style="font-size:11px;color:#555;"></i>
+                    ${escapeHtml(q)}
+                </div>`).join('');
+        }
+
+        function renderTrendingChips() {
+            document.getElementById('trending-chips').innerHTML =
+                TRENDING_TERMS.map(t => `
+                <div onclick="doSearch('${t}')" class="trend-chip">${t}</div>
+                `).join('');
+        }
+
+        async function loadTrendingVideos() {
+            const { data: videos } = await snapSupabase.from('videos')
+                .select('id, video_url, caption, likes_count, username')
+                .eq('is_published', true)
+                .order('likes_count', { ascending: false }).limit(12);
+
+            const el = document.getElementById('trending-videos');
+            if (!videos?.length) { el.innerHTML = ''; return; }
+
+            el.innerHTML = `<div class="vid-grid-2">
+                ${videos.map(v => `
+                <div class="vid-cell" onclick="viewVideo(${v.id})">
+                    <video src="${escapeHtml(v.video_url)}" preload="metadata" muted></video>
+                    <div class="vid-cell-info">
+                        <div style="display:flex;align-items:center;gap:4px;color:#fff;">
+                            <i class="fa-solid fa-heart" style="color:#fe2c55;font-size:10px;"></i>
+                            <span style="font-weight:700;">${(v.likes_count||0) >= 1000 ? ((v.likes_count/1000).toFixed(1)+'K') : v.likes_count||0}</span>
+                        </div>
+                    </div>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        function onSearchInput(val) {
+            currentQuery = val.trim();
+            document.getElementById('clear-btn').style.display = val ? 'block' : 'none';
+
+            if (!currentQuery) {
+                showHomeState();
+                return;
+            }
+
+            // Debounce 350ms
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => performSearch(currentQuery), 350);
+        }
+
+        function showClearIfNeeded() {
+            const val = document.getElementById('global-search-input').value;
+            document.getElementById('clear-btn').style.display = val ? 'block' : 'none';
+        }
+
+        function clearSearch() {
+            document.getElementById('global-search-input').value = '';
+            document.getElementById('clear-btn').style.display = 'none';
+            currentQuery = '';
+            showHomeState();
+            document.getElementById('global-search-input').focus();
+        }
+
+        function showHomeState() {
+            document.getElementById('search-home').style.display    = 'block';
+            document.getElementById('search-results').style.display = 'none';
+            document.getElementById('search-tabs').style.display    = 'none';
+        }
+
+        function doSearch(query) {
+            document.getElementById('global-search-input').value = query;
+            document.getElementById('clear-btn').style.display    = 'block';
+            currentQuery = query;
+            performSearch(query);
+        }
+
+        async function performSearch(query) {
+            document.getElementById('search-home').style.display    = 'none';
+            document.getElementById('search-results').style.display = 'block';
+            document.getElementById('search-tabs').style.display    = 'flex';
+
+            // Simpan ke recent
+            recentSearches = [query, ...recentSearches.filter(q => q !== query)].slice(0, 10);
+            localStorage.setItem('sf_recent_searches', JSON.stringify(recentSearches));
+
+            showSearchLoading();
+
+            const isHashtag = query.startsWith('#');
+            const term      = isHashtag ? query.slice(1) : query;
+
+            // Parallel queries
+            const [vidRes, userRes, hashRes] = await Promise.all([
+                snapSupabase.from('videos').select('id,video_url,caption,likes_count,username,user_id')
+                    .eq('is_published', true)
+                    .ilike('caption', `%${query}%`)
+                    .order('likes_count', { ascending: false }).limit(24),
+
+                snapSupabase.from('videos').select('user_id,username').ilike('username', `%${term}%`).limit(10),
+
+                snapSupabase.from('videos').select('caption')
+                    .ilike('caption', `%#${term}%`).limit(50),
+            ]);
+
+            // Aggregate unique users
+            const usersMap = new Map();
+            (userRes.data || []).forEach(v => {
+                if (v.username && !usersMap.has(v.user_id)) usersMap.set(v.user_id, v.username);
+            });
+
+            // Extract unique hashtags
+            const hashtagMap = new Map();
+            (hashRes.data || []).forEach(v => {
+                const tags = (v.caption || '').match(/#[\w]+/g) || [];
+                tags.forEach(t => {
+                    const tl = t.toLowerCase();
+                    if (tl.includes(term.toLowerCase())) {
+                        hashtagMap.set(tl, (hashtagMap.get(tl) || 0) + 1);
+                    }
+                });
+            });
+            const hashtags = [...hashtagMap.entries()].sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+            renderSearchResults({
+                videos:   vidRes.data || [],
+                users:    [...usersMap.entries()].map(([id,name]) => ({ user_id:id, username:name })),
+                hashtags,
+                query,
+            });
+        }
+
+        function showSearchLoading() {
+            document.getElementById('search-results').innerHTML = `
+                <div style="display:flex;justify-content:center;align-items:center;padding:60px;">
+                    <div style="width:24px;height:24px;border:3px solid #222;border-top-color:#fe2c55;
+                                border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+                </div>`;
+        }
+
+        function renderSearchResults({ videos, users, hashtags, query }) {
+            const el = document.getElementById('search-results');
+
+            if (currentTab === 'videos') {
+                el.innerHTML = renderVideoGrid(videos, query);
+            } else if (currentTab === 'users') {
+                el.innerHTML = renderUserList(users, query);
+            } else if (currentTab === 'hashtags') {
+                el.innerHTML = renderHashtagList(hashtags, query);
+            } else {
+                // All tab — show all sections
+                let html = '';
+
+                if (users.length) {
+                    html += `<div style="padding:12px 16px 4px;">
+                        <p style="margin:0;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;">👤 Pengguna</p>
+                    </div>
+                    ${renderUserList(users.slice(0,3), query)}
+                    ${users.length > 3 ? `<button onclick="switchSearchTab('users', document.querySelector('.stab:nth-child(3)'))"
+                        style="width:100%;background:transparent;border:none;border-top:1px solid #111;color:#555;
+                               padding:12px;font-size:13px;cursor:pointer;font-family:inherit;">
+                        Lihat semua ${users.length} pengguna →
+                    </button>` : ''}`;
+                }
+
+                if (hashtags.length) {
+                    html += `<div style="padding:12px 16px 4px;border-top:1px solid #0d0d0d;">
+                        <p style="margin:0;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;">🏷️ Hashtag</p>
+                    </div>
+                    ${renderHashtagList(hashtags.slice(0,4), query)}`;
+                }
+
+                if (videos.length) {
+                    html += `<div style="padding:12px 16px 4px;border-top:1px solid #0d0d0d;">
+                        <p style="margin:0;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;">🎬 Video</p>
+                    </div>
+                    ${renderVideoGrid(videos, query)}`;
+                }
+
+                if (!users.length && !hashtags.length && !videos.length) {
+                    html = `<div class="empty-state">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <p style="font-size:15px;font-weight:700;color:#888;">Tiada hasil untuk "${escapeHtml(query)}"</p>
+                        <p style="font-size:13px;color:#444;margin-top:6px;">Cuba kata kunci lain atau hashtag berbeza.</p>
+                    </div>`;
+                }
+
+                el.innerHTML = html;
+            }
+        }
+
+        function renderVideoGrid(videos, query) {
+            if (!videos.length) return `<div class="empty-state"><i class="fa-solid fa-video"></i><p style="color:#888;">Tiada video dijumpai.</p></div>`;
+            return `<div class="vid-grid-2">
+                ${videos.map(v => `
+                <div class="vid-cell" onclick="viewVideo(${v.id})">
+                    <video src="${escapeHtml(v.video_url)}" preload="metadata" muted></video>
+                    <div class="vid-cell-info">
+                        <div style="color:#fff;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-bottom:2px;">
+                            ${highlightMatch(escapeHtml((v.caption||'').slice(0,30)), query)}
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <i class="fa-solid fa-heart" style="color:#fe2c55;font-size:9px;"></i>
+                            <span style="font-size:10px;font-weight:700;">${formatCount(v.likes_count||0)}</span>
+                        </div>
+                    </div>
+                </div>`).join('')}
+            </div>`;
+        }
+
+        function renderUserList(users, query) {
+            if (!users.length) return `<div class="empty-state"><i class="fa-solid fa-user"></i><p style="color:#888;">Tiada pengguna dijumpai.</p></div>`;
+            return users.map(u => `
+            <div class="user-row" onclick="window.location.href='profile.html?user=${encodeURIComponent(u.user_id)}'">
+                <img class="user-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(u.username||'U')}&background=random&size=96" alt="">
+                <div style="flex:1;min-width:0;">
+                    <p style="margin:0;font-size:14px;font-weight:800;">${highlightMatch(escapeHtml('@'+(u.username||'')), query)}</p>
+                    <p style="margin:2px 0 0;font-size:12px;color:#555;">Lihat profil →</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#333;font-size:12px;"></i>
+            </div>`).join('');
+        }
+
+        function renderHashtagList(hashtags, query) {
+            if (!hashtags.length) return `<div class="empty-state"><i class="fa-solid fa-hashtag"></i><p style="color:#888;">Tiada hashtag dijumpai.</p></div>`;
+            return hashtags.map(([tag, count]) => `
+            <div class="hashtag-row" onclick="doSearch('${escapeHtml(tag)}')">
+                <div class="hashtag-icon">#</div>
+                <div style="flex:1;min-width:0;">
+                    <p style="margin:0;font-size:14px;font-weight:800;">${highlightMatch(escapeHtml(tag), query)}</p>
+                    <p style="margin:2px 0 0;font-size:12px;color:#555;">${count} video</p>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:#333;font-size:12px;"></i>
+            </div>`).join('');
+        }
+
+        function switchSearchTab(tab, btn) {
+            currentTab = tab;
+            document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            if (currentQuery) performSearch(currentQuery);
+        }
+
+        function clearRecentSearches() {
+            recentSearches = [];
+            localStorage.removeItem('sf_recent_searches');
+            document.getElementById('recent-section').style.display = 'none';
+        }
+
+        function highlightMatch(text, query) {
+            if (!query) return text;
+            const q = query.replace(/[#.*+?^${}()|[\]\\]/g, '\\$&');
+            return text.replace(new RegExp(`(${q})`, 'gi'),
+                '<mark style="background:rgba(254,44,85,0.25);color:#fe2c55;border-radius:2px;">$1</mark>');
+        }
+
+        function formatCount(n) {
+            return n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : n;
+        }
+
+        function viewVideo(id) {
+            window.location.href = `index.html#video-${id}`;
+        }
+    </script>
+</body>
+</html>

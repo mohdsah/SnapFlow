@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Koleksi Bookmark | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background:#000; color:#fff; margin:0; overflow-y:auto; padding-bottom:calc(var(--nav-height)+8px); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+        /* Collection card grid */
+        .col-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 14px; }
+
+        .col-card {
+            background:#111; border:1px solid #1a1a1a; border-radius:14px;
+            overflow:hidden; cursor:pointer; transition:all 0.2s;
+            position:relative;
+        }
+        .col-card:active { transform:scale(0.97); }
+        .col-card:hover  { border-color:#333; }
+
+        .col-cover {
+            display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr;
+            aspect-ratio:1; overflow:hidden; background:#0d0d0d;
+        }
+        .col-cover-cell {
+            background:#111; overflow:hidden;
+        }
+        .col-cover-cell video, .col-cover-cell img {
+            width:100%; height:100%; object-fit:cover; display:block;
+        }
+        .col-cover-cell.empty { background:#1a1a1a; display:flex; align-items:center; justify-content:center; }
+
+        .col-info { padding:10px; }
+        .col-emoji { font-size:20px; }
+        .col-name  { font-size:13px; font-weight:800; margin:4px 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .col-count { font-size:11px; color:#555; }
+
+        /* Delete badge */
+        .col-del-btn {
+            position:absolute; top:6px; right:6px; width:24px; height:24px;
+            background:rgba(0,0,0,0.7); border-radius:50%; display:none;
+            align-items:center; justify-content:center; font-size:11px; cursor:pointer;
+            border:1px solid #333; color:#fe2c55;
+        }
+        .col-card:hover .col-del-btn,
+        .col-card.long-pressed .col-del-btn { display:flex; }
+
+        /* Video grid inside collection */
+        .vid-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:2px; }
+        .vid-cell-3 { aspect-ratio:9/16; background:#111; overflow:hidden; cursor:pointer; position:relative; }
+        .vid-cell-3 video { width:100%; height:100%; object-fit:cover; }
+        .vid-cell-3 .vlike { position:absolute; bottom:4px; left:4px; font-size:10px; font-weight:700;
+                              display:flex; align-items:center; gap:3px; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+
+        /* New collection card */
+        .new-col-card {
+            background:#0d0d0d; border:1.5px dashed #222; border-radius:14px;
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            cursor:pointer; transition:all 0.2s; min-height:160px;
+        }
+        .new-col-card:active { border-color:#fe2c55; background:#1a0005; }
+
+        /* Default collections */
+        .default-col { border-color:#1a1a1a !important; }
+    </style>
+</head>
+<body>
+
+    <header style="padding:14px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #111;
+                   position:sticky; top:0; background:rgba(0,0,0,0.97); z-index:100; backdrop-filter:blur(12px);">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="cursor:pointer;font-size:18px;color:#888;"></i>
+        <strong style="font-size:18px;font-weight:800;flex:1;">🔖 Koleksi Saya</strong>
+        <button onclick="openCreateCollection()"
+            style="background:#fe2c55;border:none;color:#fff;padding:7px 14px;border-radius:20px;
+                   font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">
+            + Baru
+        </button>
+    </header>
+
+    <!-- Summary -->
+    <div id="col-summary" style="display:flex;gap:12px;padding:12px 14px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid #0d0d0d;"></div>
+
+    <!-- All-Saved shortcut -->
+    <div style="padding:12px 14px 0;display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:44px;height:44px;background:#1a0005;border-radius:10px;
+                    display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">
+            🔖
+        </div>
+        <div onclick="openAllSaved()" style="flex:1;cursor:pointer;">
+            <p style="margin:0;font-size:14px;font-weight:800;">Semua Video Tersimpan</p>
+            <p id="all-saved-count" style="margin:2px 0 0;font-size:12px;color:#555;">Memuatkan...</p>
+        </div>
+        <i class="fa-solid fa-chevron-right" style="color:#333;font-size:12px;"></i>
+    </div>
+
+    <div style="padding:0 14px 10px;">
+        <p style="margin:0;font-size:12px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">Koleksi Peribadi</p>
+    </div>
+
+    <!-- Collections Grid -->
+    <div class="col-grid" id="collections-grid"></div>
+
+    <!-- New collection button (inside grid) -->
+    <div style="padding:0 14px;margin-top:10px;">
+        <div class="new-col-card" onclick="openCreateCollection()">
+            <i class="fa-solid fa-plus" style="font-size:22px;color:#333;margin-bottom:6px;"></i>
+            <span style="font-size:13px;color:#555;font-weight:700;">Cipta Koleksi Baru</span>
+        </div>
+    </div>
+
+    <!-- Tips -->
+    <div style="margin:16px 14px;padding:14px;background:#001a09;border:1px solid #003a10;border-radius:12px;">
+        <p style="margin:0;font-size:13px;color:#007a50;line-height:1.6;">
+            💡 <strong style="color:#00f2ea;">Tips:</strong> Tekan lama pada koleksi untuk padam. Klik ikon 🔖 pada mana-mana video dan pilih koleksi untuk menyimpannya.
+        </p>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="index.html"    class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
+        <a href="upload.html"   class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html"    class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html"  class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
+    </nav>
+
+    <script src="app.js"></script>
+    <script>
+        const DEFAULT_COLLECTIONS = [
+            { id:'fav',     name:'Kegemaran',  emoji:'❤️',  isDefault:true },
+            { id:'watch',   name:'Tonton Kemudian', emoji:'⏰', isDefault:true },
+            { id:'masak',   name:'Resepi',      emoji:'🍳',  isDefault:true },
+            { id:'lawak',   name:'Lawak',       emoji:'😂',  isDefault:true },
+            { id:'tutorial',name:'Tutorial',    emoji:'📚',  isDefault:true },
+        ];
+
+        let collections = [];
+        let savedVideos_local = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadCollections();
+            loadSavedCount();
+        });
+
+        function getCollections() {
+            try {
+                const stored = JSON.parse(localStorage.getItem('sf_collections') || 'null');
+                if (stored) return stored;
+                // First time: init with defaults
+                localStorage.setItem('sf_collections', JSON.stringify(DEFAULT_COLLECTIONS));
+                return DEFAULT_COLLECTIONS;
+            } catch { return DEFAULT_COLLECTIONS; }
+        }
+
+        function saveCollections(cols) {
+            localStorage.setItem('sf_collections', JSON.stringify(cols));
+        }
+
+        function loadCollections() {
+            collections = getCollections();
+            renderCollections();
+            renderSummary();
+        }
+
+        function renderSummary() {
+            const total    = collections.reduce((s, c) => s + (getCollectionVideos(c.id).length), 0);
+            const allSaved = JSON.parse(localStorage.getItem('sf_saved_videos') || '[]').length;
+
+            document.getElementById('col-summary').innerHTML = [
+                { icon:'🔖', label:'Koleksi', val:collections.length },
+                { icon:'🎬', label:'Video Disimpan', val:allSaved },
+                { icon:'📁', label:'Total Video', val:total },
+            ].map(item => `
+            <div style="background:#111;border:1px solid #1a1a1a;border-radius:10px;padding:10px 14px;
+                        text-align:center;flex-shrink:0;min-width:80px;">
+                <p style="margin:0;font-size:20px;">${item.icon}</p>
+                <p style="margin:3px 0 0;font-size:16px;font-weight:900;">${item.val}</p>
+                <p style="margin:2px 0 0;font-size:10px;color:#555;">${item.label}</p>
+            </div>`).join('');
+        }
+
+        function loadSavedCount() {
+            const saved = JSON.parse(localStorage.getItem('sf_saved_videos') || '[]');
+            document.getElementById('all-saved-count').innerText = `${saved.length} video tersimpan`;
+        }
+
+        function getCollectionVideos(colId) {
+            try {
+                return JSON.parse(localStorage.getItem(`sf_col_${colId}`) || '[]');
+            } catch { return []; }
+        }
+
+        function renderCollections() {
+            const grid = document.getElementById('collections-grid');
+            grid.innerHTML = collections.map((col, i) => {
+                const vids  = getCollectionVideos(col.id);
+                const count = vids.length;
+                return `
+                <div class="col-card" id="col-card-${col.id}"
+                     onclick="openCollectionDetail('${col.id}')"
+                     oncontextmenu="event.preventDefault();toggleDeleteMode('${col.id}')"
+                     style="animation:fadeInUp 0.3s ease ${i*0.05}s both;">
+
+                    <!-- 4-thumbnail mosaic -->
+                    <div class="col-cover">
+                        ${[0,1,2,3].map(j => {
+                            const vid = vids[j];
+                            return vid
+                                ? `<div class="col-cover-cell">
+                                       <video src="${escapeHtml(vid.video_url||'')}" preload="metadata" muted></video>
+                                   </div>`
+                                : `<div class="col-cover-cell empty">
+                                       <i class="fa-solid fa-video" style="font-size:16px;color:#333;"></i>
+                                   </div>`;
+                        }).join('')}
+                    </div>
+
+                    <div class="col-info">
+                        <span class="col-emoji">${col.emoji}</span>
+                        <p class="col-name">${escapeHtml(col.name)}</p>
+                        <p class="col-count">${count} video${col.isDefault ? ' · Default' : ''}</p>
+                    </div>
+
+                    <!-- Delete button (on hover/long press) -->
+                    ${!col.isDefault ? `
+                    <div class="col-del-btn" onclick="event.stopPropagation();deleteCollection('${col.id}')">
+                        <i class="fa-solid fa-xmark"></i>
+                    </div>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function toggleDeleteMode(colId) {
+            const card = document.getElementById(`col-card-${colId}`);
+            card?.classList.toggle('long-pressed');
+        }
+
+        async function openCollectionDetail(colId) {
+            const col  = collections.find(c => c.id === colId);
+            if (!col) return;
+            const vids = getCollectionVideos(colId);
+
+            const modal = document.createElement('div');
+            modal.id    = 'col-detail-modal';
+            modal.innerHTML = `
+                <div style="position:fixed;inset:0;background:#000;z-index:9300;overflow-y:auto;display:flex;flex-direction:column;">
+                    <!-- Header -->
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #111;
+                                position:sticky;top:0;background:rgba(0,0,0,0.97);backdrop-filter:blur(12px);">
+                        <button onclick="document.getElementById('col-detail-modal').remove()"
+                            style="background:transparent;border:none;color:#888;font-size:20px;cursor:pointer;">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <span style="font-size:22px;">${col.emoji}</span>
+                        <div>
+                            <h3 style="margin:0;font-size:16px;font-weight:800;">${escapeHtml(col.name)}</h3>
+                            <p style="margin:2px 0 0;font-size:12px;color:#555;">${vids.length} video</p>
+                        </div>
+                        <button onclick="openAddToCollection('${colId}')"
+                            style="margin-left:auto;background:#fe2c55;border:none;color:#fff;padding:7px 14px;
+                                   border-radius:20px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">
+                            + Tambah
+                        </button>
+                    </div>
+
+                    <!-- Grid -->
+                    <div class="vid-grid-3" style="padding:2px;">
+                        ${vids.length ? vids.map(v => `
+                        <div class="vid-cell-3" onclick="viewVideo(${v.id})">
+                            <video src="${escapeHtml(v.video_url||'')}" preload="metadata" muted></video>
+                            <div class="vlike">
+                                <i class="fa-solid fa-heart" style="color:#fe2c55;"></i>
+                                ${v.likes_count||0}
+                            </div>
+                            <button onclick="event.stopPropagation();removeFromCollection('${colId}',${v.id},this.closest('.vid-cell-3'))"
+                                style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);border:none;
+                                       color:#fff;width:22px;height:22px;border-radius:50%;cursor:pointer;
+                                       font-size:10px;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>`).join('')
+                        : '<div style="grid-column:span 3;text-align:center;padding:60px 24px;color:#555;"><i class="fa-solid fa-bookmark" style="font-size:36px;color:#1a1a1a;display:block;margin-bottom:12px;"></i><p>Belum ada video dalam koleksi ini.</p></div>'}
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        async function openAllSaved() {
+            const savedIds = JSON.parse(localStorage.getItem('sf_saved_videos') || '[]');
+            if (!savedIds.length) return showToast('Belum ada video tersimpan.', 'info');
+
+            const { data: videos } = await snapSupabase.from('videos')
+                .select('id,video_url,caption,likes_count')
+                .in('id', savedIds.slice(0, 50))
+                .eq('is_published', true);
+
+            const modal = document.createElement('div');
+            modal.id = 'all-saved-modal';
+            modal.innerHTML = `
+                <div style="position:fixed;inset:0;background:#000;z-index:9300;overflow-y:auto;display:flex;flex-direction:column;">
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #111;
+                                position:sticky;top:0;background:rgba(0,0,0,0.97);backdrop-filter:blur(12px);">
+                        <button onclick="document.getElementById('all-saved-modal').remove()"
+                            style="background:transparent;border:none;color:#888;font-size:20px;cursor:pointer;">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <span style="font-size:20px;">🔖</span>
+                        <div>
+                            <h3 style="margin:0;font-size:16px;font-weight:800;">Semua Video Tersimpan</h3>
+                            <p style="margin:2px 0 0;font-size:12px;color:#555;">${(videos||[]).length} video</p>
+                        </div>
+                    </div>
+                    <div class="vid-grid-3" style="padding:2px;">
+                        ${(videos||[]).map(v => `
+                        <div class="vid-cell-3" onclick="viewVideo(${v.id})">
+                            <video src="${escapeHtml(v.video_url||'')}" preload="metadata" muted></video>
+                            <div class="vlike"><i class="fa-solid fa-heart" style="color:#fe2c55;"></i>${v.likes_count||0}</div>
+                        </div>`).join('')}
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        function removeFromCollection(colId, videoId, el) {
+            const vids = getCollectionVideos(colId).filter(v => v.id !== videoId);
+            localStorage.setItem(`sf_col_${colId}`, JSON.stringify(vids));
+            el?.remove();
+            showToast('Video dibuang dari koleksi.', 'info');
+            loadCollections();
+        }
+
+        function deleteCollection(colId) {
+            const col = collections.find(c => c.id === colId);
+            if (!col || col.isDefault) return;
+            if (!confirm(`Padam koleksi "${col.name}"? Video tidak akan dipadam.`)) return;
+            collections = collections.filter(c => c.id !== colId);
+            localStorage.removeItem(`sf_col_${colId}`);
+            saveCollections(collections);
+            loadCollections();
+            showToast('Koleksi dipadam.', 'info');
+        }
+
+        function openCreateCollection() {
+            const emojis = ['📁','⭐','❤️','🎬','😂','🍳','🏋️','✈️','🎵','💡','🛍️','📚','🌙','🔥'];
+            const modal  = document.createElement('div');
+            modal.id     = 'create-col-modal';
+            modal.innerHTML = `
+                <div onclick="document.getElementById('create-col-modal').remove()"
+                     style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9400;"></div>
+                <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                            padding:20px;z-index:9401;border-top:1px solid #222;">
+                    <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 18px;"></div>
+                    <h3 style="margin:0 0 16px;font-size:17px;font-weight:800;">📁 Koleksi Baru</h3>
+
+                    <!-- Emoji picker -->
+                    <p style="font-size:12px;color:#555;margin:0 0 8px;">Pilih Emoji</p>
+                    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+                        ${emojis.map(e => `
+                        <button onclick="selectColEmoji(this,'${e}')" data-emoji="${e}"
+                            style="background:#1a1a1a;border:1.5px solid #222;border-radius:8px;padding:7px;
+                                   font-size:20px;cursor:pointer;transition:all 0.15s;width:42px;height:42px;">
+                            ${e}
+                        </button>`).join('')}
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <p style="font-size:12px;color:#555;margin:0 0 6px;">Nama Koleksi</p>
+                        <input type="text" id="new-col-name" placeholder="cth: Resepi Viral, Tutorial Kerja..."
+                            maxlength="30"
+                            style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:12px;
+                                   border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none;">
+                    </div>
+
+                    <button onclick="submitCreateCollection()"
+                        style="width:100%;background:#fe2c55;color:#fff;border:none;padding:14px;border-radius:12px;
+                               font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;">
+                        Cipta Koleksi
+                    </button>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        let selectedColEmoji = '📁';
+        function selectColEmoji(btn, emoji) {
+            document.querySelectorAll('[data-emoji]').forEach(b => {
+                b.style.borderColor = '#222'; b.style.background = '#1a1a1a';
+            });
+            btn.style.borderColor = '#fe2c55'; btn.style.background = '#1a0005';
+            selectedColEmoji = emoji;
+        }
+
+        function submitCreateCollection() {
+            const name = document.getElementById('new-col-name')?.value?.trim();
+            if (!name) return showToast('Masukkan nama koleksi.', 'warning');
+
+            const newCol = {
+                id:        'col_' + Date.now(),
+                name,
+                emoji:     selectedColEmoji,
+                isDefault: false,
+                createdAt: new Date().toISOString(),
+            };
+            collections.push(newCol);
+            saveCollections(collections);
+            document.getElementById('create-col-modal')?.remove();
+            loadCollections();
+            showToast(`Koleksi "${name}" dicipta! 📁`, 'success');
+        }
+
+        function viewVideo(id) {
+            window.location.href = `index.html#video-${id}`;
+        }
+
+        // Called from app.js when user saves a video — show collection picker
+        window.openCollectionPicker = function(videoId, videoData) {
+            const modal = document.createElement('div');
+            modal.id = 'col-picker-modal';
+            const cols = getCollections();
+
+            modal.innerHTML = `
+                <div onclick="document.getElementById('col-picker-modal').remove()"
+                     style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9500;"></div>
+                <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                            padding:20px;z-index:9501;border-top:1px solid #222;max-height:60vh;overflow-y:auto;">
+                    <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 18px;"></div>
+                    <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;">🔖 Simpan ke Koleksi</h3>
+                    ${cols.map(col => {
+                        const vids    = getCollectionVideos(col.id);
+                        const isAdded = vids.some(v => v.id === videoId);
+                        return `
+                        <div onclick="addToCollection('${col.id}', ${videoId}, ${JSON.stringify(videoData).replace(/'/g,"\\'")})"
+                             style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;
+                                    cursor:pointer;transition:background 0.15s;border:1.5px solid ${isAdded?'#fe2c55':'transparent'};
+                                    margin-bottom:6px;background:${isAdded?'#1a0005':'#1a1a1a'};">
+                            <span style="font-size:22px;width:32px;text-align:center;">${col.emoji}</span>
+                            <div style="flex:1;">
+                                <p style="margin:0;font-size:14px;font-weight:700;">${escapeHtml(col.name)}</p>
+                                <p style="margin:2px 0 0;font-size:11px;color:#555;">${vids.length} video</p>
+                            </div>
+                            ${isAdded ? '<i class="fa-solid fa-check" style="color:#fe2c55;"></i>' : ''}
+                        </div>`;
+                    }).join('')}
+                    <button onclick="openCreateCollection();document.getElementById('col-picker-modal')?.remove()"
+                        style="width:100%;background:transparent;border:1px dashed #333;color:#555;padding:11px;
+                               border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px;">
+                        + Cipta Koleksi Baru
+                    </button>
+                </div>`;
+            document.body.appendChild(modal);
+        };
+
+        window.addToCollection = function(colId, videoId, videoData) {
+            const vids = getCollectionVideos(colId);
+            if (vids.some(v => v.id === videoId)) {
+                showToast('Video sudah ada dalam koleksi ini.', 'info');
+            } else {
+                vids.push(videoData);
+                localStorage.setItem(`sf_col_${colId}`, JSON.stringify(vids));
+                const col = collections.find(c => c.id === colId);
+                showToast(`Disimpan ke "${col?.name||'Koleksi'}"! 📁`, 'success');
+            }
+            document.getElementById('col-picker-modal')?.remove();
+            loadCollections();
+        };
+    </script>
+</body>
+</html>

@@ -54,13 +54,29 @@
             <span id="verified-badge" style="display:none;background:#1da1f2;border-radius:50%;width:20px;height:20px;align-items:center;justify-content:center;flex-shrink:0;" title="Akaun Disahkan">
                 <i class="fa-solid fa-check" style="font-size:11px;color:#fff;"></i>
             </span>
+            <span id="pro-badge" style="display:none;background:linear-gradient(135deg,#f6c90e,#ffdf6b);color:#000;font-size:10px;font-weight:900;padding:2px 7px;border-radius:6px;" title="SnapFlow Pro">PRO</span>
         </div>
-        <p id="display-handle" style="color: #555; margin: 5px 0 22px; font-size: 14px;">@username</p>
+        <p id="display-handle" style="color: #555; margin: 5px 0 10px; font-size: 14px;">@username</p>
+
+        <!-- Bio Text -->
+        <p id="display-bio" style="color:#888;font-size:13px;line-height:1.5;margin:0 20px 10px;min-height:0;"></p>
+
+        <!-- Bio Links -->
+        <div id="bio-links-display" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;"></div>
 
         <!-- Action Buttons -->
         <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 28px;">
+            <button class="action-btn" onclick="openProModal()" style="background:linear-gradient(135deg,#1a1200,#0d0900);border:1px solid #f6c90e33;color:#f6c90e;">
+                <i class="fa-solid fa-star" style="font-size:12px;"></i> Pro
+            </button>
             <button class="action-btn" onclick="window.location.href='followers.html'">
                 <i class="fa-solid fa-users" style="font-size:12px;"></i> Pengikut
+            </button>
+            <button class="action-btn" onclick="window.location.href='analytics.html'" style="background:#0d001a;border:1px solid #2a0050;color:#c084fc;">
+                <i class="fa-solid fa-chart-line" style="font-size:12px;"></i> Analitik
+            </button>
+            <button class="action-btn" onclick="window.location.href='collections.html'" style="background:#001a09;border:1px solid #003a10;color:#00f2ea;">
+                <i class="fa-solid fa-bookmark" style="font-size:12px;"></i> Koleksi
             </button>
             <button class="action-btn" onclick="window.location.href='edit-profile.html'">
                 <i class="fa-solid fa-pen" style="font-size:12px;"></i> Edit Profil
@@ -69,6 +85,9 @@
                 <i class="fa-solid fa-right-from-bracket" style="font-size:12px;"></i> Log Keluar
             </button>
         </div>
+
+        <!-- Creator Coins -->
+        <div id="creator-coins" style="text-align:center;font-size:12px;color:#555;margin:-8px 0 14px;"></div>
 
         <!-- Stats -->
         <div style="display: flex; justify-content: center; gap: 30px; border-top: 1px solid #111; border-bottom: 1px solid #111; padding: 18px 0; margin-bottom: 20px;">
@@ -103,6 +122,9 @@
             </button>
             <button class="profile-tab-btn" onclick="switchProfileTab('analytics', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
                 <i class="fa-solid fa-chart-line"></i> Analitik
+            </button>
+            <button class="profile-tab-btn" onclick="switchProfileTab('earnings', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa-solid fa-coins"></i> Hadiah
             </button>
         </div>
 

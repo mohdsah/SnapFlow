@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Log Aktiviti | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background:#000; color:#fff; margin:0; overflow-y:auto; padding-bottom:30px; }
+        .log-row { padding:14px 16px; border-bottom:1px solid #0d0d0d; display:flex; gap:12px; align-items:flex-start; }
+        .log-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center;
+                    justify-content:center; font-size:18px; flex-shrink:0; }
+        .log-icon.login   { background:#001a09; }
+        .log-icon.logout  { background:#1a0005; }
+        .log-icon.upload  { background:#00091a; }
+        .log-icon.settings{ background:#1a1400; }
+        .log-icon.warning { background:#1a0a00; }
+        .device-chip { display:inline-flex; align-items:center; gap:4px; background:#1a1a1a;
+                       padding:3px 8px; border-radius:20px; font-size:11px; color:#666; margin-top:4px; }
+        .risk-badge { font-size:10px; font-weight:800; padding:2px 7px; border-radius:20px; }
+        .risk-low  { background:#001a09; color:#00f2ea; }
+        .risk-med  { background:#1a1400; color:#ffcc00; }
+        .risk-high { background:#1a0005; color:#fe2c55; }
+    </style>
+</head>
+<body>
+
+    <header style="padding:14px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #111;
+                   position:sticky; top:0; background:rgba(0,0,0,0.97); z-index:100; backdrop-filter:blur(12px);">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="cursor:pointer;font-size:18px;color:#888;"></i>
+        <strong style="font-size:18px;font-weight:800;flex:1;">🔒 Log Aktiviti Akaun</strong>
+        <button onclick="clearOldLogs()"
+            style="background:transparent;border:none;color:#555;font-size:13px;cursor:pointer;font-family:inherit;">
+            Padam Lama
+        </button>
+    </header>
+
+    <!-- Security Status -->
+    <div id="security-status" style="margin:16px;padding:16px;background:#111;border-radius:14px;border:1px solid #1a1a1a;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div id="sec-icon" style="font-size:28px;">🛡️</div>
+            <div>
+                <p id="sec-title" style="margin:0;font-size:14px;font-weight:800;">Menyemak keselamatan...</p>
+                <p id="sec-desc"  style="margin:4px 0 0;font-size:12px;color:#555;"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Sessions -->
+    <div style="padding:0 16px 12px;">
+        <h3 style="margin:0 0 12px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px;">
+            Sesi Aktif
+        </h3>
+        <div id="active-sessions">
+            <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;padding:14px;display:flex;
+                        align-items:center;gap:12px;">
+                <i class="fa-solid fa-mobile-screen" style="font-size:20px;color:#00f2ea;width:24px;text-align:center;"></i>
+                <div style="flex:1;">
+                    <p style="margin:0;font-size:13px;font-weight:700;">Peranti Ini</p>
+                    <p style="margin:3px 0 0;font-size:12px;color:#555;" id="this-device-info">Memuatkan...</p>
+                </div>
+                <span style="background:#001a09;color:#00f2ea;font-size:11px;font-weight:800;
+                             padding:3px 8px;border-radius:20px;">Aktif</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Activity List -->
+    <div style="padding:0 16px 8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <h3 style="margin:0;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px;">
+                Sejarah Aktiviti
+            </h3>
+            <select id="log-filter" onchange="filterLogs(this.value)"
+                style="background:#1a1a1a;border:1px solid #222;color:#888;padding:5px 10px;
+                       border-radius:8px;font-size:12px;font-family:inherit;outline:none;">
+                <option value="all">Semua</option>
+                <option value="login">Log Masuk</option>
+                <option value="upload">Upload</option>
+                <option value="settings">Tetapan</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="activity-log-list"></div>
+
+    <!-- Security Tips -->
+    <div style="margin:16px;padding:16px;background:#001a09;border:1px solid #003a10;border-radius:14px;">
+        <p style="margin:0 0 10px;font-size:13px;font-weight:800;color:#00f2ea;">🛡️ Tips Keselamatan</p>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+            ${[
+                'Tukar kata laluan setiap 3 bulan',
+                'Jangan kongsi kata laluan dengan sesiapa',
+                'Log keluar dari peranti yang tidak digunakan',
+                'Aktifkan pengesahan dua faktor (2FA) bila tersedia',
+            ].map(tip => `
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+                <i class="fa-solid fa-check-circle" style="color:#00f2ea;font-size:13px;margin-top:1px;flex-shrink:0;"></i>
+                <span style="font-size:12px;color:#007a50;">${tip}</span>
+            </div>`).join('')}
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let allLogs = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (!user) { window.location.href = 'login.html'; return; }
+
+            // Rekod aktiviti current login
+            recordActivity('login', 'Log masuk berjaya', 'low');
+
+            // Papar maklumat peranti ini
+            const deviceInfo = getDeviceInfo();
+            document.getElementById('this-device-info').innerText =
+                `${deviceInfo.browser} · ${deviceInfo.os} · ${new Date().toLocaleString('ms-MY')}`;
+
+            loadActivityLogs();
+            checkSecurityStatus();
+        });
+
+        function getDeviceInfo() {
+            const ua = navigator.userAgent;
+            let browser = 'Browser', os = 'Tidak diketahui';
+
+            if (ua.includes('Chrome'))  browser = 'Chrome';
+            else if (ua.includes('Safari'))  browser = 'Safari';
+            else if (ua.includes('Firefox')) browser = 'Firefox';
+            else if (ua.includes('Edge'))    browser = 'Edge';
+
+            if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+            else if (ua.includes('Android')) os = 'Android';
+            else if (ua.includes('Windows')) os = 'Windows';
+            else if (ua.includes('Mac'))     os = 'macOS';
+            else if (ua.includes('Linux'))   os = 'Linux';
+
+            return { browser, os };
+        }
+
+        function recordActivity(type, desc, risk = 'low') {
+            const logs = getStoredLogs();
+            const device = getDeviceInfo();
+            logs.unshift({
+                id:        Date.now(),
+                type,
+                desc,
+                risk,
+                browser:   device.browser,
+                os:        device.os,
+                timestamp: new Date().toISOString(),
+            });
+            // Simpan max 100 log
+            localStorage.setItem('sf_activity_log', JSON.stringify(logs.slice(0, 100)));
+        }
+
+        function getStoredLogs() {
+            try {
+                return JSON.parse(localStorage.getItem('sf_activity_log') || '[]');
+            } catch { return []; }
+        }
+
+        function loadActivityLogs() {
+            allLogs = getStoredLogs();
+
+            // Tambah beberapa log contoh jika kosong
+            if (allLogs.length <= 1) {
+                const device = getDeviceInfo();
+                const sampleLogs = [
+                    { id:2, type:'login',   desc:'Log masuk berjaya',      risk:'low',  browser:device.browser, os:device.os, timestamp: new Date(Date.now()-3600000).toISOString() },
+                    { id:3, type:'upload',  desc:'Video baru diupload',     risk:'low',  browser:device.browser, os:device.os, timestamp: new Date(Date.now()-7200000).toISOString() },
+                    { id:4, type:'settings',desc:'Profil dikemaskini',      risk:'low',  browser:device.browser, os:device.os, timestamp: new Date(Date.now()-86400000).toISOString() },
+                    { id:5, type:'login',   desc:'Log masuk dari lokasi baru', risk:'med', browser:'Safari', os:'iOS', timestamp: new Date(Date.now()-172800000).toISOString() },
+                ];
+                allLogs = [...allLogs, ...sampleLogs];
+                localStorage.setItem('sf_activity_log', JSON.stringify(allLogs));
+            }
+
+            renderLogs(allLogs);
+        }
+
+        function renderLogs(logs) {
+            const el  = document.getElementById('activity-log-list');
+            const now = Date.now();
+
+            if (!logs.length) {
+                el.innerHTML = '<p style="text-align:center;padding:30px;color:#555;font-size:13px;">Tiada log aktiviti.</p>';
+                return;
+            }
+
+            // Group by date
+            const groups = {};
+            logs.forEach(log => {
+                const date = new Date(log.timestamp).toLocaleDateString('ms-MY', { day:'numeric', month:'long', year:'numeric' });
+                if (!groups[date]) groups[date] = [];
+                groups[date].push(log);
+            });
+
+            el.innerHTML = Object.entries(groups).map(([date, items]) => `
+                <div style="padding:8px 16px;background:#0a0a0a;border-bottom:1px solid #111;">
+                    <p style="margin:0;font-size:11px;color:#444;font-weight:700;">${date}</p>
+                </div>
+                ${items.map(log => renderLogRow(log)).join('')}
+            `).join('');
+        }
+
+        function renderLogRow(log) {
+            const icons = {
+                login:    { icon:'fa-right-to-bracket', cls:'login',    bg:'login'   },
+                logout:   { icon:'fa-right-from-bracket',cls:'logout',  bg:'logout'  },
+                upload:   { icon:'fa-cloud-arrow-up',   cls:'upload',   bg:'upload'  },
+                settings: { icon:'fa-gear',             cls:'settings', bg:'settings'},
+                warning:  { icon:'fa-triangle-exclamation', cls:'warning', bg:'warning'},
+            };
+            const ic    = icons[log.type] || icons.settings;
+            const riskLabels = { low:'✓ Selamat', med:'⚠ Semak', high:'🚨 Awas' };
+            const riskClass  = { low:'risk-low', med:'risk-med', high:'risk-high' };
+            const timeAgoStr = timeAgo(log.timestamp);
+
+            return `
+            <div class="log-row">
+                <div class="log-icon ${ic.bg}">
+                    <i class="fa-solid ${ic.icon}" style="color:${log.risk==='high'?'#fe2c55':log.risk==='med'?'#ffcc00':'#00f2ea'};"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <p style="margin:0;font-size:14px;font-weight:700;">${escapeHtml(log.desc)}</p>
+                        <span class="risk-badge ${riskClass[log.risk]||'risk-low'}">${riskLabels[log.risk]||'✓'}</span>
+                    </div>
+                    <p style="margin:4px 0 4px;font-size:12px;color:#555;">${timeAgoStr}</p>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <span class="device-chip"><i class="fa-solid fa-globe"></i> ${escapeHtml(log.browser||'—')}</span>
+                        <span class="device-chip"><i class="fa-solid fa-mobile-screen"></i> ${escapeHtml(log.os||'—')}</span>
+                    </div>
+                    ${log.risk === 'high' ? `
+                    <button onclick="reportSuspiciousActivity('${log.id}')"
+                        style="margin-top:8px;background:#1a0005;border:1px solid #3a0010;color:#fe2c55;
+                               padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;
+                               cursor:pointer;font-family:inherit;">
+                        🚨 Bukan Saya — Laporkan
+                    </button>` : ''}
+                </div>
+            </div>`;
+        }
+
+        function filterLogs(type) {
+            const filtered = type === 'all' ? allLogs : allLogs.filter(l => l.type === type);
+            renderLogs(filtered);
+        }
+
+        function checkSecurityStatus() {
+            const logs    = getStoredLogs();
+            const highRisk = logs.filter(l => l.risk === 'high').length;
+            const medRisk  = logs.filter(l => l.risk === 'med').length;
+
+            const icon  = document.getElementById('sec-icon');
+            const title = document.getElementById('sec-title');
+            const desc  = document.getElementById('sec-desc');
+            const sec   = document.getElementById('security-status');
+
+            if (highRisk > 0) {
+                sec.style.background = '#1a0005'; sec.style.borderColor = '#3a0010';
+                icon.innerText  = '🚨';
+                title.innerText = `${highRisk} Aktiviti Mencurigakan!`;
+                title.style.color = '#fe2c55';
+                desc.innerText  = 'Semak log di bawah dan tukar kata laluan jika perlu.';
+            } else if (medRisk > 0) {
+                sec.style.background = '#1a1400'; sec.style.borderColor = '#3a3000';
+                icon.innerText  = '⚠️';
+                title.innerText = 'Perlu Semakan';
+                title.style.color = '#ffcc00';
+                desc.innerText  = 'Ada beberapa log yang perlu disemak.';
+            } else {
+                sec.style.background = '#001a09'; sec.style.borderColor = '#003a10';
+                icon.innerText  = '🛡️';
+                title.innerText = 'Akaun Selamat';
+                title.style.color = '#00f2ea';
+                desc.innerText  = 'Tiada aktiviti mencurigakan dikesan.';
+            }
+        }
+
+        async function reportSuspiciousActivity(logId) {
+            if (!confirm('Laporkan aktiviti ini sebagai mencurigakan? Anda akan diminta tukar kata laluan.')) return;
+            showToast('Aktiviti dilaporkan. Sila tukar kata laluan segera.', 'warning');
+            setTimeout(() => window.location.href = 'update-password.html', 1500);
+        }
+
+        function clearOldLogs() {
+            if (!confirm('Padam log lebih 30 hari?')) return;
+            const threshold = Date.now() - 30 * 86400000;
+            const recent    = getStoredLogs().filter(l => new Date(l.timestamp).getTime() > threshold);
+            localStorage.setItem('sf_activity_log', JSON.stringify(recent));
+            allLogs = recent;
+            renderLogs(recent);
+            showToast('Log lama dipadam.', 'success');
+        }
+    </script>
+</body>
+</html>

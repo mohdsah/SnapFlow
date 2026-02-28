@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing:border-box; }
+        body { background:#000; color:#fff; margin:0; overflow:hidden; height:100vh; }
+
+        #live-video {
+            width:100%; height:100vh; object-fit:cover; display:block; background:#000;
+        }
+
+        /* Live badge */
+        .live-badge {
+            background:#fe2c55; color:#fff; font-size:12px; font-weight:900;
+            padding:4px 10px; border-radius:6px; letter-spacing:1px;
+            animation:livePulse 1.5s ease-in-out infinite;
+        }
+        @keyframes livePulse {
+            0%,100% { opacity:1; }
+            50%      { opacity:0.7; }
+        }
+
+        /* Viewer count */
+        .viewer-count {
+            background:rgba(0,0,0,0.5); backdrop-filter:blur(8px);
+            padding:5px 12px; border-radius:20px; font-size:13px; font-weight:700;
+            display:flex; align-items:center; gap:5px;
+        }
+        .viewer-dot { width:6px; height:6px; background:#fe2c55; border-radius:50%;
+                      animation:viewerBlink 1s ease-in-out infinite; }
+        @keyframes viewerBlink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+        /* Chat overlay */
+        #live-chat {
+            position:absolute; bottom:90px; left:0; right:100px;
+            max-height:35vh; overflow:hidden; padding:0 12px;
+            display:flex; flex-direction:column; justify-content:flex-end; gap:6px;
+            pointer-events:none;
+        }
+        .chat-msg {
+            background:rgba(0,0,0,0.5); backdrop-filter:blur(6px);
+            padding:7px 12px; border-radius:16px 16px 16px 4px; max-width:85%;
+            font-size:13px; line-height:1.4; animation:msgIn 0.25s ease;
+            pointer-events:auto;
+        }
+        @keyframes msgIn {
+            from { opacity:0; transform:translateY(8px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+        .chat-msg .chat-name { font-weight:800; color:#fe2c55; margin-right:5px; }
+        .chat-msg.gift-msg   { background:rgba(246,201,14,0.15); border:1px solid rgba(246,201,14,0.3); }
+
+        /* Chat input */
+        #chat-input-wrap {
+            position:absolute; bottom:calc(var(--nav-height,60px) + 10px); left:0; right:0;
+            padding:0 12px; display:flex; gap:8px; align-items:center;
+        }
+
+        /* Floating gifts */
+        .floating-gift {
+            position:absolute; font-size:28px; pointer-events:none; z-index:100;
+            animation:floatUp 2.5s ease forwards;
+        }
+        @keyframes floatUp {
+            0%   { bottom:120px; opacity:1; transform:scale(1) translateX(0); }
+            100% { bottom:60vh;  opacity:0; transform:scale(1.5) translateX(var(--drift)); }
+        }
+
+        /* Side bar (gifts button etc) */
+        .live-side {
+            position:absolute; right:12px; bottom:140px;
+            display:flex; flex-direction:column; gap:12px; align-items:center;
+        }
+        .live-action {
+            width:48px; height:48px; background:rgba(0,0,0,0.5); backdrop-filter:blur(8px);
+            border-radius:50%; display:flex; flex-direction:column; align-items:center;
+            justify-content:center; cursor:pointer; gap:2px; border:1.5px solid rgba(255,255,255,0.15);
+            transition:all 0.2s;
+        }
+        .live-action:active { transform:scale(0.9); }
+        .live-action span { font-size:10px; }
+    </style>
+</head>
+<body>
+
+    <!-- PRE-LIVE: Pilih mod (Host atau Tonton) -->
+    <div id="pre-live-screen" style="height:100vh;display:flex;flex-direction:column;align-items:center;
+         justify-content:center;padding:30px;text-align:center;">
+
+        <div style="font-size:56px;margin-bottom:16px;">🔴</div>
+        <h2 style="margin:0 0 8px;font-size:24px;font-weight:900;">SnapFlow Live</h2>
+        <p style="margin:0 0 32px;font-size:14px;color:#555;line-height:1.6;">
+            Siaran langsung kepada peminat anda atau tonton siaran kreator lain masa nyata.
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;">
+            <button onclick="startHostLive()"
+                style="background:linear-gradient(135deg,#fe2c55,#ff6b6b);color:#fff;border:none;
+                       padding:16px;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;
+                       font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">
+                🔴 Mulakan Siaran Live
+            </button>
+            <button onclick="showLiveDirectory()"
+                style="background:#111;color:#fff;border:1px solid #333;padding:16px;border-radius:14px;
+                       font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;
+                       display:flex;align-items:center;justify-content:center;gap:10px;">
+                📺 Tonton Live Sekarang
+            </button>
+            <a href="index.html"
+                style="color:#555;font-size:14px;text-align:center;padding:10px;text-decoration:none;">
+                Kembali ke Feed
+            </a>
+        </div>
+    </div>
+
+    <!-- LIVE SCREEN (hidden until started) -->
+    <div id="live-screen" style="display:none;position:relative;height:100vh;">
+
+        <!-- Video element -->
+        <video id="live-video" autoplay muted playsinline></video>
+
+        <!-- Top bar -->
+        <div style="position:absolute;top:0;left:0;right:0;padding:16px 14px;
+                    display:flex;align-items:center;gap:10px;
+                    background:linear-gradient(to bottom,rgba(0,0,0,0.6),transparent);">
+            <button onclick="endLive()"
+                style="background:rgba(0,0,0,0.5);border:none;color:#fff;width:34px;height:34px;
+                       border-radius:50%;cursor:pointer;font-size:16px;backdrop-filter:blur(8px);">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <span class="live-badge">LIVE</span>
+            <div class="viewer-count">
+                <div class="viewer-dot"></div>
+                <span id="viewer-count-txt">0</span>
+            </div>
+            <span id="live-title-display" style="font-size:13px;color:#ccc;flex:1;
+                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+            <div id="live-timer" style="font-size:13px;color:#ccc;font-weight:700;font-variant-numeric:tabular-nums;">00:00</div>
+        </div>
+
+        <!-- Floating chat messages -->
+        <div id="live-chat"></div>
+
+        <!-- Gift floating area -->
+        <div id="gift-float-area" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
+
+        <!-- Side actions -->
+        <div class="live-side">
+            <div class="live-action" onclick="showLiveGifts()" title="Hantar Hadiah">
+                <i class="fa-solid fa-gift" style="font-size:20px;color:#f6c90e;"></i>
+                <span>Hadiah</span>
+            </div>
+            <div class="live-action" onclick="toggleLiveMute()" id="live-mute-btn" title="Mute">
+                <i class="fa-solid fa-microphone" style="font-size:20px;" id="live-mic-icon"></i>
+                <span>Mic</span>
+            </div>
+            <div class="live-action" onclick="flipCamera()" title="Flip Camera">
+                <i class="fa-solid fa-camera-rotate" style="font-size:20px;"></i>
+                <span>Flip</span>
+            </div>
+            <div class="live-action" onclick="shareLiveLink()" title="Kongsi">
+                <i class="fa-solid fa-share" style="font-size:20px;"></i>
+                <span>Kongsi</span>
+            </div>
+        </div>
+
+        <!-- Chat input -->
+        <div id="chat-input-wrap">
+            <input type="text" id="live-chat-input" placeholder="Tulis mesej..."
+                maxlength="100"
+                style="flex:1;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);border:1.5px solid rgba(255,255,255,0.15);
+                       color:#fff;padding:10px 14px;border-radius:24px;font-size:14px;font-family:inherit;outline:none;"
+                onkeydown="if(event.key==='Enter')sendLiveChat()">
+            <button onclick="sendLiveChat()"
+                style="background:#fe2c55;border:none;color:#fff;width:42px;height:42px;border-radius:50%;
+                       font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let localStream       = null;
+        let liveChannel       = null;
+        let liveSessionId     = null;
+        let viewerCount       = 0;
+        let liveTimerInterval = null;
+        let liveStartTime     = null;
+        let isHost            = false;
+        let useFrontCam       = true;
+        let isMicMuted        = false;
+        let chatMessages      = [];
+        const MAX_CHAT_MSG    = 8;
+
+        async function startHostLive() {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (!user) return showToast('Log masuk dahulu untuk live.', 'warning');
+
+            // Minta tajuk siaran
+            const title = prompt('Tajuk siaran live anda:') || 'SnapFlow Live';
+
+            try {
+                // Minta akses kamera + mikrofon
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
+                    audio: true
+                });
+
+                document.getElementById('pre-live-screen').style.display = 'none';
+                document.getElementById('live-screen').style.display     = 'block';
+                document.getElementById('live-video').srcObject           = localStream;
+                document.getElementById('live-title-display').innerText   = title;
+
+                isHost = true;
+
+                // Cipta sesi live dalam Supabase
+                const sessionId = `live_${user.id}_${Date.now()}`;
+                liveSessionId   = sessionId;
+
+                await snapSupabase.from('live_sessions').insert([{
+                    session_id:   sessionId,
+                    host_id:      user.id,
+                    host_name:    user.user_metadata?.full_name || 'User',
+                    title,
+                    started_at:   new Date().toISOString(),
+                    is_active:    true,
+                    viewer_count: 0,
+                }]).catch(() => {});
+
+                // Subscribe ke chat channel
+                setupLiveChatChannel(sessionId, user);
+
+                // Mula timer
+                liveStartTime = Date.now();
+                liveTimerInterval = setInterval(updateLiveTimer, 1000);
+
+                // Simulasi viewer naik
+                simulateViewers();
+
+                showToast('Live dimulakan! Selamat menyiar! 🔴', 'success');
+
+            } catch (err) {
+                if (err.name === 'NotAllowedError') {
+                    showToast('Kamera/Mikrofon tidak dibenarkan. Sila beri kebenaran.', 'error');
+                } else {
+                    showToast('Gagal mulakan live: ' + err.message, 'error');
+                }
+            }
+        }
+
+        function setupLiveChatChannel(sessionId, user) {
+            liveChannel = snapSupabase
+                .channel(`live:${sessionId}`)
+                .on('broadcast', { event: 'chat' }, ({ payload }) => {
+                    appendChatMsg(payload.username, payload.msg, payload.isGift);
+                })
+                .on('broadcast', { event: 'viewer_update' }, ({ payload }) => {
+                    viewerCount = payload.count;
+                    document.getElementById('viewer-count-txt').innerText = viewerCount;
+                })
+                .on('broadcast', { event: 'gift' }, ({ payload }) => {
+                    showFloatingGift(payload.emoji);
+                    appendChatMsg(payload.username, `menghantar ${payload.emoji} ${payload.name}!`, true);
+                })
+                .subscribe();
+        }
+
+        function appendChatMsg(username, msg, isGift = false) {
+            const chatEl = document.getElementById('live-chat');
+            if (!chatEl) return;
+
+            const div = document.createElement('div');
+            div.className = `chat-msg${isGift ? ' gift-msg' : ''}`;
+            div.innerHTML = `<span class="chat-name">@${escapeHtml(username)}</span>${escapeHtml(msg)}`;
+            chatEl.appendChild(div);
+
+            // Kekalkan max chat messages
+            chatMessages.push(div);
+            if (chatMessages.length > MAX_CHAT_MSG) {
+                chatMessages.shift()?.remove();
+            }
+
+            chatEl.scrollTop = chatEl.scrollHeight;
+        }
+
+        async function sendLiveChat() {
+            const input = document.getElementById('live-chat-input');
+            const msg   = input?.value?.trim();
+            if (!msg || !liveChannel) return;
+            input.value = '';
+
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            const username = user?.user_metadata?.full_name || 'Penonton';
+
+            // Broadcast ke semua penonton
+            await liveChannel.send({
+                type: 'broadcast', event: 'chat',
+                payload: { username, msg, ts: Date.now() }
+            });
+
+            // Papar sendiri juga
+            appendChatMsg(username + ' (saya)', msg);
+        }
+
+        function showFloatingGift(emoji) {
+            const area = document.getElementById('gift-float-area');
+            if (!area) return;
+
+            for (let i = 0; i < 3; i++) {
+                const el = document.createElement('div');
+                el.className = 'floating-gift';
+                el.innerText  = emoji;
+                el.style.left  = (15 + Math.random() * 50) + '%';
+                el.style.setProperty('--drift', (Math.random()*60-30) + 'px');
+                el.style.animationDelay = (i * 0.2) + 's';
+                area.appendChild(el);
+                setTimeout(() => el.remove(), 3000);
+            }
+        }
+
+        function showLiveGifts() {
+            if (!liveChannel) return showToast('Sertai live dahulu.', 'warning');
+            const gifts = [
+                { emoji:'🌹', name:'Ros',    coins:1  },
+                { emoji:'❤️', name:'Hati',   coins:5  },
+                { emoji:'⭐', name:'Bintang', coins:10 },
+                { emoji:'💎', name:'Berlian', coins:50 },
+                { emoji:'👑', name:'Mahkota', coins:100},
+            ];
+
+            const modal = document.createElement('div');
+            modal.innerHTML = `
+                <div onclick="this.parentElement.remove()"
+                     style="position:fixed;inset:0;z-index:9000;"></div>
+                <div style="position:fixed;bottom:80px;left:0;right:0;background:rgba(0,0,0,0.8);
+                            backdrop-filter:blur(12px);padding:16px;border-top:1px solid #333;z-index:9001;">
+                    <div style="display:flex;gap:10px;justify-content:center;">
+                        ${gifts.map(g => `
+                        <button onclick="sendLiveGift('${g.emoji}','${g.name}',${g.coins});this.closest('[style]').parentElement.remove();"
+                            style="background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:10px 8px;
+                                   cursor:pointer;font-family:inherit;text-align:center;min-width:56px;">
+                            <div style="font-size:26px;">${g.emoji}</div>
+                            <div style="font-size:10px;color:#888;margin-top:3px;">${g.name}</div>
+                            <div style="font-size:11px;color:#f6c90e;font-weight:700;">🪙${g.coins}</div>
+                        </button>`).join('')}
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        async function sendLiveGift(emoji, name, coins) {
+            if (!spendCoins(coins)) return showToast(`Tidak cukup syiling! 🪙`, 'warning');
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            const username = user?.user_metadata?.full_name || 'Penonton';
+
+            await liveChannel?.send({
+                type: 'broadcast', event: 'gift',
+                payload: { username, emoji, name, coins, ts: Date.now() }
+            });
+        }
+
+        function toggleLiveMute() {
+            if (!localStream) return;
+            isMicMuted = !isMicMuted;
+            localStream.getAudioTracks().forEach(t => t.enabled = !isMicMuted);
+            const icon = document.getElementById('live-mic-icon');
+            if (icon) {
+                icon.className = isMicMuted
+                    ? 'fa-solid fa-microphone-slash'
+                    : 'fa-solid fa-microphone';
+                icon.style.color = isMicMuted ? '#fe2c55' : '';
+            }
+            showToast(isMicMuted ? 'Mikrofon dimatikan 🔇' : 'Mikrofon dihidupkan 🎙️', 'info');
+        }
+
+        async function flipCamera() {
+            if (!localStream) return;
+            useFrontCam = !useFrontCam;
+            localStream.getVideoTracks().forEach(t => t.stop());
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: useFrontCam ? 'user' : 'environment' },
+                audio: true
+            }).catch(() => null);
+            if (!newStream) return;
+            localStream = newStream;
+            document.getElementById('live-video').srcObject = newStream;
+        }
+
+        function shareLiveLink() {
+            const url  = window.location.href + '?session=' + liveSessionId;
+            const waUrl = `whatsapp://send?text=${encodeURIComponent('🔴 Tengok saya LIVE di SnapFlow sekarang! ' + url)}`;
+            window.location.href = waUrl;
+        }
+
+        function updateLiveTimer() {
+            const elapsed = Math.floor((Date.now() - liveStartTime) / 1000);
+            const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const s = String(elapsed % 60).padStart(2, '0');
+            const el = document.getElementById('live-timer');
+            if (el) el.innerText = `${m}:${s}`;
+        }
+
+        function simulateViewers() {
+            // Simulasi penonton naik secara perlahan (untuk demo)
+            let v = 0;
+            const iv = setInterval(() => {
+                if (!isHost) { clearInterval(iv); return; }
+                v = Math.min(v + Math.floor(Math.random() * 5), 9999);
+                viewerCount = v;
+                document.getElementById('viewer-count-txt').innerText = v;
+            }, 3000);
+        }
+
+        async function endLive() {
+            if (!confirm('Tamatkan siaran live?')) return;
+            clearInterval(liveTimerInterval);
+            localStream?.getTracks().forEach(t => t.stop());
+            liveChannel?.unsubscribe();
+
+            if (liveSessionId) {
+                await snapSupabase.from('live_sessions')
+                    .update({ is_active: false, ended_at: new Date().toISOString() })
+                    .eq('session_id', liveSessionId).catch(() => {});
+            }
+
+            const elapsed = Math.floor((Date.now() - liveStartTime) / 1000);
+            showToast(`Siaran tamat. Durasi: ${Math.floor(elapsed/60)}m ${elapsed%60}s`, 'success');
+            setTimeout(() => window.location.href = 'profile.html', 1500);
+        }
+
+        async function showLiveDirectory() {
+            const { data: sessions } = await snapSupabase.from('live_sessions')
+                .select('*').eq('is_active', true).order('viewer_count', { ascending: false }).limit(10);
+
+            const modal = document.createElement('div');
+            modal.innerHTML = `
+                <div onclick="this.parentElement.remove()"
+                     style="position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9000;overflow-y:auto;">
+                    <div style="padding:20px;">
+                        <h2 style="margin:0 0 16px;">🔴 Live Sekarang</h2>
+                        ${(!sessions || sessions.length === 0)
+                            ? '<p style="color:#555;text-align:center;padding:40px;">Tiada siaran live aktif sekarang.<br><br>Cuba lagi kemudian atau mulakan siaran sendiri!</p>'
+                            : sessions.map(s => `
+                                <div style="display:flex;align-items:center;gap:12px;padding:14px;background:#111;
+                                            border-radius:12px;margin-bottom:10px;">
+                                    <div style="width:44px;height:44px;background:#1a0005;border-radius:50%;display:flex;
+                                                align-items:center;justify-content:center;border:2px solid #fe2c55;">
+                                        <span class="live-badge" style="font-size:9px;padding:2px 5px;">LIVE</span>
+                                    </div>
+                                    <div style="flex:1;">
+                                        <p style="margin:0;font-size:14px;font-weight:700;">@${escapeHtml(s.host_name||'User')}</p>
+                                        <p style="margin:2px 0 0;font-size:12px;color:#555;">${escapeHtml(s.title||'')}</p>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <p style="margin:0;font-size:12px;color:#fe2c55;font-weight:700;">👁 ${s.viewer_count||0}</p>
+                                    </div>
+                                </div>`).join('')}
+                        <button onclick="this.closest('[style]').parentElement.remove()"
+                            style="width:100%;background:#333;border:none;color:#fff;padding:12px;border-radius:10px;
+                                   font-size:14px;cursor:pointer;font-family:inherit;margin-top:8px;">
+                            Tutup
+                        </button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+    </script>
+</body>
+</html>

@@ -9,22 +9,14 @@ const DYNAMIC_CACHE = 'snapflow-dynamic-v1';
 
 // Fail yang di-cache semasa install
 const STATIC_ASSETS = [
-    '/index.html',
-    '/splash.html',
-    '/login.html',
-    '/register.html',
-    '/discover.html',
-    '/upload.html',
-    '/inbox.html',
-    '/profile.html',
-    '/shop.html',
-    '/cart.html',
-    '/chat.html',
-    '/edit-profile.html',
-    '/forgot-password.html',
-    '/style.css',
-    '/app.js',
-    '/manifest.json',
+    '/index.html', '/splash.html', '/login.html', '/register.html',
+    '/discover.html', '/upload.html', '/inbox.html', '/profile.html',
+    '/shop.html', '/cart.html', '/chat.html', '/edit-profile.html',
+    '/forgot-password.html', '/followers.html', '/playlist.html',
+    '/admin.html', '/saved.html', '/404.html', '/offline.html',
+    '/challenge.html', '/live.html', '/activity-log.html',
+    '/search.html', '/analytics.html', '/editor.html', '/duet.html', '/collections.html',
+    '/style.css', '/app.js', '/manifest.json',
 ];
 
 // ── INSTALL: Pre-cache semua aset statik ─────────
@@ -263,6 +255,22 @@ self.addEventListener('sync', (event) => {
 });
 
 console.log('[SW] SnapFlow Service Worker loaded ✅');
+
+// ── OFFLINE FALLBACK ─────────────────────
+// Jika tiada cache dan tiada network — tunjuk offline.html
+self.addEventListener('fetch', (event) => {
+    // Hanya handle GET requests untuk HTML pages
+    if (event.request.method !== 'GET') return;
+    if (!event.request.headers.get('accept')?.includes('text/html')) return;
+
+    event.respondWith(
+        fetch(event.request)
+            .catch(() =>
+                caches.match(event.request)
+                    .then(cached => cached || caches.match('/offline.html'))
+            )
+    );
+}, { once: false });
 
 // ==========================================
 // FCM PUSH NOTIFICATION HANDLER

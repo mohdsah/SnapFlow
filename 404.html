@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>404 — Halaman Tidak Dijumpai | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            background:#000; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+            min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+            padding:30px 24px; text-align:center; overflow:hidden;
+        }
+
+        /* Animated background glitch */
+        .bg-glitch {
+            position:fixed; inset:0; z-index:0; overflow:hidden;
+        }
+        .bg-glitch::before, .bg-glitch::after {
+            content:'404';
+            position:absolute; font-size:35vw; font-weight:900;
+            opacity:0.03; color:#fe2c55; line-height:1;
+            top:50%; left:50%; transform:translate(-50%,-50%);
+        }
+        .bg-glitch::before { animation:glitch1 3s infinite; }
+        .bg-glitch::after  { color:#00f2ea; animation:glitch2 3s infinite; }
+        @keyframes glitch1 {
+            0%,90%,100% { clip-path:inset(0); transform:translate(-50%,-50%); }
+            92% { clip-path:inset(20% 0 60% 0); transform:translate(calc(-50% - 5px),-50%); }
+            94% { clip-path:inset(70% 0 10% 0); transform:translate(calc(-50% + 5px),-50%); }
+        }
+        @keyframes glitch2 {
+            0%,88%,100% { clip-path:inset(0); transform:translate(-50%,-50%); }
+            90% { clip-path:inset(50% 0 30% 0); transform:translate(calc(-50% + 8px),-50%); }
+            93% { clip-path:inset(10% 0 80% 0); transform:translate(calc(-50% - 8px),-50%); }
+        }
+
+        .content { position:relative; z-index:1; max-width:380px; }
+
+        .error-icon {
+            width:90px; height:90px; background:linear-gradient(135deg,#fe2c55,#ff6b6b);
+            border-radius:24px; display:flex; align-items:center; justify-content:center;
+            margin:0 auto 24px; font-size:40px;
+            box-shadow:0 0 40px rgba(254,44,85,0.3);
+            animation:iconPulse 2s ease-in-out infinite;
+        }
+        @keyframes iconPulse {
+            0%,100% { box-shadow:0 0 40px rgba(254,44,85,0.3); }
+            50%      { box-shadow:0 0 60px rgba(254,44,85,0.5); }
+        }
+
+        h1 { font-size:72px; font-weight:900; line-height:1;
+             background:linear-gradient(135deg,#fe2c55,#ff6b6b);
+             -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        h2 { font-size:20px; font-weight:700; margin:8px 0 10px; }
+        p  { font-size:14px; color:#555; line-height:1.6; }
+
+        .btn-group { display:flex; flex-direction:column; gap:10px; margin-top:28px; }
+        .btn-primary {
+            background:#fe2c55; color:#fff; border:none; padding:14px 28px;
+            border-radius:12px; font-size:15px; font-weight:700; cursor:pointer;
+            font-family:inherit; transition:all 0.2s; display:flex; align-items:center;
+            justify-content:center; gap:8px; text-decoration:none;
+        }
+        .btn-primary:active { opacity:0.8; transform:scale(0.97); }
+        .btn-secondary {
+            background:#111; color:#888; border:1px solid #222; padding:12px 28px;
+            border-radius:12px; font-size:14px; font-weight:600; cursor:pointer;
+            font-family:inherit; transition:all 0.2s; display:flex; align-items:center;
+            justify-content:center; gap:8px; text-decoration:none;
+        }
+        .btn-secondary:active { opacity:0.7; }
+
+        .quick-links {
+            display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:20px;
+        }
+        .quick-link {
+            background:#0d0d0d; border:1px solid #1a1a1a; color:#555;
+            padding:8px 16px; border-radius:20px; font-size:12px; font-weight:600;
+            text-decoration:none; transition:all 0.2s;
+        }
+        .quick-link:hover { border-color:#333; color:#888; }
+    </style>
+</head>
+<body>
+    <div class="bg-glitch"></div>
+
+    <div class="content">
+        <div class="error-icon">🔍</div>
+        <h1>404</h1>
+        <h2>Halaman Tidak Dijumpai</h2>
+        <p>Halaman yang anda cari mungkin telah dipadamkan, dipindahkan, atau tidak pernah wujud.</p>
+
+        <div class="btn-group">
+            <a href="index.html" class="btn-primary">
+                <i class="fa-solid fa-house"></i> Kembali ke Utama
+            </a>
+            <button onclick="window.history.back()" class="btn-secondary">
+                <i class="fa-solid fa-arrow-left"></i> Halaman Sebelum
+            </button>
+        </div>
+
+        <div class="quick-links">
+            <a href="discover.html" class="quick-link">🔍 Discover</a>
+            <a href="upload.html"   class="quick-link">📤 Upload</a>
+            <a href="profile.html"  class="quick-link">👤 Profil</a>
+            <a href="shop.html"     class="quick-link">🛍️ Kedai</a>
+        </div>
+    </div>
+</body>
+</html>

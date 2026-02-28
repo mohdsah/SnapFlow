@@ -52,6 +52,29 @@
             <input type="text" id="edit-fullname" placeholder="Nama anda" autocomplete="name">
         </div>
 
+        <div class="form-group">
+            <label>Bio</label>
+            <textarea id="edit-bio" placeholder="Ceritakan tentang diri anda..."
+                style="width:100%;background:#111;border:1px solid #2a2a2a;padding:13px 16px;border-radius:12px;
+                       color:#fff;font-size:14px;outline:none;resize:none;height:80px;box-sizing:border-box;
+                       font-family:inherit;line-height:1.5;transition:border-color 0.2s;"
+                maxlength="150" oninput="document.getElementById('bio-count').innerText=this.value.length"></textarea>
+            <p style="text-align:right;font-size:11px;color:#333;margin:4px 4px 0;"><span id="bio-count">0</span>/150</p>
+        </div>
+
+        <!-- Bio Links -->
+        <div class="form-group">
+            <label>Pautan Bio <span style="color:#333;font-size:11px;font-weight:400;text-transform:none;">(sehingga 5 pautan)</span></label>
+            <div id="bio-links-editor" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <button onclick="addBioLinkField()" id="add-link-btn"
+                style="width:100%;background:transparent;border:1px dashed #333;color:#555;padding:11px;
+                       border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px;
+                       transition:all 0.2s;" onmouseover="this.style.borderColor='#fe2c55';this.style.color='#fe2c55'"
+                onmouseout="this.style.borderColor='#333';this.style.color='#555'">
+                + Tambah Pautan
+            </button>
+        </div>
+
         <button onclick="saveProfileChanges()" id="save-btn" class="login-btn-main">
             <i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan
         </button>
@@ -61,19 +84,74 @@
                 <span><i class="fa-solid fa-key" style="margin-right: 10px; color: #555;"></i> Tukar Kata Laluan</span>
                 <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
             </a>
+            <a href="editor.html" style="display: flex; align-items: center; justify-content: space-between; color: #888; font-size: 14px; padding: 12px 0; border-top: 1px solid #111;">
+                <span><i class="fa-solid fa-scissors" style="margin-right: 10px; color: #c084fc;"></i> Editor Video</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+            </a>
+            <a href="search.html" style="display: flex; align-items: center; justify-content: space-between; color: #888; font-size: 14px; padding: 12px 0; border-top: 1px solid #111;">
+                <span><i class="fa-solid fa-magnifying-glass" style="margin-right: 10px; color: #555;"></i> Carian Global</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+            </a>
+            <a href="activity-log.html" style="display: flex; align-items: center; justify-content: space-between; color: #888; font-size: 14px; padding: 12px 0; border-top: 1px solid #111;">
+                <span><i class="fa-solid fa-shield-halved" style="margin-right: 10px; color: #555;"></i> Log Aktiviti & Keselamatan</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+            </a>
+            <a href="live.html" style="display: flex; align-items: center; justify-content: space-between; color: #888; font-size: 14px; padding: 12px 0; border-top: 1px solid #111;">
+                <span><i class="fa-solid fa-circle-dot" style="margin-right: 10px; color: #fe2c55;"></i> Mulakan Live Stream</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+            </a>
+            <a href="challenge.html" style="display: flex; align-items: center; justify-content: space-between; color: #888; font-size: 14px; padding: 12px 0; border-top: 1px solid #111;">
+                <span><i class="fa-solid fa-trophy" style="margin-right: 10px; color: #f6c90e;"></i> Cabaran & Hashtag</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+            </a>
         </div>
     </main>
 
     <script src="app.js"></script>
     <script>
+        let bioLinks = [];
+
         window.onload = async () => {
             const { data: { user } } = await snapSupabase.auth.getUser();
-            if (user) {
-                const name = user.user_metadata?.full_name || '';
-                document.getElementById('edit-fullname').value = name;
-                document.getElementById('edit-avatar-preview').style.backgroundImage = `url('https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=200')`;
-            }
+            if (!user) return;
+            const name = user.user_metadata?.full_name || '';
+            const bio  = user.user_metadata?.bio || '';
+            bioLinks   = user.user_metadata?.bio_links || [];
+
+            document.getElementById('edit-fullname').value = name;
+            document.getElementById('edit-bio').value = bio;
+            document.getElementById('bio-count').innerText = bio.length;
+            document.getElementById('edit-avatar-preview').style.backgroundImage =
+                `url('https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=200')`;
+
+            // Render existing links
+            bioLinks.forEach(link => addBioLinkField(link.label, link.url));
         };
+
+        function addBioLinkField(label = '', url = '') {
+            const editor = document.getElementById('bio-links-editor');
+            if (editor.children.length >= 5) {
+                showToast('Maksimum 5 pautan sahaja.', 'warning');
+                return;
+            }
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;gap:6px;align-items:center;animation:fadeInUp 0.2s ease;';
+            row.innerHTML = `
+                <div style="flex:1;display:flex;gap:6px;">
+                    <input type="text" placeholder="Label (cth: Instagram)" value="${escapeHtml(label)}"
+                        style="flex:1;background:#111;border:1px solid #2a2a2a;color:#fff;padding:11px 12px;
+                               border-radius:10px;font-size:13px;outline:none;min-width:0;font-family:inherit;">
+                    <input type="url" placeholder="https://..." value="${escapeHtml(url)}"
+                        style="flex:2;background:#111;border:1px solid #2a2a2a;color:#fff;padding:11px 12px;
+                               border-radius:10px;font-size:13px;outline:none;min-width:0;font-family:inherit;">
+                </div>
+                <button onclick="this.parentElement.remove()"
+                    style="background:transparent;border:none;color:#fe2c55;font-size:16px;cursor:pointer;
+                           width:32px;height:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </button>`;
+            editor.appendChild(row);
+        }
 
         function previewEditImage(event) {
             const reader = new FileReader();

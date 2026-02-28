@@ -35,6 +35,14 @@
 
     <main style="padding: 20px;">
 
+        <!-- Upload Quota Bar -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0d0d0d;border-radius:10px;margin-bottom:14px;border:1px solid #111;">
+            <div id="upload-quota"><span style="font-size:12px;color:#555;">Memuatkan had upload...</span></div>
+            <button onclick="openProModal()" style="background:linear-gradient(135deg,#f6c90e,#ffdf6b);color:#000;border:none;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;flex-shrink:0;">
+                ⭐ Pro
+            </button>
+        </div>
+
         <!-- Upload Box -->
         <div class="upload-box" onclick="document.getElementById('file-input').click()">
             <div id="placeholder-content" style="text-align: center;">
@@ -162,6 +170,15 @@
 
     <script src="app.js"></script>
     <script>
+        // Papar kuota upload
+        if (typeof showUploadQuota === 'function') showUploadQuota();
+
+        // Enable AI caption button bila ada file
+        document.getElementById('file-input')?.addEventListener('change', () => {
+            const btn = document.getElementById('ai-caption-btn');
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        });
+
         // Set min datetime ke sekarang
         const dtInput = document.getElementById('schedule-datetime');
         if (dtInput) {
@@ -221,6 +238,19 @@
                     .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
             });
         }
+    </script>
+    <script>
+        async function aiGenerateCaption() {
+            const file = document.getElementById('file-input')?.files?.[0];
+            if (!file) return showToast('Pilih video dahulu.', 'warning');
+            await generateAICaption(file);
+        }
+        // Enable button jika file sudah dipilih
+        const _fi = document.getElementById('file-input');
+        if (_fi) _fi.addEventListener('change', () => {
+            const btn = document.getElementById('ai-caption-btn');
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        });
     </script>
 </body>
 </html>

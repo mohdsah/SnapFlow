@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tiada Sambungan | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            background:#000; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+            min-height:100vh; display:flex; flex-direction:column; align-items:center;
+            justify-content:center; padding:30px 24px; text-align:center;
+        }
+
+        /* Rain animation */
+        .rain { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+        .drop {
+            position:absolute; top:-10px; width:1px; background:linear-gradient(to bottom, transparent, #333);
+            animation:fall linear infinite;
+        }
+        @keyframes fall { to { transform:translateY(110vh); } }
+
+        .content { position:relative; z-index:1; max-width:340px; }
+
+        .wifi-icon {
+            font-size:70px; margin-bottom:20px; display:block;
+            animation:wifiPulse 2s ease-in-out infinite;
+            filter:drop-shadow(0 0 20px rgba(0,242,234,0.3));
+        }
+        @keyframes wifiPulse {
+            0%,100% { opacity:1; transform:scale(1); }
+            50%      { opacity:0.6; transform:scale(0.95); }
+        }
+
+        h2 { font-size:22px; font-weight:800; margin-bottom:10px; }
+        p  { font-size:14px; color:#555; line-height:1.7; }
+
+        .status-bar {
+            background:#0d0d0d; border:1px solid #1a1a1a; border-radius:12px;
+            padding:14px 18px; margin:20px 0; display:flex; flex-direction:column; gap:8px;
+        }
+        .status-row {
+            display:flex; justify-content:space-between; align-items:center; font-size:13px;
+        }
+        .status-dot {
+            width:8px; height:8px; border-radius:50%;
+            animation:blink 1.5s ease-in-out infinite;
+        }
+        .dot-red    { background:#fe2c55; }
+        .dot-yellow { background:#ffcc00; }
+        .dot-green  { background:#00f2ea; }
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+        .retry-btn {
+            background:#00f2ea; color:#000; border:none; padding:14px 32px;
+            border-radius:12px; font-size:15px; font-weight:800; cursor:pointer;
+            font-family:inherit; transition:all 0.2s; display:inline-flex;
+            align-items:center; gap:8px; margin-top:4px;
+        }
+        .retry-btn:active { opacity:0.8; transform:scale(0.96); }
+
+        .cached-info {
+            margin-top:20px; font-size:12px; color:#333;
+            display:flex; align-items:center; gap:6px; justify-content:center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Rain effect -->
+    <div class="rain" id="rain"></div>
+
+    <div class="content">
+        <span class="wifi-icon">📡</span>
+        <h2>Tiada Sambungan Internet</h2>
+        <p>SnapFlow memerlukan sambungan internet untuk memuatkan video. Semak rangkaian WiFi atau data anda.</p>
+
+        <div class="status-bar">
+            <div class="status-row">
+                <span style="color:#888;">Sambungan Internet</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div class="status-dot dot-red"></div>
+                    <span style="color:#fe2c55;font-size:12px;font-weight:700;">TIADA</span>
+                </div>
+            </div>
+            <div class="status-row">
+                <span style="color:#888;">Cache Tempatan</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div class="status-dot dot-green" style="animation-delay:0.5s;"></div>
+                    <span style="color:#00f2ea;font-size:12px;font-weight:700;">AKTIF</span>
+                </div>
+            </div>
+            <div class="status-row">
+                <span style="color:#888;">Menunggu Sambungan</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div class="status-dot dot-yellow" style="animation-delay:0.8s;"></div>
+                    <span style="color:#ffcc00;font-size:12px;font-weight:700;">...</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="retry-btn" onclick="retryConnection()">
+            <i class="fa-solid fa-rotate"></i> Cuba Semula
+        </button>
+
+        <div class="cached-info">
+            <i class="fa-solid fa-database" style="color:#333;"></i>
+            <span>Beberapa halaman mungkin masih boleh diakses dari cache</span>
+        </div>
+    </div>
+
+    <script>
+        // Jana titisan hujan
+        const rain = document.getElementById('rain');
+        for (let i = 0; i < 40; i++) {
+            const drop = document.createElement('div');
+            drop.className = 'drop';
+            drop.style.left    = Math.random() * 100 + 'vw';
+            drop.style.height  = (Math.random() * 60 + 20) + 'px';
+            drop.style.opacity = Math.random() * 0.4 + 0.1;
+            drop.style.animationDuration  = (Math.random() * 1.5 + 0.8) + 's';
+            drop.style.animationDelay     = (Math.random() * 2) + 's';
+            rain.appendChild(drop);
+        }
+
+        function retryConnection() {
+            const btn = document.querySelector('.retry-btn');
+            btn.innerHTML = '<i class="fa-solid fa-rotate" style="animation:spin 0.8s linear infinite;"></i> Menyemak...';
+            btn.disabled  = true;
+
+            setTimeout(() => {
+                if (navigator.onLine) {
+                    window.location.replace('/index.html');
+                } else {
+                    btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Cuba Semula';
+                    btn.disabled = false;
+                    // Shake animation
+                    btn.style.transform = 'translateX(-8px)';
+                    setTimeout(() => { btn.style.transform = 'translateX(8px)'; }, 100);
+                    setTimeout(() => { btn.style.transform = 'translateX(0)'; }, 200);
+                }
+            }, 1500);
+        }
+
+        // Auto-redirect bila sambungan pulih
+        window.addEventListener('online', () => {
+            document.querySelector('h2').innerText = 'Sambungan Pulih! 🎉';
+            document.querySelector('p').innerText  = 'Mengalihkan ke SnapFlow...';
+            setTimeout(() => window.location.replace('/index.html'), 1000);
+        });
+
+        // Style for spin animation
+        const style = document.createElement('style');
+        style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

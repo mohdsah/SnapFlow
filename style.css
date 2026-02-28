@@ -1087,3 +1087,335 @@ input:checked + #compress-slider::before {
     transition: all 0.2s;
 }
 .push-enable-btn:hover { border-color: #fe2c55; color: #fe2c55; }
+
+/* ==========================================
+   CIRI BARU: PRO, PLAYLIST, DOM PRUNING
+   ========================================== */
+
+/* ── Pro Badge ── */
+#pro-badge {
+    animation: proBadgePulse 3s ease-in-out infinite;
+}
+@keyframes proBadgePulse {
+    0%,100% { box-shadow: none; }
+    50%      { box-shadow: 0 0 8px rgba(246,201,14,0.5); }
+}
+
+/* ── DOM Prune Placeholder ── */
+.prune-placeholder {
+    position: absolute;
+    inset: 0;
+    background: #050505;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+/* ── Episode Badge ── */
+.ep-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ── Playlist card hover ── */
+.playlist-card:hover {
+    border-color: #333;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+/* ── Rate limit modal ── */
+#rate-limit-modal > div:last-child {
+    animation: slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* ── 404 & Offline pulse ── */
+@keyframes iconPulse {
+    0%,100% { box-shadow: 0 0 40px rgba(254,44,85,0.3); }
+    50%      { box-shadow: 0 0 60px rgba(254,44,85,0.5); }
+}
+
+/* ==========================================
+   CIRI BARU: GIFT ANIMATION, BIO LINKS, AI
+   ========================================== */
+
+/* ── Animasi hadiah terbang ── */
+@keyframes giftFly {
+    0%   { transform: translateY(0) scale(1); opacity: 1; }
+    60%  { transform: translateY(-180px) scale(1.3) rotate(15deg); opacity: 0.9; }
+    100% { transform: translateY(-320px) scale(0.5) rotate(-10deg); opacity: 0; }
+}
+
+/* ── AI Caption button glow ── */
+#ai-caption-btn:not(:disabled) {
+    box-shadow: 0 0 12px rgba(0,242,234,0.3);
+    animation: aiGlow 2s ease-in-out infinite;
+}
+@keyframes aiGlow {
+    0%,100% { box-shadow: 0 0 12px rgba(0,242,234,0.3); }
+    50%      { box-shadow: 0 0 20px rgba(0,242,234,0.6); }
+}
+
+/* ── Bio link chips ── */
+#bio-links-display a {
+    transition: all 0.2s;
+}
+
+/* ── Google/Apple buttons spin animation ── */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Gift grid hover ── */
+#gift-panel button[onclick*="sendGift"] {
+    transition: all 0.15s;
+}
+#gift-panel button[onclick*="sendGift"]:active {
+    transform: scale(0.92);
+}
+
+/* ── Weekly report modal ── */
+#weekly-report-modal > div:last-child {
+    animation: fadeInUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* ── Coin balance badge pulse ── */
+.coin-badge {
+    animation: coinPulse 3s ease-in-out infinite;
+}
+@keyframes coinPulse {
+    0%,100% { transform: scale(1); }
+    50%      { transform: scale(1.05); }
+}
+
+/* ── Social login buttons ── */
+button[onclick="loginWithGoogle()"],
+button[onclick="loginWithApple()"] {
+    transition: transform 0.15s, opacity 0.15s;
+}
+button[onclick="loginWithGoogle()"]:active,
+button[onclick="loginWithApple()"]:active {
+    transform: scale(0.97);
+}
+
+/* ==========================================
+   BATCH 6: CHALLENGE, LIVE, SUBTITLE, LOG
+   ========================================== */
+
+/* ── Live Badge ── */
+.live-badge {
+    background: #fe2c55;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+    animation: livePulse 1.5s ease-in-out infinite;
+    display: inline-block;
+}
+@keyframes livePulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.65; }
+}
+
+/* ── Live Bar (horizontal scroll) ── */
+#live-bar::-webkit-scrollbar { display: none; }
+#live-bar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Subtitle Overlay ── */
+.subtitle-overlay {
+    animation: subFadeIn 0.15s ease;
+}
+@keyframes subFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Challenge Card ── */
+.challenge-card {
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.challenge-card:hover {
+    box-shadow: 0 8px 30px rgba(254,44,85,0.1);
+}
+.challenge-card.active-card {
+    box-shadow: 0 0 0 1px #fe2c55, 0 8px 30px rgba(254,44,85,0.2);
+}
+
+/* ── Join Button animation ── */
+.join-btn {
+    transition: all 0.2s;
+}
+.join-btn:not(.joined):hover {
+    background: #cc1a3f;
+    transform: scale(1.03);
+}
+
+/* ── Video Grid (challenge detail) ── */
+.video-grid-3 .grid-vid video {
+    transition: transform 0.2s;
+}
+.video-grid-3 .grid-vid:active video {
+    transform: scale(0.95);
+}
+
+/* ── Floating live gift ── */
+.floating-gift {
+    animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ── Activity Log Row ── */
+.log-row {
+    transition: background 0.15s;
+}
+.log-row:active {
+    background: #0a0a0a;
+}
+
+/* ── Device chip ── */
+.device-chip {
+    transition: all 0.15s;
+}
+
+/* ── Live chat message slide-in ── */
+.chat-msg {
+    animation: msgSlideIn 0.2s ease;
+}
+@keyframes msgSlideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Share sheet icons ── */
+#snap-share-sheet a[href*="whatsapp"]:active > div,
+#snap-share-sheet a[href*="telegram"]:active > div,
+#snap-share-sheet a[href*="twitter"]:active > div,
+#snap-share-sheet a[href*="facebook"]:active > div {
+    transform: scale(0.9);
+    transition: transform 0.1s;
+}
+
+/* ── QR Code modal ── */
+#snap-share-sheet + div img {
+    animation: fadeInUp 0.3s ease;
+}
+
+/* ── Challenge banner pulse ── */
+#challenge-banner {
+    animation: chalBannerPulse 3s ease-in-out infinite;
+}
+@keyframes chalBannerPulse {
+    0%,100% { border-color: #3a0010; }
+    50%      { border-color: #fe2c55; }
+}
+
+/* ── Security status colors ── */
+#security-status {
+    transition: background 0.3s, border-color 0.3s;
+}
+
+/* ── loader spin for challenge list ── */
+.loader-spin {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #222;
+    border-top-color: #fe2c55;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/* ==========================================
+   BATCH 7: SEARCH, DUET, ANALYTICS, EDITOR
+   ========================================== */
+
+/* ── Search highlight ── */
+mark {
+    background: rgba(254,44,85,0.2);
+    color: #fe2c55;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+/* ── Search result animations ── */
+#search-results .user-row,
+#search-results .hashtag-row {
+    animation: fadeInUp 0.2s ease both;
+}
+
+/* ── Duet dual pane divider ── */
+.duet-mode #original-pane + #user-pane::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 10%; bottom: 10%;
+    width: 2px;
+    background: rgba(255,255,255,0.15);
+    z-index: 5;
+}
+
+/* ── Analytics bar chart bars ── */
+.bar {
+    transition: background 0.15s, height 0.3s ease;
+}
+
+/* ── Donut chart transition ── */
+#donut-arc {
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Editor tool buttons ── */
+.tool-btn.active i {
+    filter: drop-shadow(0 0 6px currentColor);
+}
+
+/* ── Collections mosaic hover ── */
+.col-card:hover .col-cover-cell video {
+    transform: scale(1.05);
+    transition: transform 0.3s;
+}
+
+/* ── Collection card delete shake ── */
+.col-card.long-pressed {
+    animation: cardShake 0.3s ease;
+}
+@keyframes cardShake {
+    0%,100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-1.5deg); }
+    75%      { transform: rotate(1.5deg); }
+}
+
+/* ── Duet REC button ── */
+#record-btn {
+    transition: all 0.2s;
+    box-shadow: 0 0 0 4px rgba(254,44,85,0.2);
+}
+#record-btn:active { transform: scale(0.93); }
+#record-btn.recording {
+    box-shadow: 0 0 0 6px rgba(254,44,85,0.4), 0 0 20px rgba(254,44,85,0.3);
+}
+
+/* ── Stitch mode original pane thumbnail shadow ── */
+.stitch-mode #original-pane {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 0 2px rgba(255,255,255,0.3);
+}
+
+/* ── Period buttons ── */
+.period-btn { transition: all 0.2s; }
+.period-btn:active { transform: scale(0.95); }
+
+/* ── Heatmap cells ── */
+#time-heatmap > div {
+    transition: background 0.3s;
+}
+
+/* ── Video perf row thumbnail ── */
+.vid-perf-thumb { transition: opacity 0.2s; }
+.vid-perf-row:hover .vid-perf-thumb { opacity: 0.8; }
+
+/* ── Filter preview ── */
+.filter-preview {
+    transition: border-color 0.2s, transform 0.15s;
+}
+.filter-preview:active { transform: scale(0.9); }

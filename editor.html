@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editor Video | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing:border-box; }
+        body { background:#000; color:#fff; margin:0; overflow:hidden; height:100vh; display:flex; flex-direction:column; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+        /* Top bar */
+        .editor-header { display:flex; align-items:center; gap:10px; padding:12px 14px;
+            border-bottom:1px solid #111; flex-shrink:0; background:#000; }
+
+        /* Preview area */
+        #preview-wrap {
+            flex:1; display:flex; align-items:center; justify-content:center;
+            background:#0a0a0a; position:relative; overflow:hidden; min-height:0;
+        }
+        #editor-video {
+            max-height:100%; max-width:100%; object-fit:contain; display:block;
+        }
+        #editor-canvas { display:none; }
+
+        /* Text overlay items */
+        .text-overlay-el {
+            position:absolute; cursor:move; user-select:none;
+            font-weight:800; text-shadow:0 2px 4px rgba(0,0,0,0.8);
+            touch-action:none;
+        }
+
+        /* Timeline */
+        #timeline-wrap {
+            background:#0d0d0d; border-top:1px solid #1a1a1a; flex-shrink:0;
+            padding:10px 14px;
+        }
+        #timeline-track {
+            height:40px; background:#1a1a1a; border-radius:8px; position:relative;
+            overflow:hidden; cursor:pointer; margin-bottom:8px;
+        }
+        #timeline-progress { height:100%; background:linear-gradient(90deg,#fe2c55,#ff6b6b);
+            width:0%; transition:width 0.1s linear; pointer-events:none; }
+        #timeline-handle {
+            position:absolute; top:0; bottom:0; width:3px; background:#fff;
+            cursor:ew-resize; transform:translateX(-50%);
+        }
+        #trim-start, #trim-end {
+            position:absolute; top:0; bottom:0; width:12px; background:rgba(254,44,85,0.7);
+            cursor:ew-resize; border-radius:3px;
+        }
+        #trim-start { left:0; }
+        #trim-end   { right:0; }
+
+        /* Tool buttons */
+        .tool-row { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+        .tool-row::-webkit-scrollbar { display:none; }
+        .tool-btn {
+            display:flex; flex-direction:column; align-items:center; gap:4px;
+            background:#111; border:1.5px solid #222; border-radius:10px; padding:8px 12px;
+            cursor:pointer; transition:all 0.15s; flex-shrink:0; min-width:52px;
+        }
+        .tool-btn:active { transform:scale(0.93); }
+        .tool-btn.active { border-color:#fe2c55; background:#1a0005; }
+        .tool-btn i    { font-size:18px; }
+        .tool-btn span { font-size:10px; color:#666; }
+
+        /* Text panel */
+        .panel { display:none; padding:12px 14px; background:#111; border-top:1px solid #1a1a1a; flex-shrink:0; }
+        .panel.visible { display:block; }
+
+        /* Export btn */
+        .export-btn {
+            background:#fe2c55; color:#fff; border:none; padding:10px 20px;
+            border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;
+            font-family:inherit; display:flex; align-items:center; gap:6px;
+        }
+        .export-btn:active { opacity:0.8; }
+        .export-btn:disabled { opacity:0.5; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="editor-header">
+        <button onclick="confirmExit()"
+            style="background:transparent;border:none;color:#888;font-size:18px;cursor:pointer;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <strong style="font-size:15px;font-weight:800;flex:1;">✂️ Editor Video</strong>
+        <button id="undo-btn" onclick="undoAction()" disabled
+            style="background:transparent;border:none;color:#555;font-size:16px;cursor:pointer;width:34px;">
+            <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        <button onclick="exportVideo()" class="export-btn" id="export-btn">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Export
+        </button>
+    </div>
+
+    <!-- No video state -->
+    <div id="no-video-state" style="flex:1;display:flex;flex-direction:column;align-items:center;
+         justify-content:center;gap:16px;padding:24px;text-align:center;">
+        <div style="width:80px;height:80px;background:#111;border:2px dashed #333;border-radius:20px;
+                    display:flex;align-items:center;justify-content:center;font-size:32px;">✂️</div>
+        <h3 style="margin:0;font-size:18px;font-weight:800;">Editor Video SnapFlow</h3>
+        <p style="margin:0;font-size:14px;color:#555;line-height:1.6;">Pilih video dari peranti anda untuk mula edit.</p>
+        <label for="editor-file-input"
+            style="background:#fe2c55;color:#fff;padding:14px 28px;border-radius:12px;
+                   font-size:15px;font-weight:800;cursor:pointer;display:inline-block;">
+            <i class="fa-solid fa-folder-open"></i> Pilih Video
+        </label>
+        <input type="file" id="editor-file-input" hidden accept="video/*" onchange="loadVideoFile(event)">
+        <p style="margin:0;font-size:12px;color:#333;">Atau <a href="upload.html" style="color:#555;">upload terus</a> tanpa edit</p>
+    </div>
+
+    <!-- Editor UI (hidden until video loaded) -->
+    <div id="editor-ui" style="display:none;flex:1;flex-direction:column;min-height:0;display:none;">
+
+        <!-- Preview -->
+        <div id="preview-wrap">
+            <video id="editor-video" playsinline></video>
+            <canvas id="editor-canvas"></canvas>
+            <!-- Text overlays injected here -->
+
+            <!-- Play button overlay -->
+            <div id="play-overlay" onclick="toggleEditorPlay()"
+                style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                       background:rgba(0,0,0,0.2);cursor:pointer;">
+                <div id="play-overlay-icon" style="width:56px;height:56px;background:rgba(0,0,0,0.6);
+                     border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;">
+                    ▶️
+                </div>
+            </div>
+
+            <!-- Duration badge -->
+            <div style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);
+                        backdrop-filter:blur(6px);padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;">
+                <span id="current-time-lbl">0:00</span> / <span id="duration-lbl">0:00</span>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div id="timeline-wrap">
+            <div id="timeline-track" onclick="seekFromTimeline(event)">
+                <div id="timeline-progress"></div>
+                <div id="trim-start"></div>
+                <div id="trim-end"></div>
+                <div id="timeline-handle" style="left:0%;"></div>
+            </div>
+
+            <!-- Tool buttons -->
+            <div class="tool-row">
+                <div class="tool-btn" onclick="toggleTool('trim')" id="tool-trim">
+                    <i class="fa-solid fa-scissors" style="color:#fe2c55;"></i>
+                    <span>Potong</span>
+                </div>
+                <div class="tool-btn" onclick="toggleTool('text')" id="tool-text">
+                    <i class="fa-solid fa-font" style="color:#00f2ea;"></i>
+                    <span>Teks</span>
+                </div>
+                <div class="tool-btn" onclick="toggleTool('filter')" id="tool-filter">
+                    <i class="fa-solid fa-wand-magic-sparkles" style="color:#f6c90e;"></i>
+                    <span>Filter</span>
+                </div>
+                <div class="tool-btn" onclick="toggleTool('speed')" id="tool-speed">
+                    <i class="fa-solid fa-gauge" style="color:#c084fc;"></i>
+                    <span>Laju</span>
+                </div>
+                <div class="tool-btn" onclick="muteEditorAudio()" id="tool-mute">
+                    <i class="fa-solid fa-volume-xmark" style="color:#888;" id="mute-icon-editor"></i>
+                    <span>Bunyi</span>
+                </div>
+                <div class="tool-btn" onclick="flipEditorVideo()" id="tool-flip">
+                    <i class="fa-solid fa-left-right" style="color:#888;"></i>
+                    <span>Flip</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trim Panel -->
+        <div class="panel" id="panel-trim">
+            <p style="margin:0 0 8px;font-size:13px;font-weight:700;">✂️ Tetapkan titik potong:</p>
+            <div style="display:flex;gap:10px;align-items:center;">
+                <div style="flex:1;">
+                    <p style="margin:0 0 4px;font-size:11px;color:#555;">MULA</p>
+                    <input type="number" id="trim-start-val" value="0" min="0" step="0.1"
+                        style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;padding:8px;
+                               border-radius:8px;font-size:14px;font-family:inherit;outline:none;"
+                        oninput="updateTrimStart(this.value)">
+                </div>
+                <i class="fa-solid fa-arrow-right" style="color:#555;margin-top:14px;"></i>
+                <div style="flex:1;">
+                    <p style="margin:0 0 4px;font-size:11px;color:#555;">TAMAT</p>
+                    <input type="number" id="trim-end-val" value="0" min="0" step="0.1"
+                        style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;padding:8px;
+                               border-radius:8px;font-size:14px;font-family:inherit;outline:none;"
+                        oninput="updateTrimEnd(this.value)">
+                </div>
+            </div>
+            <p style="margin:8px 0 0;font-size:11px;color:#555;">Durasi dipotong: <span id="trim-duration" style="color:#fff;font-weight:700;">—</span></p>
+        </div>
+
+        <!-- Text Panel -->
+        <div class="panel" id="panel-text">
+            <div style="display:flex;gap:8px;margin-bottom:10px;">
+                <input type="text" id="text-input" placeholder="Tulis teks..."
+                    style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px;
+                           border-radius:8px;font-size:14px;font-family:inherit;outline:none;">
+                <button onclick="addTextOverlay()"
+                    style="background:#fe2c55;border:none;color:#fff;padding:10px 16px;border-radius:8px;
+                           font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">
+                    + Tambah
+                </button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <input type="color" id="text-color" value="#ffffff"
+                    style="width:36px;height:36px;border:none;background:none;cursor:pointer;border-radius:6px;">
+                <select id="text-size"
+                    style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:8px;border-radius:8px;font-family:inherit;outline:none;">
+                    <option value="16">Kecil</option>
+                    <option value="22" selected>Sederhana</option>
+                    <option value="30">Besar</option>
+                    <option value="40">Sangat Besar</option>
+                </select>
+                <select id="text-style"
+                    style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:8px;border-radius:8px;font-family:inherit;outline:none;">
+                    <option value="normal">Normal</option>
+                    <option value="shadow">Bayang</option>
+                    <option value="outline">Outline</option>
+                    <option value="glow">Glow</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Filter Panel -->
+        <div class="panel" id="panel-filter">
+            <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;">
+                ${[
+                    ['Asal','none','#fff'],['Terang','brightness(1.3)','#fff8'],['Kontras','contrast(1.4)','#f6c90e'],
+                    ['Hitam Putih','grayscale(1)','#888'],['Sejuk','hue-rotate(180deg)','#00f2ea'],
+                    ['Vintage','sepia(0.6) saturate(0.8)','#c9a87c'],['Drama','contrast(1.3) saturate(1.5)','#fe2c55'],
+                    ['Blur Lembut','blur(1px)','#888'],
+                ].map(([name,val,col]) =>
+                    `<div onclick="applyFilter('${val}',this)"
+                        style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                        <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;
+                                    display:flex;align-items:center;justify-content:center;font-size:18px;
+                                    filter:${val};transition:border-color 0.2s;" class="filter-preview">
+                            🎬
+                        </div>
+                        <span style="font-size:10px;color:#666;">${name}</span>
+                    </div>`
+                ).join('')}
+            </div>
+        </div>
+
+        <!-- Speed Panel -->
+        <div class="panel" id="panel-speed">
+            <p style="margin:0 0 10px;font-size:13px;font-weight:700;">⚡ Laju Main Balik:</p>
+            <div style="display:flex;gap:8px;justify-content:center;">
+                ${[0.5, 0.75, 1, 1.5, 2, 3].map(s =>
+                    `<button onclick="setPlaybackSpeed(${s},this)"
+                        style="background:#1a1a1a;border:1.5px solid ${s===1?'#fe2c55':'#222'};color:${s===1?'#fe2c55':'#888'};
+                               padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;"
+                        class="speed-btn ${s===1?'active':''}">
+                        ${s}x
+                    </button>`
+                ).join('')}
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let editorVideo  = null;
+        let videoFile    = null;
+        let trimStart    = 0;
+        let trimEnd      = 0;
+        let videoDuration = 0;
+        let isPlaying    = false;
+        let isMuted      = false;
+        let isFlipped    = false;
+        let currentFilter = 'none';
+        let textOverlays = [];
+        let history      = []; // undo stack
+        let activePanel  = null;
+        let timerInterval = null;
+
+        function loadVideoFile(event) {
+            videoFile = event.target.files?.[0];
+            if (!videoFile) return;
+
+            const url = URL.createObjectURL(videoFile);
+            editorVideo = document.getElementById('editor-video');
+            editorVideo.src = url;
+
+            editorVideo.addEventListener('loadedmetadata', () => {
+                videoDuration = editorVideo.duration;
+                trimEnd       = videoDuration;
+                document.getElementById('duration-lbl').innerText = fmtTime(videoDuration);
+                document.getElementById('trim-end-val').value     = videoDuration.toFixed(1);
+
+                document.getElementById('no-video-state').style.display = 'none';
+                const ui = document.getElementById('editor-ui');
+                ui.style.display = 'flex';
+                ui.style.flexDirection = 'column';
+
+                startTimeTracker();
+            });
+
+            editorVideo.addEventListener('ended', () => {
+                isPlaying = false;
+                document.getElementById('play-overlay-icon').innerText = '▶️';
+            });
+        }
+
+        function startTimeTracker() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!editorVideo) return;
+                const t   = editorVideo.currentTime;
+                const pct = (t / videoDuration) * 100;
+                document.getElementById('current-time-lbl').innerText = fmtTime(t);
+                document.getElementById('timeline-progress').style.width  = pct + '%';
+                document.getElementById('timeline-handle').style.left     = pct + '%';
+
+                // Auto trim enforcement
+                if (t >= trimEnd) {
+                    editorVideo.currentTime = trimStart;
+                    editorVideo.pause();
+                    isPlaying = false;
+                    document.getElementById('play-overlay-icon').innerText = '▶️';
+                }
+            }, 100);
+        }
+
+        function toggleEditorPlay() {
+            if (!editorVideo) return;
+            if (isPlaying) {
+                editorVideo.pause();
+                document.getElementById('play-overlay-icon').innerText = '▶️';
+            } else {
+                if (editorVideo.currentTime >= trimEnd) editorVideo.currentTime = trimStart;
+                editorVideo.play();
+                document.getElementById('play-overlay-icon').innerText = '⏸️';
+            }
+            isPlaying = !isPlaying;
+        }
+
+        function seekFromTimeline(e) {
+            if (!editorVideo || !videoDuration) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct  = (e.clientX - rect.left) / rect.width;
+            editorVideo.currentTime = pct * videoDuration;
+        }
+
+        function toggleTool(name) {
+            const panels   = ['trim','text','filter','speed'];
+            const toolBtns = ['tool-trim','tool-text','tool-filter','tool-speed'];
+
+            toolBtns.forEach((id,i) => {
+                const btn = document.getElementById(id);
+                const panel = document.getElementById(`panel-${panels[i]}`);
+                if (panels[i] === name) {
+                    const isActive = btn.classList.contains('active');
+                    btn.classList.toggle('active', !isActive);
+                    panel.classList.toggle('visible', !isActive);
+                    activePanel = isActive ? null : name;
+                } else {
+                    btn.classList.remove('active');
+                    panel.classList.remove('visible');
+                }
+            });
+        }
+
+        function updateTrimStart(val) {
+            trimStart = Math.max(0, Math.min(parseFloat(val)||0, trimEnd - 0.5));
+            const pct = (trimStart / videoDuration) * 100;
+            document.getElementById('trim-start').style.left = pct + '%';
+            updateTrimDuration();
+        }
+
+        function updateTrimEnd(val) {
+            trimEnd = Math.min(videoDuration, Math.max(parseFloat(val)||videoDuration, trimStart + 0.5));
+            const pct = ((videoDuration - trimEnd) / videoDuration) * 100;
+            document.getElementById('trim-end').style.right = pct + '%';
+            updateTrimDuration();
+        }
+
+        function updateTrimDuration() {
+            const dur = trimEnd - trimStart;
+            document.getElementById('trim-duration').innerText = fmtTime(dur);
+        }
+
+        function addTextOverlay() {
+            const text   = document.getElementById('text-input')?.value?.trim();
+            if (!text) return;
+            const color  = document.getElementById('text-color')?.value || '#ffffff';
+            const size   = document.getElementById('text-size')?.value || '22';
+            const style  = document.getElementById('text-style')?.value || 'normal';
+
+            const preview = document.getElementById('preview-wrap');
+            const el      = document.createElement('div');
+            el.className  = 'text-overlay-el';
+            el.innerText  = text;
+            el.style.color     = color;
+            el.style.fontSize  = size + 'px';
+            el.style.left      = '20%';
+            el.style.top       = '40%';
+
+            if (style === 'shadow')  el.style.textShadow = '2px 2px 4px #000, -1px -1px 2px #000';
+            if (style === 'outline') el.style.webkitTextStroke = '1px #000';
+            if (style === 'glow')    el.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
+
+            // Drag support
+            makeDraggable(el, preview);
+
+            // Double-click to delete
+            el.addEventListener('dblclick', () => { el.remove(); showToast('Teks dipadam.', 'info'); });
+
+            preview.appendChild(el);
+            textOverlays.push({ text, color, size, style });
+            document.getElementById('text-input').value = '';
+            showToast('Teks ditambah! Seret untuk ubah kedudukan. 2x klik untuk padam.', 'info');
+        }
+
+        function makeDraggable(el, container) {
+            let startX, startY, origX, origY;
+
+            const onStart = e => {
+                const touch = e.touches?.[0] || e;
+                startX = touch.clientX;
+                startY = touch.clientY;
+                const rect = el.getBoundingClientRect();
+                origX  = rect.left - container.getBoundingClientRect().left;
+                origY  = rect.top  - container.getBoundingClientRect().top;
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup',   onEnd);
+                document.addEventListener('touchmove', onMove, { passive:false });
+                document.addEventListener('touchend',  onEnd);
+                e.preventDefault();
+            };
+
+            const onMove = e => {
+                const touch = e.touches?.[0] || e;
+                const dx = touch.clientX - startX;
+                const dy = touch.clientY - startY;
+                el.style.left = (origX + dx) + 'px';
+                el.style.top  = (origY + dy) + 'px';
+            };
+
+            const onEnd = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup',   onEnd);
+                document.removeEventListener('touchmove', onMove);
+                document.removeEventListener('touchend',  onEnd);
+            };
+
+            el.addEventListener('mousedown', onStart);
+            el.addEventListener('touchstart', onStart, { passive:false });
+        }
+
+        function applyFilter(filter, clickedEl) {
+            currentFilter = filter;
+            editorVideo.style.filter = filter;
+            document.querySelectorAll('.filter-preview').forEach(el => {
+                el.parentElement.querySelector('.filter-preview').style.border = '2px solid transparent';
+            });
+            clickedEl.querySelector('.filter-preview').style.borderColor = '#fe2c55';
+            showToast('Filter dipakai.', 'success');
+        }
+
+        function setPlaybackSpeed(speed, btn) {
+            editorVideo.playbackRate = speed;
+            document.querySelectorAll('.speed-btn').forEach(b => {
+                b.style.borderColor = '#222'; b.style.color = '#888';
+            });
+            btn.style.borderColor = '#fe2c55'; btn.style.color = '#fe2c55';
+            showToast(`Laju: ${speed}x`, 'info');
+        }
+
+        function muteEditorAudio() {
+            isMuted = !isMuted;
+            editorVideo.muted = isMuted;
+            const icon = document.getElementById('mute-icon-editor');
+            icon.className = isMuted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
+            icon.style.color = isMuted ? '#fe2c55' : '#888';
+            document.getElementById('tool-mute').classList.toggle('active', isMuted);
+        }
+
+        function flipEditorVideo() {
+            isFlipped = !isFlipped;
+            editorVideo.style.transform = isFlipped ? 'scaleX(-1)' : 'scaleX(1)';
+            document.getElementById('tool-flip').classList.toggle('active', isFlipped);
+            showToast(isFlipped ? 'Video diflip ↔️' : 'Flip dibatalkan', 'info');
+        }
+
+        function undoAction() {
+            if (!history.length) return;
+            const last = history.pop();
+            if (last.type === 'text') {
+                document.querySelectorAll('.text-overlay-el').forEach(el => {
+                    if (el.innerText === last.text) el.remove();
+                });
+            }
+            document.getElementById('undo-btn').disabled = !history.length;
+        }
+
+        async function exportVideo() {
+            const btn = document.getElementById('export-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
+
+            // Simulasi export — dalam produksi guna MediaRecorder atau server-side processing
+            await new Promise(r => setTimeout(r, 1500));
+
+            // Untuk demo: hantar terus ke upload page dengan file asal
+            showToast('Video siap! Mengalihkan ke halaman upload...', 'success');
+            setTimeout(() => {
+                // Simpan metadata edit untuk upload
+                localStorage.setItem('sf_editor_meta', JSON.stringify({
+                    filter:    currentFilter,
+                    trimStart, trimEnd,
+                    isMuted, isFlipped,
+                    textOverlays,
+                }));
+                window.location.href = 'upload.html?from=editor';
+            }, 1200);
+        }
+
+        function confirmExit() {
+            if (videoFile && !confirm('Keluar dari editor? Perubahan tidak disimpan.')) return;
+            window.location.href = 'upload.html';
+        }
+
+        function fmtTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${m}:${String(sec).padStart(2,'0')}`;
+        }
+    </script>
+</body>
+</html>

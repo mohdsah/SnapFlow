@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cabaran | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background:#000; color:#fff; margin:0; overflow-y:auto; padding-bottom:calc(var(--nav-height)+16px); }
+        .challenge-card {
+            margin:0 16px 12px;
+            background:#111; border:1px solid #1a1a1a; border-radius:16px;
+            overflow:hidden; cursor:pointer; transition:transform 0.2s, border-color 0.2s;
+        }
+        .challenge-card:active { transform:scale(0.98); }
+        .challenge-card.active-card { border-color:#fe2c55; }
+        .chal-banner {
+            height:120px; background:linear-gradient(135deg,#1a0005,#0d0000);
+            display:flex; align-items:center; justify-content:center;
+            font-size:52px; position:relative; overflow:hidden;
+        }
+        .chal-banner::before {
+            content:''; position:absolute; inset:0;
+            background:radial-gradient(circle at 50% 50%, rgba(254,44,85,0.15), transparent 70%);
+        }
+        .participant-thumb {
+            width:36px; height:36px; border-radius:50%; object-fit:cover;
+            border:2px solid #000; margin-left:-8px; background:#1a1a1a;
+        }
+        .join-btn {
+            background:#fe2c55; color:#fff; border:none; padding:8px 20px;
+            border-radius:20px; font-size:13px; font-weight:800; cursor:pointer;
+            font-family:inherit; transition:all 0.2s;
+        }
+        .join-btn.joined { background:#1a1a1a; color:#fe2c55; border:1px solid #fe2c55; }
+        .join-btn:active { transform:scale(0.95); }
+        .tab-btn { flex:1; background:transparent; border:none; border-bottom:2px solid transparent;
+                   color:#555; padding:12px; font-size:13px; font-weight:700; cursor:pointer;
+                   font-family:inherit; transition:all 0.2s; }
+        .tab-btn.active { border-bottom-color:#fff; color:#fff; }
+        .video-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:2px; }
+        .grid-vid { aspect-ratio:9/16; background:#111; overflow:hidden; cursor:pointer; position:relative; }
+        .grid-vid video { width:100%; height:100%; object-fit:cover; }
+        .grid-vid-overlay { position:absolute; bottom:4px; left:4px; display:flex; align-items:center;
+                            gap:3px; font-size:11px; font-weight:700; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
+    </style>
+</head>
+<body>
+
+    <header style="padding:14px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #111;
+                   position:sticky; top:0; background:rgba(0,0,0,0.97); z-index:100; backdrop-filter:blur(12px);">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="cursor:pointer;font-size:18px;color:#888;"></i>
+        <strong style="font-size:18px;font-weight:800;flex:1;">🏆 Cabaran</strong>
+        <button onclick="openCreateChallenge()"
+            style="background:#fe2c55;border:none;color:#fff;padding:7px 16px;border-radius:20px;
+                   font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">
+            + Cipta
+        </button>
+    </header>
+
+    <!-- Tabs -->
+    <div style="display:flex; border-bottom:1px solid #111; position:sticky; top:53px; background:#000; z-index:99;">
+        <button class="tab-btn active" id="tab-trending" onclick="switchChalTab('trending',this)">🔥 Trending</button>
+        <button class="tab-btn" id="tab-new"      onclick="switchChalTab('new',this)">✨ Terbaru</button>
+        <button class="tab-btn" id="tab-mine"     onclick="switchChalTab('mine',this)">👤 Saya</button>
+    </div>
+
+    <!-- Challenge List -->
+    <div id="challenge-list" style="padding:16px 0 0;"></div>
+
+    <!-- Challenge Detail (hidden) -->
+    <div id="challenge-detail" style="display:none;"></div>
+
+    <nav class="bottom-nav">
+        <a href="index.html"    class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
+        <a href="upload.html"   class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html"    class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html"  class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
+    </nav>
+
+    <script src="app.js"></script>
+    <script>
+        let currentChalTab = 'trending';
+        let currentUser    = null;
+        let joinedChallenges = new Set(
+            JSON.parse(localStorage.getItem('sf_joined_challenges') || '[]')
+        );
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            currentUser = user;
+            loadChallenges('trending');
+        });
+
+        function switchChalTab(tab, btn) {
+            currentChalTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadChallenges(tab);
+        }
+
+        async function loadChallenges(tab) {
+            const el = document.getElementById('challenge-list');
+            el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="loader-spin" style="margin:0 auto;"></div></div>';
+
+            let query = snapSupabase.from('challenges').select('*, challenge_entries(count)');
+
+            if (tab === 'trending') query = query.order('entry_count', { ascending: false }).limit(20);
+            else if (tab === 'new') query = query.order('created_at', { ascending: false }).limit(20);
+            else if (tab === 'mine') {
+                if (!currentUser) { showEmptyChal('Log masuk untuk lihat cabaran anda.'); return; }
+                query = query.eq('creator_id', currentUser.id);
+            }
+
+            const { data: challenges, error } = await query;
+
+            if (error || !challenges?.length) {
+                showEmptyChal(tab === 'mine' ? 'Belum ada cabaran dicipta.' : 'Belum ada cabaran aktif.');
+                return;
+            }
+
+            el.innerHTML = challenges.map((c,i) => renderChallengeCard(c, i)).join('');
+        }
+
+        function renderChallengeCard(c, i) {
+            const isJoined   = joinedChallenges.has(c.id);
+            const entryCount = c.challenge_entries?.[0]?.count || c.entry_count || 0;
+            const daysLeft   = c.ends_at
+                ? Math.max(0, Math.ceil((new Date(c.ends_at) - Date.now()) / 86400000))
+                : null;
+
+            return `
+            <div class="challenge-card ${isJoined ? 'active-card' : ''}"
+                 style="animation:fadeInUp 0.3s ease ${i*0.05}s both;">
+                <!-- Banner -->
+                <div class="chal-banner">
+                    <span style="position:relative;z-index:1;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));">${c.emoji || '🏆'}</span>
+                    ${isJoined ? '<div style="position:absolute;top:10px;right:10px;background:#fe2c55;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:20px;">JOINED ✓</div>' : ''}
+                    ${daysLeft !== null && daysLeft <= 3 ? `<div style="position:absolute;top:10px;left:10px;background:#ff4500;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:20px;">⏰ ${daysLeft} hari lagi</div>` : ''}
+                </div>
+
+                <!-- Info -->
+                <div style="padding:14px 16px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                        <div style="min-width:0;">
+                            <h3 style="margin:0 0 4px;font-size:16px;font-weight:800;">${escapeHtml(c.title)}</h3>
+                            <p style="margin:0;font-size:13px;color:#fe2c55;font-weight:700;">${escapeHtml(c.hashtag)}</p>
+                            ${c.description ? `<p style="margin:6px 0 0;font-size:12px;color:#666;line-height:1.5;">${escapeHtml(c.description.slice(0,80))}${c.description.length>80?'...':''}</p>` : ''}
+                        </div>
+                        <button class="join-btn ${isJoined ? 'joined' : ''}"
+                            onclick="event.stopPropagation(); toggleJoinChallenge(${c.id}, '${escapeHtml(c.hashtag)}', this)">
+                            ${isJoined ? '✓ Joined' : '+ Sertai'}
+                        </button>
+                    </div>
+
+                    <!-- Stats -->
+                    <div style="display:flex;align-items:center;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid #1a1a1a;">
+                        <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#555;">
+                            <i class="fa-solid fa-video" style="color:#333;"></i>
+                            <strong style="color:#fff;">${entryCount.toLocaleString()}</strong> video
+                        </div>
+                        ${daysLeft !== null ? `
+                        <div style="font-size:12px;color:#555;">
+                            <i class="fa-solid fa-clock" style="color:#333;"></i>
+                            <strong style="color:${daysLeft<=3?'#ff4500':'#fff'};">${daysLeft}</strong> hari lagi
+                        </div>` : '<div style="font-size:12px;color:#555;">Tiada tarikh tamat</div>'}
+                        <div style="font-size:12px;color:#555;margin-left:auto;">
+                            <i class="fa-solid fa-trophy" style="color:#f6c90e;"></i>
+                            Hadiah: <strong style="color:#f6c90e;">${escapeHtml(c.prize || 'SnapFlow Pro')}</strong>
+                        </div>
+                    </div>
+
+                    <!-- CTA -->
+                    <button onclick="openChallengeDetail(${c.id})"
+                        style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:10px;
+                               border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:10px;">
+                        Lihat ${entryCount} Video Peserta →
+                    </button>
+                </div>
+            </div>`;
+        }
+
+        function showEmptyChal(msg) {
+            document.getElementById('challenge-list').innerHTML = `
+                <div style="text-align:center;padding:60px 24px;color:#555;">
+                    <i class="fa-solid fa-trophy" style="font-size:48px;color:#1a1a1a;margin-bottom:16px;display:block;"></i>
+                    <p style="font-size:15px;font-weight:700;color:#888;">${msg}</p>
+                    <button onclick="openCreateChallenge()"
+                        style="margin-top:16px;background:#fe2c55;color:#fff;border:none;padding:10px 24px;
+                               border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+                        + Cipta Cabaran Pertama
+                    </button>
+                </div>`;
+        }
+
+        async function toggleJoinChallenge(chalId, hashtag, btn) {
+            if (!currentUser) return showToast('Log masuk dahulu.', 'warning');
+
+            if (joinedChallenges.has(chalId)) {
+                joinedChallenges.delete(chalId);
+                btn.className = 'join-btn';
+                btn.innerText = '+ Sertai';
+                btn.closest('.challenge-card')?.classList.remove('active-card');
+                showToast('Cabaran ditinggalkan.', 'info');
+            } else {
+                joinedChallenges.add(chalId);
+                btn.className = 'join-btn joined';
+                btn.innerText = '✓ Joined';
+                btn.closest('.challenge-card')?.classList.add('active-card');
+                showToast(`Joined ${hashtag}! Upload video dengan hashtag ini. 🏆`, 'success');
+
+                // Auto-isi hashtag dalam caption upload
+                localStorage.setItem('sf_pending_challenge_hashtag', hashtag);
+
+                // Notifikasi
+                await snapSupabase.from('challenge_participants').upsert([{
+                    challenge_id: chalId, user_id: currentUser.id
+                }]).catch(() => {});
+            }
+
+            localStorage.setItem('sf_joined_challenges', JSON.stringify([...joinedChallenges]));
+        }
+
+        async function openChallengeDetail(chalId) {
+            const { data: chal } = await snapSupabase.from('challenges')
+                .select('*').eq('id', chalId).single();
+            if (!chal) return showToast('Cabaran tidak dijumpai.', 'error');
+
+            // Cari video dengan hashtag cabaran
+            const { data: videos } = await snapSupabase.from('videos')
+                .select('*').ilike('caption', `%${chal.hashtag}%`)
+                .eq('is_published', true)
+                .order('likes_count', { ascending: false }).limit(30);
+
+            const modal = document.createElement('div');
+            modal.id = 'chal-detail-modal';
+            modal.innerHTML = `
+                <div style="position:fixed;inset:0;background:#000;z-index:9300;overflow-y:auto;">
+                    <!-- Header -->
+                    <div style="display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid #111;
+                                position:sticky;top:0;background:rgba(0,0,0,0.97);z-index:1;backdrop-filter:blur(12px);">
+                        <button onclick="document.getElementById('chal-detail-modal').remove()"
+                            style="background:transparent;border:none;color:#888;font-size:20px;cursor:pointer;">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <div>
+                            <h3 style="margin:0;font-size:16px;font-weight:800;">${chal.emoji||'🏆'} ${escapeHtml(chal.title)}</h3>
+                            <p style="margin:2px 0 0;font-size:12px;color:#fe2c55;font-weight:700;">${escapeHtml(chal.hashtag)}</p>
+                        </div>
+                        <a href="upload.html" style="margin-left:auto;background:#fe2c55;color:#fff;text-decoration:none;
+                                                     padding:8px 16px;border-radius:20px;font-size:13px;font-weight:800;">
+                            + Sertai
+                        </a>
+                    </div>
+
+                    <!-- Stats bar -->
+                    <div style="display:flex;justify-content:space-around;padding:16px;background:#0d0d0d;border-bottom:1px solid #111;">
+                        <div style="text-align:center;">
+                            <p style="margin:0;font-size:22px;font-weight:900;">${(videos||[]).length}</p>
+                            <p style="margin:3px 0 0;font-size:11px;color:#555;">Video</p>
+                        </div>
+                        <div style="text-align:center;">
+                            <p style="margin:0;font-size:22px;font-weight:900;">${(videos||[]).reduce((s,v)=>s+(v.likes_count||0),0).toLocaleString()}</p>
+                            <p style="margin:3px 0 0;font-size:11px;color:#555;">Likes</p>
+                        </div>
+                        <div style="text-align:center;">
+                            <p style="margin:0;font-size:22px;font-weight:900;color:#f6c90e;">${escapeHtml(chal.prize||'Pro')}</p>
+                            <p style="margin:3px 0 0;font-size:11px;color:#555;">Hadiah</p>
+                        </div>
+                    </div>
+
+                    <!-- Leaderboard Top 3 -->
+                    ${videos && videos.length >= 1 ? `
+                    <div style="padding:14px 16px;border-bottom:1px solid #111;">
+                        <p style="margin:0 0 12px;font-size:12px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">🏆 Top Peserta</p>
+                        ${videos.slice(0,3).map((v,i) => `
+                        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<2?'border-bottom:1px solid #0d0d0d;':''}">
+                            <span style="font-size:${i===0?'22px':'16px'};width:24px;text-align:center;">${['🥇','🥈','🥉'][i]}</span>
+                            <div style="width:36px;height:36px;border-radius:50%;background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(v.username||'U')}&background=random&size=72');background-size:cover;flex-shrink:0;"></div>
+                            <div style="flex:1;min-width:0;">
+                                <p style="margin:0;font-size:13px;font-weight:700;">@${escapeHtml(v.username||'User')}</p>
+                                <p style="margin:1px 0 0;font-size:11px;color:#555;">❤️ ${v.likes_count||0}</p>
+                            </div>
+                        </div>`).join('')}
+                    </div>` : ''}
+
+                    <!-- Video Grid -->
+                    <div style="padding:12px 12px 0;">
+                        <p style="margin:0 0 10px;font-size:12px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Semua Entri</p>
+                        <div class="video-grid-3">
+                            ${(videos||[]).map(v => `
+                            <div class="grid-vid" onclick="viewVideo(${v.id})">
+                                <video src="${escapeHtml(v.video_url)}" preload="metadata" muted></video>
+                                <div class="grid-vid-overlay">❤️ ${v.likes_count||0}</div>
+                            </div>`).join('')}
+                        </div>
+                        ${!videos?.length ? '<p style="text-align:center;padding:30px;color:#555;font-size:13px;">Belum ada entri. Jadi yang pertama!</p>' : ''}
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        function openCreateChallenge() {
+            if (!currentUser) return showToast('Log masuk dahulu.', 'warning');
+
+            const modal = document.createElement('div');
+            modal.id = 'create-chal-modal';
+            const emojis = ['🏆','🔥','💃','🎵','🍜','⚽','😂','❤️','🌟','🎉'];
+            modal.innerHTML = `
+                <div onclick="document.getElementById('create-chal-modal').remove()"
+                     style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9400;"></div>
+                <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                            padding:20px;z-index:9401;border-top:1px solid #222;max-height:88vh;overflow-y:auto;">
+                    <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 18px;"></div>
+                    <h3 style="margin:0 0 16px;font-size:17px;font-weight:800;">🏆 Cipta Cabaran Baru</h3>
+
+                    <!-- Emoji picker -->
+                    <p style="font-size:12px;color:#555;margin:0 0 8px;">Pilih Emoji</p>
+                    <div style="display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;">
+                        ${emojis.map(e => `
+                        <button onclick="selectChalEmoji(this,'${e}')"
+                            style="background:#1a1a1a;border:1.5px solid #222;border-radius:10px;padding:8px;
+                                   font-size:22px;cursor:pointer;transition:all 0.2s;flex-shrink:0;"
+                            data-emoji="${e}">${e}</button>`).join('')}
+                    </div>
+
+                    ${[
+                        ['chal-title','text','Tajuk Cabaran','cth: Cabaran Masak Viral 2025'],
+                        ['chal-hashtag','text','Hashtag (#)','cth: #MasakViralChallenge'],
+                        ['chal-prize','text','Hadiah Pemenang','cth: SnapFlow Pro 3 Bulan'],
+                        ['chal-ends','date','Tarikh Tamat',''],
+                    ].map(([id,type,label,placeholder]) => `
+                    <div style="margin-bottom:12px;">
+                        <p style="font-size:12px;color:#555;margin:0 0 6px;">${label}</p>
+                        <input type="${type}" id="${id}" placeholder="${placeholder}"
+                            style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:12px;
+                                   border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none;"
+                            ${type==='date'?`min="${new Date().toISOString().slice(0,10)}"`:''}>
+                    </div>`).join('')}
+
+                    <div style="margin-bottom:16px;">
+                        <p style="font-size:12px;color:#555;margin:0 0 6px;">Penerangan (optional)</p>
+                        <textarea id="chal-desc" placeholder="Terangkan peraturan cabaran..."
+                            style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:12px;
+                                   border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;
+                                   resize:none;height:70px;outline:none;"></textarea>
+                    </div>
+
+                    <button onclick="submitCreateChallenge()"
+                        style="width:100%;background:#fe2c55;color:#fff;border:none;padding:14px;border-radius:12px;
+                               font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;">
+                        🏆 Lancarkan Cabaran
+                    </button>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        let selectedEmoji = '🏆';
+        function selectChalEmoji(btn, emoji) {
+            document.querySelectorAll('[data-emoji]').forEach(b => {
+                b.style.borderColor = '#222'; b.style.background = '#1a1a1a';
+            });
+            btn.style.borderColor = '#fe2c55'; btn.style.background = '#1a0005';
+            selectedEmoji = emoji;
+        }
+
+        async function submitCreateChallenge() {
+            const title   = document.getElementById('chal-title')?.value?.trim();
+            let hashtag   = document.getElementById('chal-hashtag')?.value?.trim();
+            const prize   = document.getElementById('chal-prize')?.value?.trim();
+            const endsAt  = document.getElementById('chal-ends')?.value;
+            const desc    = document.getElementById('chal-desc')?.value?.trim();
+
+            if (!title)   return showToast('Masukkan tajuk cabaran.', 'warning');
+            if (!hashtag) return showToast('Masukkan hashtag cabaran.', 'warning');
+
+            // Pastikan hashtag ada #
+            if (!hashtag.startsWith('#')) hashtag = '#' + hashtag;
+
+            const { error } = await snapSupabase.from('challenges').insert([{
+                creator_id:   currentUser.id,
+                creator_name: currentUser.user_metadata?.full_name || 'User',
+                title,
+                hashtag:      hashtag.toLowerCase().replace(/\s+/g, ''),
+                description:  desc || null,
+                prize:        prize || 'SnapFlow Pro',
+                emoji:        selectedEmoji,
+                ends_at:      endsAt ? new Date(endsAt).toISOString() : null,
+                entry_count:  0,
+            }]);
+
+            if (error) return showToast('Gagal cipta cabaran: ' + error.message, 'error');
+
+            document.getElementById('create-chal-modal')?.remove();
+            showToast(`Cabaran ${hashtag} berjaya dilancarkan! 🏆`, 'success');
+            loadChallenges('mine');
+            switchChalTab('mine', document.getElementById('tab-mine'));
+        }
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+        }
+    </script>
+</body>
+</html>

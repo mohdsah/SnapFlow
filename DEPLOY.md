@@ -187,3 +187,81 @@ Pastikan Realtime berfungsi:
 ---
 
 *Dijana oleh SnapFlow Setup Guide*
+
+---
+
+## Batch 5 — Setup Diperlukan
+
+### 🔐 Google & Apple Login
+1. Supabase Dashboard → **Authentication → Providers**
+2. **Google:** Aktifkan → isi Client ID + Secret dari [Google Cloud Console](https://console.cloud.google.com)
+   - Tambah Redirect URL: `https://<project>.supabase.co/auth/v1/callback`
+3. **Apple:** Aktifkan → isi Services ID dari [Apple Developer](https://developer.apple.com)
+   - Tambah Redirect URL: `https://<project>.supabase.co/auth/v1/callback`
+
+### 🤖 AI Caption (Claude API)
+```bash
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+npx supabase functions deploy generate-caption
+```
+
+### 📧 Laporan Mingguan (Email via Resend)
+1. Daftar di [resend.com](https://resend.com) dan sahkan domain
+2. Set secrets:
+```bash
+supabase secrets set RESEND_API_KEY=re_...
+supabase secrets set APP_URL=https://snapflow-anda.netlify.app
+npx supabase functions deploy weekly-report
+```
+3. Supabase Dashboard → **Edge Functions → Cron Jobs → Add:**
+   - Schedule: `0 8 * * 1` (Isnin 8:00 pagi)
+   - Function: `weekly-report`
+
+### 🎁 Virtual Tip / Hadiah
+Jalankan SQL baru dalam **snapflow_supabase.sql** untuk table `gifts` dan `coin_transactions`
+
+### 🔑 Semua Secrets Yang Diperlukan
+```
+ANTHROPIC_API_KEY    → sk-ant-...       (AI Caption)
+RESEND_API_KEY       → re_...           (Email)
+STRIPE_SECRET_KEY    → sk_live_...      (Stripe Pro)
+STRIPE_WEBHOOK_SECRET → whsec_...       (Stripe Webhook)
+APP_URL              → https://...      (URL app anda)
+```
+
+---
+
+## Batch 6 — Setup Diperlukan
+
+### 🏆 Video Cabaran (#Challenge)
+Jalankan SQL baru dalam `snapflow_supabase.sql` untuk table `challenges`, `challenge_entries`, `challenge_participants`
+
+### 🔴 SnapFlow Live
+Jalankan SQL untuk table `live_sessions`
+- Live chat guna Supabase Realtime Broadcast — tiada setup tambahan
+- WebRTC kamera memerlukan HTTPS (Netlify/Vercel auto-HTTPS ✅)
+
+### 🎬 AI Subtitle (Whisper)
+```bash
+supabase secrets set OPENAI_API_KEY=sk-...
+npx supabase functions deploy generate-subtitle
+```
+Daftar di [platform.openai.com](https://platform.openai.com) untuk dapatkan API key
+
+### 📊 Share Analytics
+Jalankan SQL untuk table `video_shares` (auto-rekod setiap share)
+
+### 🔒 Log Aktiviti
+- Disimpan dalam `localStorage` — tiada backend diperlukan
+- Link boleh diakses dari **Edit Profil → Log Aktiviti & Keselamatan**
+
+### Semua Edge Functions (7 functions):
+```bash
+npx supabase functions deploy generate-caption
+npx supabase functions deploy generate-subtitle
+npx supabase functions deploy weekly-report
+npx supabase functions deploy create-checkout
+npx supabase functions deploy stripe-webhook
+npx supabase functions deploy publish-scheduled
+npx supabase functions deploy cleanup-stories
+```

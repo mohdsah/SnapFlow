@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Siri Video | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background:#000; color:#fff; margin:0; padding-bottom:calc(var(--nav-height) + 16px); overflow-y:auto; }
+        .playlist-card {
+            background:#111; border:1px solid #1a1a1a; border-radius:14px;
+            overflow:hidden; margin:0 16px 12px; transition:all 0.2s;
+            cursor:pointer;
+        }
+        .playlist-card:active { transform:scale(0.98); }
+        .playlist-thumb {
+            width:100%; aspect-ratio:16/9; object-fit:cover; background:#0d0d0d;
+            display:block;
+        }
+        .episode-row {
+            display:flex; align-items:center; gap:12px; padding:10px 14px;
+            border-bottom:1px solid #0d0d0d; cursor:pointer; transition:background 0.15s;
+        }
+        .episode-row:active  { background:#0d0d0d; }
+        .episode-row.playing { background:#1a0005; border-left:3px solid #fe2c55; }
+        .ep-num {
+            width:28px; height:28px; background:#1a1a1a; border-radius:6px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:12px; font-weight:800; color:#888; flex-shrink:0;
+        }
+        .ep-num.playing { background:#fe2c55; color:#fff; }
+        .ep-thumb {
+            width:56px; height:40px; border-radius:6px; object-fit:cover;
+            background:#1a1a1a; flex-shrink:0;
+        }
+        .progress-thin {
+            height:3px; background:#1a1a1a; border-radius:2px; margin-top:4px;
+        }
+        .progress-thin-fill {
+            height:100%; background:#fe2c55; border-radius:2px; transition:width 0.3s;
+        }
+        .fab {
+            position:fixed; bottom:calc(var(--nav-height) + 16px); right:16px;
+            width:52px; height:52px; background:#fe2c55; border-radius:50%; border:none;
+            color:#fff; font-size:20px; cursor:pointer; z-index:200;
+            display:flex; align-items:center; justify-content:center;
+            box-shadow:0 4px 20px rgba(254,44,85,0.4); transition:all 0.2s;
+        }
+        .fab:active { transform:scale(0.9); }
+        .tab-bar { display:flex; border-bottom:1px solid #111; position:sticky; top:53px; background:#000; z-index:99; }
+        .tab-btn {
+            flex:1; background:transparent; border:none; border-bottom:2px solid transparent;
+            color:#555; padding:12px; font-size:13px; font-weight:700; cursor:pointer;
+            font-family:inherit; transition:all 0.2s;
+        }
+        .tab-btn.active { border-bottom-color:#fff; color:#fff; }
+    </style>
+</head>
+<body>
+
+    <header style="padding:14px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #111; position:sticky; top:0; background:rgba(0,0,0,0.97); z-index:100; backdrop-filter:blur(12px);">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="cursor:pointer; font-size:18px; color:#888;"></i>
+        <strong style="font-size:18px; font-weight:800; flex:1;">📚 Siri & Playlist</strong>
+        <button onclick="openCreatePlaylist()" style="background:transparent;border:none;color:#fe2c55;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+            + Cipta
+        </button>
+    </header>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchPlaylistTab('discover',this)">Terokai</button>
+        <button class="tab-btn" onclick="switchPlaylistTab('mine',this)">Siri Saya</button>
+        <button class="tab-btn" onclick="switchPlaylistTab('saved',this)">Disimpan</button>
+    </div>
+
+    <!-- Content -->
+    <div id="playlist-content" style="padding:16px 0 0;">
+        <div style="text-align:center;padding:40px;color:#444;">
+            <div style="width:24px;height:24px;border:3px solid #222;border-top-color:#fe2c55;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div>
+            <span style="font-size:13px;">Memuatkan...</span>
+        </div>
+    </div>
+
+    <!-- FAB create -->
+    <button class="fab" onclick="openCreatePlaylist()" title="Cipta Siri Baru">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+
+    <nav class="bottom-nav">
+        <a href="index.html"    class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
+        <a href="upload.html"   class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html"    class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html"  class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
+    </nav>
+
+    <script src="app.js"></script>
+    <script>
+        let currentPlaylistTab = 'discover';
+        let playlistProgress = {}; // { playlistId: episodeIndex }
+
+        // Load progress dari localStorage
+        try { playlistProgress = JSON.parse(localStorage.getItem('sf_playlist_progress') || '{}'); } catch {}
+
+        document.addEventListener('DOMContentLoaded', () => loadPlaylists('discover'));
+
+        function switchPlaylistTab(tab, btn) {
+            currentPlaylistTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadPlaylists(tab);
+        }
+
+        async function loadPlaylists(tab) {
+            const el = document.getElementById('playlist-content');
+            el.innerHTML = '<div style="text-align:center;padding:40px;color:#444;"><div style="width:24px;height:24px;border:3px solid #222;border-top-color:#fe2c55;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div></div>';
+
+            const { data: { user } } = await snapSupabase.auth.getUser();
+
+            let query = snapSupabase.from('playlists')
+                .select('*, playlist_videos(count)')
+                .order('created_at', { ascending: false });
+
+            if (tab === 'mine')  query = query.eq('user_id', user?.id);
+            if (tab === 'saved') {
+                const saved = JSON.parse(localStorage.getItem('sf_saved_playlists') || '[]');
+                if (!saved.length) { showEmptyPlaylists('Belum ada siri disimpan.'); return; }
+                query = query.in('id', saved);
+            }
+
+            const { data: playlists, error } = await query.limit(20);
+
+            if (error || !playlists?.length) {
+                showEmptyPlaylists(tab === 'mine' ? 'Belum ada siri dicipta.' : 'Belum ada siri tersedia.');
+                return;
+            }
+
+            el.innerHTML = playlists.map(pl => renderPlaylistCard(pl, user)).join('');
+        }
+
+        function renderPlaylistCard(pl, user) {
+            const progress = playlistProgress[pl.id] || 0;
+            const total    = pl.playlist_videos?.[0]?.count || 0;
+            const pct      = total ? Math.round((progress / total) * 100) : 0;
+            const isMine   = user && pl.user_id === user.id;
+
+            return `
+            <div class="playlist-card" onclick="openPlaylist(${pl.id})">
+                <div style="position:relative;">
+                    <video src="${escapeHtml(pl.cover_url || '')}" style="width:100%;aspect-ratio:16/9;object-fit:cover;background:#0d0d0d;display:block;" preload="none" muted
+                        onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>
+                    <!-- Episode count badge -->
+                    <div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.8);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">
+                        ${total} episod
+                    </div>
+                    ${pct > 0 ? `<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,0.1);"><div style="height:100%;width:${pct}%;background:#fe2c55;"></div></div>` : ''}
+                </div>
+                <div style="padding:12px 14px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                        <div>
+                            <h3 style="margin:0 0 4px;font-size:15px;font-weight:800;">${escapeHtml(pl.title)}</h3>
+                            <p style="margin:0;font-size:12px;color:#555;">oleh @${escapeHtml(pl.username || 'User')} ${isMine ? '· <span style="color:#fe2c55;">Milik Saya</span>' : ''}</p>
+                            ${pl.description ? `<p style="margin:6px 0 0;font-size:12px;color:#666;line-height:1.5;">${escapeHtml(pl.description.slice(0,80))}${pl.description.length > 80 ? '...' : ''}</p>` : ''}
+                        </div>
+                        <button onclick="event.stopPropagation(); savePlaylist(${pl.id})"
+                            style="background:transparent;border:none;color:#555;font-size:18px;cursor:pointer;flex-shrink:0;padding:4px;">
+                            <i class="fa-${(JSON.parse(localStorage.getItem('sf_saved_playlists')||'[]')).includes(pl.id)?'solid':'regular'} fa-bookmark"></i>
+                        </button>
+                    </div>
+                    ${pct > 0 ? `<p style="margin:8px 0 0;font-size:11px;color:#555;">Progres: Episod ${progress}/${total} (${pct}%)</p>` : ''}
+                </div>
+            </div>`;
+        }
+
+        function showEmptyPlaylists(msg) {
+            document.getElementById('playlist-content').innerHTML = `
+                <div style="text-align:center;padding:60px 24px;color:#555;">
+                    <i class="fa-solid fa-film" style="font-size:48px;color:#1a1a1a;margin-bottom:16px;display:block;"></i>
+                    <p style="font-size:15px;font-weight:700;color:#888;">${msg}</p>
+                    <button onclick="openCreatePlaylist()" style="margin-top:16px;background:#fe2c55;color:#fff;border:none;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+                        + Cipta Siri Pertama
+                    </button>
+                </div>`;
+        }
+
+        async function openPlaylist(playlistId) {
+            const { data: pl } = await snapSupabase.from('playlists')
+                .select('*').eq('id', playlistId).single();
+            const { data: pvids } = await snapSupabase.from('playlist_videos')
+                .select('*, videos(*)').eq('playlist_id', playlistId)
+                .order('episode_number', { ascending: true });
+
+            if (!pl || !pvids) return showToast('Siri tidak dijumpai.', 'error');
+
+            const currentEp = playlistProgress[playlistId] || 0;
+            const modal = document.createElement('div');
+            modal.id = 'playlist-modal';
+            modal.innerHTML = `
+                <div style="position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9500;overflow-y:auto;">
+                    <!-- Header -->
+                    <div style="display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid #111;position:sticky;top:0;background:rgba(0,0,0,0.97);z-index:1;">
+                        <button onclick="document.getElementById('playlist-modal').remove()"
+                            style="background:transparent;border:none;color:#888;font-size:20px;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <div style="flex:1;min-width:0;">
+                            <h3 style="margin:0;font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(pl.title)}</h3>
+                            <p style="margin:2px 0 0;font-size:12px;color:#555;">${pvids.length} episod · @${escapeHtml(pl.username||'User')}</p>
+                        </div>
+                    </div>
+
+                    <!-- Now Playing -->
+                    ${pvids[currentEp] ? `
+                    <div style="background:#0d0d0d;border-bottom:1px solid #111;">
+                        <video src="${escapeHtml(pvids[currentEp].videos?.video_url||'')}"
+                            id="pl-player" controls autoplay playsinline
+                            style="width:100%;aspect-ratio:16/9;background:#000;display:block;"
+                            onended="nextEpisode(${playlistId}, ${currentEp}, ${pvids.length})"></video>
+                        <div style="padding:12px 16px;">
+                            <p style="margin:0;font-size:13px;font-weight:700;">
+                                Episod ${currentEp + 1}: ${escapeHtml(pvids[currentEp].videos?.caption?.slice(0,60)||'Tanpa tajuk')}
+                            </p>
+                            <div style="display:flex;gap:8px;margin-top:10px;">
+                                <button onclick="prevEpisode(${playlistId}, ${currentEp})"
+                                    style="flex:1;background:#1a1a1a;border:none;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;${currentEp===0?'opacity:0.3;pointer-events:none;':''}"
+                                    ${currentEp===0?'disabled':''}>
+                                    ⏮ Sebelum
+                                </button>
+                                <button onclick="nextEpisode(${playlistId}, ${currentEp}, ${pvids.length})"
+                                    style="flex:1;background:#fe2c55;border:none;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;${currentEp>=pvids.length-1?'opacity:0.3;pointer-events:none;':''}"
+                                    ${currentEp>=pvids.length-1?'disabled':''}>
+                                    Seterusnya ⏭
+                                </button>
+                            </div>
+                        </div>
+                    </div>` : ''}
+
+                    <!-- Episode List -->
+                    <div style="padding:8px 0;">
+                        <p style="padding:8px 16px;font-size:12px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Semua Episod</p>
+                        ${pvids.map((pv, i) => `
+                        <div class="episode-row ${i === currentEp ? 'playing' : ''}" onclick="jumpToEpisode(${playlistId}, ${i})">
+                            <div class="ep-num ${i === currentEp ? 'playing' : ''}">${i === currentEp ? '▶' : i+1}</div>
+                            <video src="${escapeHtml(pv.videos?.video_url||'')}" class="ep-thumb" preload="metadata" muted></video>
+                            <div style="flex:1;min-width:0;">
+                                <p style="margin:0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    ${escapeHtml(pv.videos?.caption?.slice(0,50)||'Episod '+( i+1))}
+                                </p>
+                                <p style="margin:2px 0 0;font-size:11px;color:#555;">❤️ ${pv.videos?.likes_count||0}</p>
+                            </div>
+                            ${i < currentEp ? '<i class="fa-solid fa-check-circle" style="color:#00f2ea;flex-shrink:0;"></i>' : ''}
+                        </div>`).join('')}
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        function nextEpisode(playlistId, currentIdx, total) {
+            if (currentIdx + 1 >= total) { showToast('Tamat siri! 🎉', 'success'); return; }
+            playlistProgress[playlistId] = currentIdx + 1;
+            localStorage.setItem('sf_playlist_progress', JSON.stringify(playlistProgress));
+            document.getElementById('playlist-modal')?.remove();
+            openPlaylist(playlistId);
+        }
+
+        function prevEpisode(playlistId, currentIdx) {
+            if (currentIdx <= 0) return;
+            playlistProgress[playlistId] = currentIdx - 1;
+            localStorage.setItem('sf_playlist_progress', JSON.stringify(playlistProgress));
+            document.getElementById('playlist-modal')?.remove();
+            openPlaylist(playlistId);
+        }
+
+        function jumpToEpisode(playlistId, idx) {
+            playlistProgress[playlistId] = idx;
+            localStorage.setItem('sf_playlist_progress', JSON.stringify(playlistProgress));
+            document.getElementById('playlist-modal')?.remove();
+            openPlaylist(playlistId);
+        }
+
+        function savePlaylist(playlistId) {
+            let saved = JSON.parse(localStorage.getItem('sf_saved_playlists') || '[]');
+            const idx = saved.indexOf(playlistId);
+            if (idx >= 0) { saved.splice(idx, 1); showToast('Siri dibuang dari simpanan.', 'info'); }
+            else          { saved.push(playlistId); showToast('Siri disimpan! 📚', 'success'); }
+            localStorage.setItem('sf_saved_playlists', JSON.stringify(saved));
+            loadPlaylists(currentPlaylistTab);
+        }
+
+        function openCreatePlaylist() {
+            snapSupabase.auth.getUser().then(({ data: { user } }) => {
+                if (!user) return showToast('Log masuk dahulu.', 'warning');
+                createPlaylistModal(user);
+            });
+        }
+
+        async function createPlaylistModal(user) {
+            // Ambil video user untuk pilih cover + episod
+            const { data: myVids } = await snapSupabase.from('videos')
+                .select('id, video_url, caption').eq('user_id', user.id)
+                .order('created_at', { ascending: false }).limit(30);
+
+            const modal = document.createElement('div');
+            modal.id = 'create-playlist-modal';
+            modal.innerHTML = `
+                <div onclick="document.getElementById('create-playlist-modal').remove()"
+                    style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9400;"></div>
+                <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:20px;z-index:9401;max-height:85vh;overflow-y:auto;border-top:1px solid #222;">
+                    <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 20px;"></div>
+                    <h3 style="margin:0 0 16px;font-size:17px;font-weight:800;">📚 Cipta Siri Baharu</h3>
+
+                    <input id="pl-title" type="text" placeholder="Tajuk siri (contoh: Siri Masakan Viral)"
+                        style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:12px;border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:10px;">
+                    <textarea id="pl-desc" placeholder="Penerangan siri (optional)..."
+                        style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:12px;border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box;resize:none;height:70px;outline:none;margin-bottom:14px;"></textarea>
+
+                    <p style="font-size:13px;color:#666;margin:0 0 10px;font-weight:700;">Pilih Video Episod (ikut urutan):</p>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:14px;" id="ep-grid">
+                        ${(myVids || []).map(v => `
+                        <div onclick="toggleEpisode(this, ${v.id})" data-vid-id="${v.id}" data-selected="false"
+                            style="position:relative;aspect-ratio:9/16;background:#1a1a1a;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color 0.2s;">
+                            <video src="${escapeHtml(v.video_url)}" preload="metadata" muted
+                                style="width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>
+                            <div class="ep-badge" style="display:none;position:absolute;top:4px;left:4px;background:#fe2c55;color:#fff;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:900;align-items:center;justify-content:center;"></div>
+                        </div>`).join('')}
+                        ${(!myVids || myVids.length === 0) ? '<div style="grid-column:span 3;text-align:center;padding:20px;color:#555;font-size:13px;">Tiada video untuk ditambah. Upload video dahulu.</div>' : ''}
+                    </div>
+
+                    <button onclick="submitCreatePlaylist()" style="width:100%;background:#fe2c55;color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+                        <i class="fa-solid fa-layer-group"></i> Cipta Siri
+                    </button>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        const selectedEpisodes = []; // array of video ids in order
+
+        function toggleEpisode(el, videoId) {
+            const idx = selectedEpisodes.indexOf(videoId);
+            if (idx >= 0) {
+                selectedEpisodes.splice(idx, 1);
+                el.style.borderColor = 'transparent';
+                el.dataset.selected = 'false';
+                el.querySelector('.ep-badge').style.display = 'none';
+            } else {
+                selectedEpisodes.push(videoId);
+                el.style.borderColor = '#fe2c55';
+                el.dataset.selected  = 'true';
+                const badge = el.querySelector('.ep-badge');
+                badge.style.display = 'flex';
+                badge.innerText = selectedEpisodes.length;
+            }
+            // Kemas kini nombor semua badge
+            document.querySelectorAll('[data-selected="true"]').forEach(el2 => {
+                const id  = parseInt(el2.dataset.vidId);
+                const num = selectedEpisodes.indexOf(id) + 1;
+                el2.querySelector('.ep-badge').innerText = num;
+            });
+        }
+
+        async function submitCreatePlaylist() {
+            const title = document.getElementById('pl-title')?.value?.trim();
+            const desc  = document.getElementById('pl-desc')?.value?.trim();
+            if (!title) return showToast('Masukkan tajuk siri.', 'warning');
+            if (selectedEpisodes.length < 1) return showToast('Pilih sekurang-kurangnya 1 video.', 'warning');
+
+            const { data: { user } } = await snapSupabase.auth.getUser();
+
+            // Ambil URL cover dari video pertama
+            const { data: firstVid } = await snapSupabase.from('videos')
+                .select('video_url').eq('id', selectedEpisodes[0]).single();
+
+            // Insert playlist
+            const { data: pl, error: plErr } = await snapSupabase.from('playlists').insert([{
+                user_id:    user.id,
+                username:   user.user_metadata?.full_name || 'User',
+                title,
+                description: desc || null,
+                cover_url:   firstVid?.video_url || null,
+            }]).select().single();
+
+            if (plErr) return showToast('Gagal cipta siri: ' + plErr.message, 'error');
+
+            // Insert episodes
+            const episodes = selectedEpisodes.map((vid_id, i) => ({
+                playlist_id:     pl.id,
+                video_id:        vid_id,
+                episode_number:  i + 1,
+            }));
+            await snapSupabase.from('playlist_videos').insert(episodes);
+
+            document.getElementById('create-playlist-modal')?.remove();
+            showToast('Siri berjaya dicipta! 📚', 'success');
+            selectedEpisodes.length = 0;
+            loadPlaylists('mine');
+            switchPlaylistTab('mine', document.querySelector('.tab-btn:nth-child(2)'));
+        }
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+            });
+        }
+    </script>
+</body>
+</html>

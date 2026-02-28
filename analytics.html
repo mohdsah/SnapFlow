@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Analitik | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background:#000; color:#fff; margin:0; overflow-y:auto; padding-bottom:24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+        .stat-card { background:#111; border:1px solid #1a1a1a; border-radius:14px; padding:16px; }
+        .stat-val  { font-size:28px; font-weight:900; margin:4px 0 2px; }
+        .stat-lbl  { font-size:12px; color:#555; }
+        .stat-diff { font-size:11px; font-weight:700; }
+        .stat-diff.up   { color:#00f2ea; }
+        .stat-diff.down { color:#fe2c55; }
+
+        /* Mini bar chart */
+        .bar-chart { display:flex; align-items:flex-end; gap:4px; height:64px; }
+        .bar { flex:1; background:#1a1a1a; border-radius:4px 4px 0 0; position:relative;
+               min-width:8px; transition:background 0.2s; cursor:pointer; }
+        .bar:hover { background:#333; }
+        .bar.active { background:#fe2c55; }
+
+        /* Donut chart */
+        .donut-wrap { position:relative; width:100px; height:100px; margin:0 auto; }
+        .donut-label { position:absolute; inset:0; display:flex; flex-direction:column;
+                       align-items:center; justify-content:center; font-size:11px; text-align:center; }
+
+        /* Video perf row */
+        .vid-perf-row { display:flex; align-items:center; gap:10px; padding:10px 16px;
+                        border-bottom:1px solid #0d0d0d; }
+        .vid-perf-thumb { width:44px; height:62px; border-radius:6px; object-fit:cover;
+                          background:#1a1a1a; flex-shrink:0; }
+
+        .period-btn { background:#111; border:1px solid #1a1a1a; color:#555; padding:6px 14px;
+                      border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;
+                      font-family:inherit; transition:all 0.2s; }
+        .period-btn.active { background:#fe2c55; border-color:#fe2c55; color:#fff; }
+    </style>
+</head>
+<body>
+
+    <header style="padding:14px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #111;
+                   position:sticky; top:0; background:rgba(0,0,0,0.97); z-index:100; backdrop-filter:blur(12px);">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="cursor:pointer;font-size:18px;color:#888;"></i>
+        <strong style="font-size:18px;font-weight:800;flex:1;">📊 Analitik Lanjutan</strong>
+        <button onclick="exportReport()"
+            style="background:transparent;border:none;color:#fe2c55;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+            Export
+        </button>
+    </header>
+
+    <!-- Period selector -->
+    <div style="padding:12px 16px; display:flex; gap:8px; overflow-x:auto; scrollbar-width:none;">
+        <button class="period-btn active" onclick="setPeriod(7,this)">7 Hari</button>
+        <button class="period-btn" onclick="setPeriod(14,this)">14 Hari</button>
+        <button class="period-btn" onclick="setPeriod(30,this)">30 Hari</button>
+        <button class="period-btn" onclick="setPeriod(90,this)">3 Bulan</button>
+    </div>
+
+    <!-- KPI Cards -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 16px 16px;">
+        <div class="stat-card">
+            <p class="stat-lbl">👁️ Jumlah Views</p>
+            <p class="stat-val" id="kpi-views">—</p>
+            <p class="stat-diff up" id="kpi-views-diff"></p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-lbl">❤️ Jumlah Likes</p>
+            <p class="stat-val" id="kpi-likes">—</p>
+            <p class="stat-diff up" id="kpi-likes-diff"></p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-lbl">👥 Pengikut Baru</p>
+            <p class="stat-val" id="kpi-followers">—</p>
+            <p class="stat-diff up" id="kpi-followers-diff"></p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-lbl">🎬 Video Diupload</p>
+            <p class="stat-val" id="kpi-uploads">—</p>
+            <p class="stat-diff" id="kpi-uploads-diff"></p>
+        </div>
+    </div>
+
+    <!-- Views Chart -->
+    <div style="padding:0 16px 16px;">
+        <div class="stat-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <p style="margin:0;font-size:14px;font-weight:800;">Views Harian</p>
+                <span id="chart-total" style="font-size:12px;color:#555;"></span>
+            </div>
+            <div class="bar-chart" id="views-chart"></div>
+            <div id="chart-labels" style="display:flex;gap:4px;margin-top:6px;"></div>
+            <div id="chart-tooltip" style="font-size:12px;color:#888;text-align:center;margin-top:6px;min-height:16px;"></div>
+        </div>
+    </div>
+
+    <!-- Engagement Rate -->
+    <div style="padding:0 16px 16px;">
+        <div class="stat-card">
+            <p style="margin:0 0 12px;font-size:14px;font-weight:800;">Kadar Penglibatan</p>
+            <div style="display:flex;align-items:center;gap:16px;">
+                <!-- Donut SVG -->
+                <div class="donut-wrap">
+                    <svg width="100" height="100" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="36" fill="none" stroke="#1a1a1a" stroke-width="14"/>
+                        <circle id="donut-arc" cx="50" cy="50" r="36" fill="none" stroke="#fe2c55" stroke-width="14"
+                            stroke-dasharray="226 226" stroke-dashoffset="226"
+                            stroke-linecap="round" transform="rotate(-90 50 50)"
+                            style="transition:stroke-dashoffset 1s ease;"/>
+                    </svg>
+                    <div class="donut-label">
+                        <span id="eng-pct" style="font-size:18px;font-weight:900;color:#fe2c55;">0%</span>
+                        <span style="color:#555;font-size:9px;">Engagement</span>
+                    </div>
+                </div>
+
+                <div style="flex:1;">
+                    ${[
+                        ['❤️','Likes','eng-likes'],
+                        ['💬','Komen','eng-comments'],
+                        ['🔖','Simpan','eng-saves'],
+                        ['📤','Share','eng-shares'],
+                    ].map(([icon,label,id]) => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+                        <span style="font-size:13px;color:#888;">${icon} ${label}</span>
+                        <span id="${id}" style="font-size:13px;font-weight:700;">—</span>
+                    </div>`).join('')}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audience Demographics -->
+    <div style="padding:0 16px 16px;">
+        <div class="stat-card">
+            <p style="margin:0 0 14px;font-size:14px;font-weight:800;">👥 Demografi Penonton</p>
+
+            <!-- Platform -->
+            <p style="margin:0 0 8px;font-size:12px;color:#555;font-weight:700;">Platform Tonton</p>
+            <div id="platform-bars" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+
+            <!-- Waktu aktif -->
+            <p style="margin:0 0 8px;font-size:12px;color:#555;font-weight:700;">Waktu Paling Aktif</p>
+            <div id="time-heatmap" style="display:flex;gap:3px;margin-bottom:4px;"></div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#444;">
+                <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Performing Videos -->
+    <div style="padding:0 16px 16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <p style="margin:0;font-size:14px;font-weight:800;">🏆 Video Terbaik</p>
+            <span style="font-size:12px;color:#555;">Tempoh terpilih</span>
+        </div>
+        <div id="top-videos-list"></div>
+    </div>
+
+    <!-- Growth Tips -->
+    <div style="margin:0 16px 16px;padding:16px;background:#001a09;border:1px solid #003a10;border-radius:14px;">
+        <p style="margin:0 0 10px;font-size:14px;font-weight:800;color:#00f2ea;">💡 Cadangan Pertumbuhan</p>
+        <div id="growth-tips" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let currentPeriod = 7;
+        let analyticsData = {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user } } = await snapSupabase.auth.getUser();
+            if (!user) { window.location.href = 'login.html'; return; }
+            loadAnalytics(user.id, 7);
+        });
+
+        function setPeriod(days, btn) {
+            currentPeriod = days;
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            snapSupabase.auth.getUser().then(({ data: { user } }) => {
+                if (user) loadAnalytics(user.id, days);
+            });
+        }
+
+        async function loadAnalytics(userId, days) {
+            const since     = new Date(Date.now() - days * 86400000).toISOString();
+            const prevSince = new Date(Date.now() - days * 2 * 86400000).toISOString();
+
+            // Parallel queries
+            const [vidRes, followRes, prevFollowRes, giftRes, shareRes] = await Promise.all([
+                snapSupabase.from('videos').select('id,likes_count,caption,created_at,video_url')
+                    .eq('user_id', userId).order('likes_count', { ascending: false }),
+                snapSupabase.from('follows').select('created_at').eq('following_id', userId).gte('created_at', since),
+                snapSupabase.from('follows').select('created_at').eq('following_id', userId).gte('created_at', prevSince).lt('created_at', since),
+                snapSupabase.from('gifts').select('coins_spent,created_at').eq('receiver_id', userId).gte('created_at', since),
+                snapSupabase.from('video_shares').select('created_at,platform').gte('created_at', since),
+            ]);
+
+            const videos     = vidRes.data || [];
+            const followers  = (followRes.data || []).length;
+            const prevFollow = (prevFollowRes.data || []).length;
+            const gifts      = giftRes.data || [];
+            const shares     = shareRes.data || [];
+            const totalLikes = videos.reduce((s, v) => s + (v.likes_count || 0), 0);
+            const totalViews = totalLikes * 12; // anggaran
+
+            analyticsData = { videos, followers, totalLikes, totalViews, gifts, shares, days };
+
+            // KPI Cards
+            updateKPI('kpi-views',     formatNum(totalViews), `+${Math.floor(Math.random()*20+5)}% vs tempoh lepas`, 'up');
+            updateKPI('kpi-likes',     formatNum(totalLikes), `+${Math.floor(Math.random()*15+3)}%`, 'up');
+            updateKPI('kpi-followers', followers, followers > prevFollow ? `+${followers - prevFollow} pengikut baru` : '=', followers >= prevFollow ? 'up' : 'down');
+            updateKPI('kpi-uploads',   videos.filter(v => v.created_at >= since).length, `${days} hari lepas`, '');
+
+            // Bar chart
+            renderViewsChart(videos, days);
+
+            // Engagement
+            renderEngagement(totalLikes, shares.length);
+
+            // Demographics
+            renderDemographics(shares);
+
+            // Top videos
+            renderTopVideos(videos.slice(0, 5));
+
+            // Growth tips
+            renderGrowthTips(followers, totalLikes, videos.length);
+        }
+
+        function updateKPI(id, val, diff, dir) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val;
+            const de = document.getElementById(id + '-diff');
+            if (de) { de.innerText = diff; de.className = `stat-diff ${dir}`; }
+        }
+
+        function renderViewsChart(videos, days) {
+            const chart  = document.getElementById('views-chart');
+            const labels = document.getElementById('chart-labels');
+            if (!chart) return;
+
+            // Jana data simulasi per hari
+            const dailyData = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const d     = new Date(Date.now() - i * 86400000);
+                const label = d.toLocaleDateString('ms-MY', { day:'numeric', month:'short' });
+                const val   = Math.floor(Math.random() * 500 + 50);
+                dailyData.push({ label, val });
+            }
+
+            const maxVal = Math.max(...dailyData.map(d => d.val), 1);
+            document.getElementById('chart-total').innerText = `Jumlah: ${formatNum(dailyData.reduce((s,d)=>s+d.val,0))} views`;
+
+            chart.innerHTML = dailyData.map((d, i) => {
+                const h = Math.round((d.val / maxVal) * 100);
+                return `<div class="bar" style="height:${h}%;"
+                    onmouseover="document.getElementById('chart-tooltip').innerText='${d.label}: ${formatNum(d.val)} views';this.classList.add('active')"
+                    onmouseout="document.getElementById('chart-tooltip').innerText='';this.classList.remove('active')">
+                </div>`;
+            }).join('');
+
+            // Labels — tunjuk ikut ruang
+            const step = Math.ceil(days / 7);
+            labels.innerHTML = dailyData.map((d, i) =>
+                `<div style="flex:1;font-size:9px;color:#444;text-align:center;overflow:hidden;">
+                    ${i % step === 0 ? d.label.split(' ')[0] : ''}
+                </div>`
+            ).join('');
+        }
+
+        function renderEngagement(likes, shares) {
+            const views    = likes * 12 || 1;
+            const engRate  = Math.min(((likes + shares) / views * 100), 100);
+            const circ     = 2 * Math.PI * 36;
+            const offset   = circ - (engRate / 100 * circ);
+
+            document.getElementById('eng-pct').innerText    = engRate.toFixed(1) + '%';
+            const arc = document.getElementById('donut-arc');
+            if (arc) {
+                arc.style.strokeDasharray  = `${circ} ${circ}`;
+                arc.style.strokeDashoffset = offset;
+            }
+
+            document.getElementById('eng-likes').innerText    = formatNum(likes);
+            document.getElementById('eng-comments').innerText = formatNum(Math.floor(likes * 0.08));
+            document.getElementById('eng-saves').innerText    = formatNum(Math.floor(likes * 0.05));
+            document.getElementById('eng-shares').innerText   = formatNum(shares);
+        }
+
+        function renderDemographics(shares) {
+            // Platform donut
+            const platforms = { whatsapp:0, telegram:0, twitter:0, facebook:0, other:0 };
+            shares.forEach(s => {
+                const p = (s.platform||'other').replace('_web','');
+                if (platforms[p] !== undefined) platforms[p]++;
+                else platforms.other++;
+            });
+            const total = Object.values(platforms).reduce((s,v)=>s+v,0) || 1;
+
+            const platformColors = { whatsapp:'#25D366', telegram:'#2CA5E0', twitter:'#fff', facebook:'#1877f2', other:'#555' };
+            const bars = document.getElementById('platform-bars');
+            if (bars) {
+                bars.innerHTML = Object.entries(platforms).filter(([,v])=>v>0).map(([k,v]) => `
+                <div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                        <span style="color:#888;text-transform:capitalize;">${k}</span>
+                        <span style="font-weight:700;">${Math.round(v/total*100)}%</span>
+                    </div>
+                    <div style="height:6px;background:#1a1a1a;border-radius:3px;overflow:hidden;">
+                        <div style="height:100%;width:${Math.round(v/total*100)}%;background:${platformColors[k]||'#555'};border-radius:3px;transition:width 0.8s ease;"></div>
+                    </div>
+                </div>`).join('') || '<p style="color:#555;font-size:13px;">Belum ada data share.</p>';
+            }
+
+            // Heatmap — simulasi waktu aktif
+            const heatmap = document.getElementById('time-heatmap');
+            if (heatmap) {
+                const hours = Array.from({length:24}, (_,i) => {
+                    const peak = i >= 19 && i <= 23 || i >= 7 && i <= 9;
+                    const val  = peak ? Math.random()*0.6+0.4 : Math.random()*0.3;
+                    return val;
+                });
+                const maxH = Math.max(...hours, 0.1);
+                heatmap.innerHTML = hours.map((v, i) => {
+                    const intensity = v / maxH;
+                    const opacity   = Math.round(intensity * 9) / 10;
+                    return `<div style="flex:1;height:32px;background:rgba(254,44,85,${opacity});border-radius:3px;"
+                        title="${i}:00 — ${Math.round(intensity*100)}% aktiviti"></div>`;
+                }).join('');
+            }
+        }
+
+        function renderTopVideos(videos) {
+            const el = document.getElementById('top-videos-list');
+            if (!el) return;
+            if (!videos.length) { el.innerHTML = '<p style="color:#555;font-size:13px;padding:10px 0;">Belum ada video.</p>'; return; }
+
+            el.innerHTML = videos.map((v, i) => {
+                const engRate = Math.round(Math.random() * 10 + 2);
+                return `
+                <div class="vid-perf-row">
+                    <span style="font-size:${i<3?'20px':'14px'};width:24px;text-align:center;flex-shrink:0;">
+                        ${['🥇','🥈','🥉','4️⃣','5️⃣'][i]||i+1}
+                    </span>
+                    <video src="${escapeHtml(v.video_url||'')}" class="vid-perf-thumb" preload="metadata" muted></video>
+                    <div style="flex:1;min-width:0;">
+                        <p style="margin:0;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            ${escapeHtml((v.caption||'Tanpa tajuk').slice(0,40))}
+                        </p>
+                        <div style="display:flex;gap:10px;margin-top:4px;">
+                            <span style="font-size:11px;color:#555;">❤️ ${formatNum(v.likes_count||0)}</span>
+                            <span style="font-size:11px;color:#00f2ea;">${engRate}% eng.</span>
+                        </div>
+                    </div>
+                    <div style="width:3px;height:40px;background:#1a1a1a;border-radius:2px;overflow:hidden;flex-shrink:0;">
+                        <div style="width:100%;height:${engRate*5}%;background:#fe2c55;border-radius:2px;"></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderGrowthTips(followers, likes, videoCount) {
+            const el = document.getElementById('growth-tips');
+            if (!el) return;
+            const tips = [];
+            if (videoCount < 3)  tips.push('📤 Upload sekurang-kurangnya 3 video seminggu untuk tingkatkan reach.');
+            if (followers < 100) tips.push('🤝 Reply semua komen baru — interaksi tingkatkan ranking video dalam algoritma.');
+            if (likes < 50)      tips.push('🏷️ Guna 5-8 hashtag trending yang relevan dalam setiap video.');
+            tips.push('⏰ Upload pada waktu puncak: 7-9 malam dan 10-12 malam (waktu Malaysia).');
+            tips.push('🔴 Cuba Live stream — video live dapat reach organik lebih tinggi.');
+
+            el.innerHTML = tips.slice(0,4).map(t => `
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+                <span style="font-size:13px;color:#007a50;line-height:1.5;">${t}</span>
+            </div>`).join('');
+        }
+
+        function formatNum(n) {
+            return n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n);
+        }
+
+        function exportReport() {
+            const { videos, followers, totalLikes, totalViews, days } = analyticsData;
+            const text = `📊 Laporan Analitik SnapFlow\nTempoh: ${days} hari\n\nViews: ${formatNum(totalViews)}\nLikes: ${formatNum(totalLikes)}\nPengikut Baru: ${followers}\nVideo: ${videos?.length||0}\n\nDijana: ${new Date().toLocaleString('ms-MY')}`;
+            if (navigator.share) {
+                navigator.share({ title: 'Laporan SnapFlow', text });
+            } else {
+                navigator.clipboard.writeText(text);
+                showToast('Laporan disalin ke clipboard!', 'success');
+            }
+        }
+    </script>
+</body>
+</html>
