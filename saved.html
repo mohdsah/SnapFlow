@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Koleksi Saya | SnapFlow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SnapFlow">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 10px); }
+        .profile-video-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+        .profile-video-item { position: relative; aspect-ratio: 9/16; background: #111; overflow: hidden; cursor: pointer; }
+        .profile-video-item video { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .profile-video-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 8px 6px 6px; font-size: 11px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 3px; }
+    </style>
+</head>
+<body>
+
+    <header style="padding: 14px 20px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #111; position: sticky; top: 0; background: rgba(0,0,0,0.97); z-index: 100; backdrop-filter: blur(12px);">
+        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="cursor:pointer; font-size:18px;"></i>
+        <strong style="font-size: 18px; font-weight: 800;">Koleksi Tersimpan</strong>
+    </header>
+
+    <div style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111;">
+        <p style="margin:0; font-size:13px; color:#555;" id="saved-count">Memuatkan...</p>
+        <button onclick="clearAllSaved()" style="background:transparent;border:none;color:#fe2c55;font-size:13px;cursor:pointer;font-family:inherit;">Kosongkan Semua</button>
+    </div>
+
+    <div class="profile-video-grid" id="saved-videos-grid">
+        <div style="grid-column:span 3; text-align:center; padding:40px; color:#444;">
+            <div class="loader-spin"></div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
+        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
+        <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
+        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
+        <a href="profile.html" class="nav-item active"><i class="fa-solid fa-user"></i><span>Profil</span></a>
+    </nav>
+
+    <script src="app.js"></script>
+    <script>
+        loadSavedVideos().then(() => {
+            const count = savedVideos.size;
+            const el = document.getElementById('saved-count');
+            if (el) el.innerText = `${count} video tersimpan`;
+        });
+
+        function clearAllSaved() {
+            if (!confirm('Kosongkan semua video tersimpan?')) return;
+            savedVideos.clear();
+            saveSavedVideos();
+            document.getElementById('saved-videos-grid').innerHTML = `
+                <div style="grid-column:span 3;text-align:center;color:#555;padding:60px 20px;">
+                    <i class="fa-solid fa-bookmark" style="font-size:44px;margin-bottom:16px;display:block;color:#222;"></i>
+                    <p>Koleksi dikosongkan.</p>
+                </div>`;
+            document.getElementById('saved-count').innerText = '0 video tersimpan';
+        }
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+</html>

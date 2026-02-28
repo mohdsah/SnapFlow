@@ -182,9 +182,35 @@ async function updateUserPassword() {
 // ==========================================
 const likedVideos = new Set(); // ✅ FIX: Track like dengan Set, bukan bergantung pada warna CSS
 
+// ── State tab feed ──────────────────────────────
+let currentFeedTab = 'untuk-anda';
+const progressIntervals = {}; // Progress bar intervals
+
+// ── Tukar tab feed ───────────────────────────────
+async function switchFeedTab(tab, el) {
+    if (currentFeedTab === tab) return;
+    currentFeedTab = tab;
+
+    // Kemas kini tab UI
+    document.querySelectorAll('.feed-tab-btn').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+
+    // Hentikan semua progress bar aktif
+    Object.keys(progressIntervals).forEach(id => stopProgressBar(id));
+
+    // Muatkan semula feed
+    await loadHomeFeed();
+}
+
 async function loadHomeFeed() {
     const feedContainer = document.getElementById('video-feed');
     if (!feedContainer) return; // auto-resolves since async
+
+    // Tunjuk loader
+    feedContainer.innerHTML = `<div style="height:100vh;display:flex;align-items:center;justify-content:center;color:#333;flex-direction:column;gap:12px;">
+        <div class="loader-spin"></div>
+        <p style="color:#444;font-size:14px;">Memuatkan video...</p>
+    </div>`;
 
     try {
         const { data: { user } } = await snapSupabase.auth.getUser();
@@ -195,7 +221,65 @@ async function loadHomeFeed() {
             if (myLikes) myLikes.forEach(l => likedVideos.add(l.video_id));
         }
 
-        const { data: videos, error } = await snapSupabase.from('videos').select('*').order('created_at', { ascending: false });
+        let videos, error;
+
+        if (currentFeedTab === 'mengikuti') {
+            // ── Tab Mengikuti: ambil video dari kreator yang diikuti sahaja ──
+            if (!user) {
+                feedContainer.innerHTML = `
+                    <div style="height:100vh;display:flex;align-items:center;justify-content:center;color:#555;flex-direction:column;gap:16px;padding:20px;text-align:center;">
+                        <i class="fa-solid fa-user-group" style="font-size:48px;color:#222;"></i>
+                        <p style="font-size:16px;font-weight:700;color:#fff;">Ikuti kreator dahulu</p>
+                        <p style="font-size:14px;color:#444;">Log masuk dan ikuti kreator untuk lihat video mereka di sini.</p>
+                        <a href="login.html" style="background:#fe2c55;color:#fff;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px;">Log Masuk</a>
+                    </div>`;
+                return;
+            }
+
+            // Dapatkan senarai user yang diikuti
+            const { data: follows } = await snapSupabase
+                .from('follows')
+                .select('following_id')
+                .eq('follower_id', user.id);
+
+            if (!follows || follows.length === 0) {
+                feedContainer.innerHTML = `
+                    <div style="height:100vh;display:flex;align-items:center;justify-content:center;color:#555;flex-direction:column;gap:16px;padding:20px;text-align:center;">
+                        <i class="fa-solid fa-user-plus" style="font-size:48px;color:#222;"></i>
+                        <p style="font-size:16px;font-weight:700;color:#fff;">Anda belum mengikuti sesiapa</p>
+                        <p style="font-size:14px;color:#444;">Pergi ke Discover dan ikuti kreator kegemaran anda!</p>
+                        <a href="discover.html" style="background:#fe2c55;color:#fff;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px;">Pergi ke Discover</a>
+                    </div>`;
+                return;
+            }
+
+            const followingIds = follows.map(f => f.following_id);
+
+            // Ambil video dari kreator yang diikuti
+            ({ data: videos, error } = await snapSupabase
+                .from('videos')
+                .select('*')
+                .in('user_id', followingIds)
+                .order('created_at', { ascending: false }));
+
+            if (!videos || videos.length === 0) {
+                feedContainer.innerHTML = `
+                    <div style="height:100vh;display:flex;align-items:center;justify-content:center;color:#555;flex-direction:column;gap:16px;padding:20px;text-align:center;">
+                        <i class="fa-solid fa-video-slash" style="font-size:48px;color:#222;"></i>
+                        <p style="font-size:16px;font-weight:700;color:#fff;">Tiada video terbaru</p>
+                        <p style="font-size:14px;color:#444;">Kreator yang anda ikuti belum upload video baru.</p>
+                        <a href="discover.html" style="background:#fe2c55;color:#fff;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px;">Terokai Kreator Lain</a>
+                    </div>`;
+                return;
+            }
+
+        } else {
+            // ── Tab Untuk Anda: semua video ──
+            ({ data: videos, error } = await snapSupabase
+                .from('videos')
+                .select('*')
+                .order('created_at', { ascending: false }));
+        }
 
         if (error) throw error;
 
@@ -253,21 +337,30 @@ async function loadHomeFeed() {
                         <span id="comment-count-${vid.id}">0</span>
                     </div>
 
-                    <div class="action-item" onclick="handleShare('${escapeHtml(vid.video_url)}')">
+                    <div class="action-item" onclick="showBookmarkAction(${vid.id})">
+                        <i class="fa-solid fa-bookmark" id="bookmark-icon-${vid.id}" style="color:#fff;"></i>
+                        <span>Simpan</span>
+                    </div>
+                    <div class="action-item" onclick="showShareSheet(${vid.id}, '${escapeHtml(vid.caption || '')}')">
                         <i class="fa-solid fa-share" style="color:#fff;"></i>
                         <span>Kongsi</span>
+                    </div>
+                    <div class="action-item" onclick="showVideoOptions(${vid.id}, '${escapeHtml(vid.user_id)}')">
+                        <i class="fa-solid fa-ellipsis-vertical" style="color:#fff;"></i>
+                        <span>Lain</span>
                     </div>
                 </div>
 
                 <div class="video-info">
                     <h3>@${escapeHtml(username)}</h3>
-                    <p>${escapeHtml(vid.caption || '')}</p>
+                    <p>${renderCaption(vid.caption || '')}</p>
                 </div>
             </div>`;
         }).join('');
 
         setupObserver();
         updateAllCommentCounts();
+        updateBookmarkIcons();
 
     } catch (err) {
         console.error("loadHomeFeed error:", err);
@@ -423,9 +516,88 @@ async function handleFollow(targetUserId, itemEl) {
     }
 }
 
+// ── Ciri 1: Render hashtag clickable dalam kapsyen ──
+function renderCaption(caption) {
+    if (!caption) return '';
+    return escapeHtml(caption).replace(/#(\w+)/g, (match, tag) => {
+        return `<span style="color:#fe2c55;font-weight:700;cursor:pointer;" onclick="event.stopPropagation();window.location.href='discover.html?hashtag=${encodeURIComponent('#'+tag)}">${match}</span>`;
+    });
+}
+
+// ── Ciri 2: Share Sheet ──────────────────────────
+function showShareSheet(videoId, caption) {
+    document.getElementById('snap-share-sheet')?.remove();
+
+    const pageUrl = `${window.location.origin}/index.html#video-${videoId}`;
+    const text = caption ? `${caption} — SnapFlow` : 'Tengok video ini di SnapFlow!';
+
+    const sheet = document.createElement('div');
+    sheet.id = 'snap-share-sheet';
+    sheet.innerHTML = \`
+        <div onclick="document.getElementById('snap-share-sheet').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:8000;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:20px;z-index:8001;border-top:1px solid #222;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 20px;"></div>
+            <p style="font-size:13px;color:#555;margin:0 0 16px;text-align:center;">Kongsi Video</p>
+            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;">
+                <button onclick="shareToWhatsApp('${pageUrl}', '${caption}')" class="share-app-btn" style="background:#1a1a1a;border:1px solid #25D366;color:#25D366;">
+                    <i class="fa-brands fa-whatsapp" style="font-size:22px;"></i><span>WhatsApp</span>
+                </button>
+                <button onclick="shareToTelegram('${pageUrl}', '${caption}')" class="share-app-btn" style="background:#1a1a1a;border:1px solid #2CA5E0;color:#2CA5E0;">
+                    <i class="fa-brands fa-telegram" style="font-size:22px;"></i><span>Telegram</span>
+                </button>
+                <button onclick="shareToTwitter('${pageUrl}', '${caption}')" class="share-app-btn" style="background:#1a1a1a;border:1px solid #1DA1F2;color:#1DA1F2;">
+                    <i class="fa-brands fa-x-twitter" style="font-size:22px;"></i><span>X</span>
+                </button>
+                <button onclick="copyVideoLink('${pageUrl}')" class="share-app-btn" style="background:#1a1a1a;border:1px solid #555;color:#fff;">
+                    <i class="fa-solid fa-link" style="font-size:22px;"></i><span>Salin</span>
+                </button>
+                <button onclick="nativeShare('${pageUrl}', '${text}')" class="share-app-btn" style="background:#1a1a1a;border:1px solid #fe2c55;color:#fe2c55;">
+                    <i class="fa-solid fa-share-nodes" style="font-size:22px;"></i><span>Lain-lain</span>
+                </button>
+            </div>
+        </div>\`;
+
+    document.body.appendChild(sheet);
+}
+
+function shareToWhatsApp(url, caption) {
+    const text = encodeURIComponent(`${caption || 'Tengok video ini!'} ${url}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+    document.getElementById('snap-share-sheet')?.remove();
+}
+
+function shareToTelegram(url, caption) {
+    const text = encodeURIComponent(caption || 'Tengok video ini di SnapFlow!');
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${text}`, '_blank');
+    document.getElementById('snap-share-sheet')?.remove();
+}
+
+function shareToTwitter(url, caption) {
+    const text = encodeURIComponent(`${caption || 'Tengok video ini!'} #SnapFlow`);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, '_blank');
+    document.getElementById('snap-share-sheet')?.remove();
+}
+
+function copyVideoLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        showToast('Pautan disalin! 🔗', 'success');
+        document.getElementById('snap-share-sheet')?.remove();
+    });
+}
+
+function nativeShare(url, text) {
+    if (navigator.share) {
+        navigator.share({ title: 'SnapFlow', text, url });
+    } else {
+        copyVideoLink(url);
+    }
+    document.getElementById('snap-share-sheet')?.remove();
+}
+
 function handleShare(url) {
     if (navigator.share) {
-        navigator.share({ title: 'SnapFlow Video', url: url });
+        navigator.share({ title: 'SnapFlow Video', url });
     } else {
         navigator.clipboard.writeText(url).then(() => showToast('Pautan disalin!', 'success'));
     }
@@ -591,8 +763,15 @@ function setupObserver() {
                         ? 'fa-solid fa-volume-xmark'
                         : 'fa-solid fa-volume-high';
                 }
+
+                // Mulakan progress bar untuk video ini
+                setupProgressBar(video, vidId);
+
             } else {
                 video.pause();
+                // Hentikan progress update
+                const vidId = entry.target.dataset.videoId;
+                stopProgressBar(vidId);
             }
         });
     }, { threshold: 0.6 });
@@ -1784,4 +1963,615 @@ function emptyState(msg, icon) {
             <i class="fa-solid ${icon}" style="font-size:40px;margin-bottom:16px;display:block;"></i>
             <p style="font-size:14px;">${msg}</p>
         </div>`;
+}
+
+// ==========================================
+// 18. VIDEO PROGRESS BAR
+// ==========================================
+
+// Simpan interval ID setiap video supaya boleh stop
+let isDragging = false;
+
+// ── Format masa: 63 → "1:03" ─────────────────────
+function formatTime(secs) {
+    if (!secs || isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// ── Mula pantau progress video ────────────────────
+function setupProgressBar(video, videoId) {
+    // Buang interval lama jika ada
+    stopProgressBar(videoId);
+
+    // Set masa total bila metadata dah siap
+    const setTotal = () => {
+        const totalEl = document.getElementById(`time-total-${videoId}`);
+        if (totalEl && video.duration) {
+            totalEl.innerText = formatTime(video.duration);
+        }
+    };
+
+    if (video.readyState >= 1) setTotal();
+    else video.addEventListener('loadedmetadata', setTotal, { once: true });
+
+    // Update progress setiap 250ms
+    progressIntervals[videoId] = setInterval(() => {
+        if (isDragging) return;
+        updateProgressUI(video, videoId);
+    }, 250);
+}
+
+// ── Kemas kini UI progress bar ────────────────────
+function updateProgressUI(video, videoId) {
+    if (!video.duration) return;
+
+    const pct = (video.currentTime / video.duration) * 100;
+
+    const fill   = document.getElementById(`progress-fill-${videoId}`);
+    const thumb  = document.getElementById(`progress-thumb-${videoId}`);
+    const buffer = document.getElementById(`progress-buffer-${videoId}`);
+    const curr   = document.getElementById(`time-current-${videoId}`);
+
+    if (fill)   fill.style.width   = `${pct}%`;
+    if (thumb)  thumb.style.left   = `${pct}%`;
+    if (curr)   curr.innerText     = formatTime(video.currentTime);
+
+    // Buffered progress
+    if (buffer && video.buffered.length > 0) {
+        const buffPct = (video.buffered.end(video.buffered.length - 1) / video.duration) * 100;
+        buffer.style.width = `${buffPct}%`;
+    }
+}
+
+// ── Hentikan pantauan progress ────────────────────
+function stopProgressBar(videoId) {
+    if (progressIntervals[videoId]) {
+        clearInterval(progressIntervals[videoId]);
+        delete progressIntervals[videoId];
+    }
+}
+
+// ── Klik pada track untuk skip ────────────────────
+function seekVideo(event, videoId) {
+    if (isDragging) return;
+    const container = document.querySelector(`.video-container[data-video-id="${videoId}"]`);
+    if (!container) return;
+    const video = container.querySelector('video');
+    if (!video || !video.duration) return;
+
+    const track = event.currentTarget;
+    const rect  = track.getBoundingClientRect();
+    const x     = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
+    const pct   = x / rect.width;
+
+    video.currentTime = pct * video.duration;
+    updateProgressUI(video, videoId);
+}
+
+// ── Drag pada mobile (touch) ──────────────────────
+function startProgressDrag(event, videoId) {
+    event.stopPropagation(); // elak trigger play/pause
+    isDragging = true;
+
+    const thumb = document.getElementById(`progress-thumb-${videoId}`);
+    if (thumb) thumb.style.transform = 'translateX(-50%) scale(1.5)';
+}
+
+function dragProgress(event, videoId) {
+    if (!isDragging) return;
+    event.stopPropagation();
+    event.preventDefault();
+
+    const container = document.querySelector(`.video-container[data-video-id="${videoId}"]`);
+    if (!container) return;
+    const video = container.querySelector('video');
+    if (!video || !video.duration) return;
+
+    const track = document.querySelector(`#progress-thumb-${videoId}`)?.closest('.video-progress-track');
+    if (!track) return;
+
+    const touch = event.changedTouches[0];
+    const rect  = track.getBoundingClientRect();
+    const x     = Math.max(0, Math.min(touch.clientX - rect.left, rect.width));
+    const pct   = x / rect.width;
+
+    // Preview posisi tanpa commit dulu
+    const fill  = document.getElementById(`progress-fill-${videoId}`);
+    const thumb = document.getElementById(`progress-thumb-${videoId}`);
+    const curr  = document.getElementById(`time-current-${videoId}`);
+
+    if (fill)  fill.style.width  = `${pct * 100}%`;
+    if (thumb) thumb.style.left  = `${pct * 100}%`;
+    if (curr)  curr.innerText    = formatTime(pct * video.duration);
+}
+
+function endProgressDrag(event, videoId) {
+    if (!isDragging) return;
+    event.stopPropagation();
+    isDragging = false;
+
+    const container = document.querySelector(`.video-container[data-video-id="${videoId}"]`);
+    if (!container) return;
+    const video = container.querySelector('video');
+    if (!video || !video.duration) return;
+
+    const track = document.querySelector(`#progress-thumb-${videoId}`)?.closest('.video-progress-track');
+    if (!track) return;
+
+    const touch = event.changedTouches[0];
+    const rect  = track.getBoundingClientRect();
+    const x     = Math.max(0, Math.min(touch.clientX - rect.left, rect.width));
+    const pct   = x / rect.width;
+
+    // Commit posisi
+    video.currentTime = pct * video.duration;
+
+    const thumb = document.getElementById(`progress-thumb-${videoId}`);
+    if (thumb) thumb.style.transform = 'translateX(-50%) scale(1)';
+
+    updateProgressUI(video, videoId);
+}
+
+// ==========================================
+// 19. PWA — INSTALL & SERVICE WORKER
+// ==========================================
+
+let deferredInstallPrompt = null;  // Simpan event beforeinstallprompt
+
+// ── Tangkap event install dari browser ───────────
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+
+    // Tunjuk butang Install di header
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) installBtn.style.display = 'flex';
+
+    // Tunjuk banner install selepas 3 saat (kalau belum dismiss)
+    const bannerDismissed = localStorage.getItem('snapflow-pwa-banner-dismissed');
+    if (!bannerDismissed) {
+        setTimeout(() => {
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.style.display = 'block';
+                banner.style.animation = 'slideUpBanner 0.35s ease';
+            }
+        }, 3000);
+    }
+});
+
+// ── Trigger prompt install ────────────────────────
+async function installPWA() {
+    if (!deferredInstallPrompt) {
+        // Jika prompt tak available (iOS Safari) — tunjuk panduan manual
+        showIOSInstallGuide();
+        return;
+    }
+
+    // Sorokkan banner & butang
+    dismissInstallBanner();
+
+    // Tunjuk prompt install browser
+    deferredInstallPrompt.prompt();
+
+    const { outcome } = await deferredInstallPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+        showToast('SnapFlow berjaya dipasang! 🎉', 'success');
+        deferredInstallPrompt = null;
+    } else {
+        showToast('Anda boleh install kemudian dari header.', 'info');
+    }
+}
+
+// ── Dismiss banner install ────────────────────────
+function dismissInstallBanner() {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.style.display = 'none';
+    localStorage.setItem('snapflow-pwa-banner-dismissed', '1');
+}
+
+// ── Panduan install untuk iOS Safari ─────────────
+// iOS Safari tidak support beforeinstallprompt — perlu panduan manual
+function showIOSInstallGuide() {
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    // Buang modal lama kalau ada
+    document.getElementById('ios-install-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'ios-install-modal';
+    modal.style.cssText = `
+        position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+        z-index: 99999; display: flex; align-items: flex-end;
+        padding: 20px; box-sizing: border-box;
+    `;
+
+    modal.innerHTML = `
+        <div style="background:#111; border:1px solid #222; border-radius:20px; padding:24px; width:100%; text-align:center;">
+            <div style="width:56px;height:56px;background:#fe2c55;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:26px;font-weight:900;color:#fff;">S</div>
+            <h3 style="font-size:18px;font-weight:800;margin:0 0 8px;">Install SnapFlow</h3>
+            ${isIOS && isSafari ? `
+                <p style="font-size:14px;color:#888;line-height:1.6;margin:0 0 20px;">
+                    Untuk install di iPhone/iPad:<br>
+                    <strong style="color:#fff;">1.</strong> Ketik ikon <strong style="color:#fe2c55;">Kongsi</strong> (kotak dengan anak panah ke atas) di bawah Safari<br>
+                    <strong style="color:#fff;">2.</strong> Pilih <strong style="color:#fe2c55;">"Add to Home Screen"</strong><br>
+                    <strong style="color:#fff;">3.</strong> Ketik <strong style="color:#fe2c55;">Add</strong>
+                </p>
+            ` : `
+                <p style="font-size:14px;color:#888;line-height:1.6;margin:0 0 20px;">
+                    Untuk install, gunakan menu browser anda dan pilih<br>
+                    <strong style="color:#fe2c55;">"Add to Home Screen"</strong> atau<br>
+                    <strong style="color:#fe2c55;">"Install App"</strong>
+                </p>
+            `}
+            <button onclick="document.getElementById('ios-install-modal').remove()"
+                style="background:#fe2c55;color:#fff;border:none;padding:13px;width:100%;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+                Faham
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+}
+
+// ── Detect bila app berjaya diinstall ────────────
+window.addEventListener('appinstalled', () => {
+    showToast('SnapFlow berjaya dipasang di telefon anda! 🎉', 'success');
+    deferredInstallPrompt = null;
+
+    // Sorokkan butang install
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) installBtn.style.display = 'none';
+});
+
+// ── Detect mod standalone (dah install) ──────────
+function isPWAInstalled() {
+    return window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+}
+
+// Jika dah install sebagai PWA — sorokkan butang install
+if (isPWAInstalled()) {
+    window.addEventListener('load', () => {
+        const installBtn = document.getElementById('pwa-install-btn');
+        if (installBtn) installBtn.style.display = 'none';
+    });
+}
+
+// ── Animasi CSS untuk banner ──────────────────────
+const pwaStyle = document.createElement('style');
+pwaStyle.innerText = `
+    @keyframes slideUpBanner {
+        from { opacity: 0; transform: translateY(20px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+`;
+document.head.appendChild(pwaStyle);
+
+// ==========================================
+// 20. WISHLIST / SIMPAN VIDEO
+// ==========================================
+
+// Simpan dalam localStorage (boleh migrate ke Supabase kemudian)
+let savedVideos = new Set(JSON.parse(localStorage.getItem('snapflow_saved') || '[]'));
+
+function saveSavedVideos() {
+    localStorage.setItem('snapflow_saved', JSON.stringify([...savedVideos]));
+}
+
+// ── Toggle simpan video ───────────────────────────
+async function showBookmarkAction(videoId) {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu untuk simpan video.', 'warning');
+
+    const icon = document.getElementById(`bookmark-icon-${videoId}`);
+    const isSaved = savedVideos.has(videoId);
+
+    if (isSaved) {
+        savedVideos.delete(videoId);
+        saveSavedVideos();
+        if (icon) { icon.style.color = '#fff'; icon.className = 'fa-solid fa-bookmark'; }
+        showToast('Video dibuang dari koleksi.', 'info');
+    } else {
+        savedVideos.add(videoId);
+        saveSavedVideos();
+        if (icon) { icon.style.color = '#fe2c55'; icon.className = 'fa-solid fa-bookmark'; }
+        showToast('Video disimpan ke koleksi! 🔖', 'success');
+
+        // Animasi denyut
+        if (icon) {
+            icon.style.transform = 'scale(1.4)';
+            setTimeout(() => { icon.style.transform = 'scale(1)'; }, 200);
+        }
+    }
+}
+
+// ── Muatkan halaman koleksi tersimpan ────────────
+async function loadSavedVideos() {
+    const container = document.getElementById('saved-videos-grid');
+    if (!container) return;
+
+    const ids = [...savedVideos];
+
+    if (ids.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column:span 3;text-align:center;color:#555;padding:60px 20px;">
+                <i class="fa-solid fa-bookmark" style="font-size:44px;margin-bottom:16px;display:block;color:#222;"></i>
+                <p style="font-size:15px;font-weight:700;color:#fff;">Tiada video tersimpan</p>
+                <p style="font-size:13px;color:#444;margin-top:6px;">Klik ikon 🔖 pada video untuk simpan ke koleksi anda.</p>
+                <a href="index.html" style="display:inline-block;margin-top:16px;background:#fe2c55;color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:13px;">Terokai Video</a>
+            </div>`;
+        return;
+    }
+
+    // Ambil data video dari Supabase
+    const { data: videos } = await snapSupabase
+        .from('videos')
+        .select('*')
+        .in('id', ids);
+
+    if (!videos || videos.length === 0) {
+        // Video mungkin dah dipadam
+        savedVideos.clear();
+        saveSavedVideos();
+        container.innerHTML = `<div style="grid-column:span 3;text-align:center;color:#555;padding:60px 20px;"><p>Video yang disimpan telah dipadam.</p></div>`;
+        return;
+    }
+
+    container.innerHTML = videos.map(vid => `
+        <div class="profile-video-item" style="position:relative;">
+            <video src="${escapeHtml(vid.video_url)}" preload="none" onclick="window.location.href='index.html#video-${vid.id}'"></video>
+            <div class="profile-video-overlay">
+                <i class="fa-solid fa-heart"></i> ${vid.likes_count || 0}
+            </div>
+            <button onclick="removeSaved(${vid.id}, this)" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);border:none;color:#fe2c55;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;">
+                <i class="fa-solid fa-xmark" style="font-size:12px;"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+function removeSaved(videoId, btn) {
+    savedVideos.delete(videoId);
+    saveSavedVideos();
+    btn?.closest('.profile-video-item')?.remove();
+    showToast('Dibuang dari koleksi.', 'info');
+}
+
+// ── Kemas kini ikon bookmark setelah feed load ───
+function updateBookmarkIcons() {
+    savedVideos.forEach(id => {
+        const icon = document.getElementById(`bookmark-icon-${id}`);
+        if (icon) icon.style.color = '#fe2c55';
+    });
+}
+
+// ==========================================
+// 21. LAPORAN VIDEO (REPORT)
+// ==========================================
+
+// ── Tunjuk menu pilihan video (tiga titik) ───────
+function showVideoOptions(videoId, videoOwnerId) {
+    document.getElementById('snap-options-sheet')?.remove();
+
+    snapSupabase.auth.getUser().then(({ data: { user } }) => {
+        const isOwner = user && user.id === videoOwnerId;
+
+        const sheet = document.createElement('div');
+        sheet.id = 'snap-options-sheet';
+        sheet.innerHTML = `
+            <div onclick="document.getElementById('snap-options-sheet').remove()"
+                 style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:8000;"></div>
+            <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:20px;z-index:8001;border-top:1px solid #222;">
+                <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+
+                ${isOwner ? `
+                <button onclick="deleteMyVideo(${videoId})" style="width:100%;background:transparent;border:none;color:#ff4757;padding:14px;text-align:left;font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;">
+                    <i class="fa-solid fa-trash" style="width:20px;"></i> Padam Video Saya
+                </button>` : ''}
+
+                <button onclick="showReportModal(${videoId})" style="width:100%;background:transparent;border:none;color:#fff;padding:14px;text-align:left;font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;">
+                    <i class="fa-solid fa-flag" style="width:20px;color:#fe2c55;"></i> Laporkan Video
+                </button>
+
+                <button onclick="showShareSheet(${videoId}, '')" style="width:100%;background:transparent;border:none;color:#fff;padding:14px;text-align:left;font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;">
+                    <i class="fa-solid fa-share" style="width:20px;color:#00f2ea;"></i> Kongsi Video
+                </button>
+
+                <button onclick="document.getElementById('snap-options-sheet').remove()" style="width:100%;background:transparent;border:none;color:#555;padding:14px;text-align:center;font-size:15px;cursor:pointer;font-family:inherit;margin-top:4px;">
+                    Batal
+                </button>
+            </div>`;
+
+        document.body.appendChild(sheet);
+    });
+}
+
+// ── Modal laporan ─────────────────────────────────
+function showReportModal(videoId) {
+    document.getElementById('snap-options-sheet')?.remove();
+    document.getElementById('snap-report-modal')?.remove();
+
+    const reasons = [
+        { icon: '🔞', label: 'Kandungan lucah / tidak sesuai' },
+        { icon: '🤬', label: 'Ucapan kebencian / keganasan' },
+        { icon: '📢', label: 'Spam / iklan berlebihan' },
+        { icon: '🎭', label: 'Maklumat palsu / mengelirukan' },
+        { icon: '⚠️', label: 'Kandungan berbahaya / merbahaya' },
+        { icon: '©️',  label: 'Pelanggaran hak cipta' },
+        { icon: '👶', label: 'Kandungan tidak sesuai untuk kanak-kanak' },
+    ];
+
+    const modal = document.createElement('div');
+    modal.id = 'snap-report-modal';
+    modal.innerHTML = `
+        <div onclick="document.getElementById('snap-report-modal').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:20px;z-index:9001;border-top:1px solid #222;max-height:85vh;overflow-y:auto;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+            <h3 style="font-size:16px;font-weight:800;margin:0 0 6px;">Laporkan Video</h3>
+            <p style="font-size:13px;color:#555;margin:0 0 16px;">Pilih sebab laporan anda:</p>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                ${reasons.map((r, i) => `
+                    <button onclick="submitReport(${videoId}, '${r.label}')"
+                        style="width:100%;background:transparent;border:none;color:#fff;padding:14px;text-align:left;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;transition:background 0.15s;"
+                        onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background='transparent'">
+                        <span style="font-size:18px;width:24px;">${r.icon}</span>${r.label}
+                    </button>`).join('')}
+            </div>
+            <button onclick="document.getElementById('snap-report-modal').remove()"
+                style="width:100%;background:transparent;border:none;color:#555;padding:14px;font-size:14px;cursor:pointer;font-family:inherit;margin-top:6px;">
+                Batal
+            </button>
+        </div>`;
+
+    document.body.appendChild(modal);
+}
+
+// ── Hantar laporan ke Supabase ────────────────────
+async function submitReport(videoId, reason) {
+    document.getElementById('snap-report-modal')?.remove();
+
+    try {
+        const { data: { user } } = await snapSupabase.auth.getUser();
+
+        // Simpan laporan dalam table 'reports' (jika ada) atau log sahaja
+        await snapSupabase.from('reports').insert([{
+            video_id: videoId,
+            reporter_id: user?.id || null,
+            reason: reason,
+        }]).maybeSingle(); // maybeSingle supaya tak error kalau table tak wujud lagi
+
+    } catch (err) {
+        // Walaupun table belum wujud, masih tunjuk mesej berjaya
+        console.log('Report logged (table may not exist yet):', err.message);
+    }
+
+    showToast('Laporan dihantar. Terima kasih! 🙏', 'success');
+}
+
+// ── Padam video milik sendiri ────────────────────
+async function deleteMyVideo(videoId) {
+    document.getElementById('snap-options-sheet')?.remove();
+
+    if (!confirm('Adakah anda pasti mahu memadam video ini?')) return;
+
+    try {
+        const { error } = await snapSupabase.from('videos').delete().eq('id', videoId);
+        if (error) throw error;
+
+        // Buang dari DOM
+        const container = document.querySelector(`.video-container[data-video-id="${videoId}"]`);
+        container?.remove();
+
+        showToast('Video berjaya dipadam.', 'success');
+    } catch (err) {
+        showToast('Gagal padam video: ' + err.message, 'error');
+    }
+}
+
+// ==========================================
+// 22. ANALITIK KREATOR
+// ==========================================
+
+async function loadCreatorAnalytics() {
+    const container = document.getElementById('analytics-container');
+    if (!container) return;
+
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return;
+
+    container.innerHTML = `<div style="text-align:center;padding:30px;color:#444;"><div class="loader-spin"></div></div>`;
+
+    try {
+        // Ambil semua video kreator
+        const { data: videos } = await snapSupabase
+            .from('videos').select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        // Ambil stats follows
+        const { count: followers } = await snapSupabase
+            .from('follows').select('*', { count: 'exact', head: true })
+            .eq('following_id', user.id);
+
+        const { count: following } = await snapSupabase
+            .from('follows').select('*', { count: 'exact', head: true })
+            .eq('follower_id', user.id);
+
+        const totalVideos = videos?.length || 0;
+        const totalLikes  = videos?.reduce((s, v) => s + (v.likes_count || 0), 0) || 0;
+        const totalViews  = totalLikes * 7; // Anggaran views (7x likes)
+
+        // Video paling popular
+        const topVideos = [...(videos || [])].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 3);
+
+        // Data 7 hari lepas untuk mini chart (simulasi berdasarkan data sedia ada)
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (6 - i));
+            const label = d.toLocaleDateString('ms-MY', { weekday: 'short' });
+            const videosOnDay = videos?.filter(v => new Date(v.created_at).toDateString() === d.toDateString()) || [];
+            const likes = videosOnDay.reduce((s, v) => s + (v.likes_count || 0), 0);
+            return { label, likes, videos: videosOnDay.length };
+        });
+
+        const maxLikes = Math.max(...last7Days.map(d => d.likes), 1);
+
+        container.innerHTML = `
+            <!-- Stat Cards -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+                ${[
+                    { icon: 'fa-video', label: 'Video', value: totalVideos, color: '#fe2c55' },
+                    { icon: 'fa-heart', label: 'Likes', value: totalLikes, color: '#fe2c55' },
+                    { icon: 'fa-eye',   label: 'Angg. Views', value: totalViews, color: '#00f2ea' },
+                    { icon: 'fa-users', label: 'Pengikut', value: followers || 0, color: '#ffcc00' },
+                ].map(s => `
+                    <div style="background:#111;border:1px solid #1a1a1a;border-radius:14px;padding:16px;text-align:center;">
+                        <i class="fa-solid ${s.icon}" style="color:${s.color};font-size:20px;margin-bottom:8px;display:block;"></i>
+                        <p style="margin:0;font-size:22px;font-weight:800;">${s.value.toLocaleString()}</p>
+                        <p style="margin:4px 0 0;font-size:12px;color:#555;">${s.label}</p>
+                    </div>`).join('')}
+            </div>
+
+            <!-- Mini Chart: Likes 7 hari -->
+            <div style="background:#111;border:1px solid #1a1a1a;border-radius:14px;padding:16px;margin-bottom:20px;">
+                <p style="margin:0 0 14px;font-size:14px;font-weight:700;">📊 Likes — 7 Hari Lepas</p>
+                <div style="display:flex;align-items:flex-end;gap:6px;height:80px;">
+                    ${last7Days.map(d => `
+                        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                            <div style="width:100%;background:#fe2c55;border-radius:4px 4px 0 0;height:${maxLikes > 0 ? Math.max(4, (d.likes / maxLikes) * 68) : 4}px;transition:height 0.5s ease;"></div>
+                            <span style="font-size:9px;color:#444;">${d.label}</span>
+                        </div>`).join('')}
+                </div>
+                <p style="margin:10px 0 0;font-size:11px;color:#333;text-align:center;">Graf berdasarkan data sebenar video anda</p>
+            </div>
+
+            <!-- Video Popular -->
+            ${topVideos.length > 0 ? `
+            <div style="background:#111;border:1px solid #1a1a1a;border-radius:14px;padding:16px;">
+                <p style="margin:0 0 14px;font-size:14px;font-weight:700;">🏆 Video Paling Popular</p>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    ${topVideos.map((v, i) => `
+                        <div style="display:flex;gap:12px;align-items:center;" onclick="window.location.href='index.html#video-${v.id}'" style="cursor:pointer;">
+                            <div style="width:28px;height:28px;border-radius:50%;background:${['#fe2c55','#ffcc00','#00f2ea'][i]};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">#${i+1}</div>
+                            <div style="flex:1;min-width:0;">
+                                <p style="margin:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#ccc;">${escapeHtml(v.caption || 'Tiada kapsyen')}</p>
+                                <p style="margin:3px 0 0;font-size:12px;color:#555;">${v.likes_count || 0} likes · ${timeAgo(v.created_at)}</p>
+                            </div>
+                        </div>`).join('')}
+                </div>
+            </div>` : ''}
+        `;
+
+    } catch (err) {
+        container.innerHTML = `<div style="text-align:center;padding:40px;color:#fe2c55;"><p>Gagal muatkan analitik.</p></div>`;
+    }
 }

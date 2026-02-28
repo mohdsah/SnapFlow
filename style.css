@@ -80,7 +80,7 @@ input, textarea { font-family: inherit; }
 /* Info caption */
 .video-info {
     position: absolute;
-    bottom: calc(var(--nav-height) + 20px);
+    bottom: calc(var(--nav-height) + 72px); /* angkat lebih tinggi untuk bagi ruang progress bar */
     left: 15px;
     width: 68%;
     z-index: 10;
@@ -702,4 +702,142 @@ input, textarea { font-family: inherit; }
     20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
     50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+}
+
+/* ==========================================
+   VIDEO PROGRESS BAR
+   ========================================== */
+
+.video-progress-wrap {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 25;
+    padding: 0 0 calc(var(--nav-height, 65px) + 4px);
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+}
+
+.video-time-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 14px 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.3px;
+}
+
+/* ── Track (latar progress) ── */
+.video-progress-track {
+    position: relative;
+    height: 28px;           /* kawasan sentuh lebih besar */
+    padding: 12px 14px;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+/* Bar latar */
+.video-progress-track::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 3px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 3px;
+}
+
+/* ── Buffer bar (kelabu) ── */
+.video-progress-buffer {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 3px;
+    background: rgba(255,255,255,0.35);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.5s linear;
+    pointer-events: none;
+}
+
+/* ── Fill bar (merah) ── */
+.video-progress-fill {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 3px;
+    background: #fe2c55;
+    border-radius: 3px;
+    width: 0%;
+    pointer-events: none;
+    transition: width 0.1s linear;
+}
+
+/* ── Thumb (titik putih) ── */
+.video-progress-thumb {
+    position: absolute;
+    top: 50%;
+    left: 0%;
+    transform: translate(-50%, -50%);
+    width: 13px;
+    height: 13px;
+    background: #fff;
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 4px rgba(0,0,0,0.5);
+    transition: transform 0.15s ease, left 0.1s linear;
+}
+
+/* Besarkan kawasan sentuh thumb bila drag */
+.video-progress-track:active .video-progress-thumb {
+    transform: translate(-50%, -50%) scale(1.4);
+}
+
+/* ==========================================
+   CIRI BARU: SHARE, BOOKMARK, HASHTAG
+   ========================================== */
+
+/* ── Share App Buttons ── */
+.share-app-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 68px;
+    transition: opacity 0.15s, transform 0.15s;
+}
+.share-app-btn:active { opacity: 0.7; transform: scale(0.95); }
+.share-app-btn span { font-size: 11px; }
+
+/* ── Bookmark icon transition ── */
+[id^="bookmark-icon-"] {
+    transition: color 0.2s, transform 0.2s;
+}
+
+/* ── Hashtag dalam kapsyen ── */
+.video-info p span[onclick] {
+    color: #fe2c55;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ── Analitik stat cards ── */
+#analytics-container .stat-card {
+    background: #111;
+    border: 1px solid #1a1a1a;
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
 }

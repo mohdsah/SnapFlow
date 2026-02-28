@@ -2,6 +2,13 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SnapFlow">
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192&bold=true">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Log Masuk | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
@@ -91,5 +98,16 @@
     </div>
 
     <script src="app.js"></script>
+
+    <!-- PWA Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log('[PWA] Service Worker berdaftar:', reg.scope))
+                    .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
+            });
+        }
+    </script>
 </body>
 </html>

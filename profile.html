@@ -2,6 +2,13 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SnapFlow">
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192&bold=true">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Profil | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
@@ -73,9 +80,51 @@
             </div>
         </div>
 
-        <!-- Video Grid -->
-        <div id="profile-video-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;"></div>
+        <!-- Tab Bar Profil -->
+        <div style="display:flex; border-bottom:1px solid #111; margin-top:4px;">
+            <button class="profile-tab-btn active" onclick="switchProfileTab('videos', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid #fff;color:#fff;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa-solid fa-grid-2"></i> Video
+            </button>
+            <button class="profile-tab-btn" onclick="switchProfileTab('saved', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa-solid fa-bookmark"></i> Tersimpan
+            </button>
+            <button class="profile-tab-btn" onclick="switchProfileTab('analytics', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa-solid fa-chart-line"></i> Analitik
+            </button>
+        </div>
+
+        <!-- Panel: Video -->
+        <div id="profile-panel-videos" class="profile-panel" style="display:block;">
+            <div id="profile-video-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;"></div>
+        </div>
+
+        <!-- Panel: Tersimpan -->
+        <div id="profile-panel-saved" class="profile-panel" style="display:none;padding:16px;">
+            <div id="saved-videos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;"></div>
+        </div>
+
+        <!-- Panel: Analitik -->
+        <div id="profile-panel-analytics" class="profile-panel" style="display:none;padding:16px;">
+            <div id="analytics-container"></div>
+        </div>
     </main>
+
+    <script>
+        function switchProfileTab(tab, el) {
+            document.querySelectorAll('.profile-tab-btn').forEach(b => {
+                b.style.color = '#555';
+                b.style.borderBottomColor = 'transparent';
+            });
+            el.style.color = '#fff';
+            el.style.borderBottomColor = '#fff';
+
+            document.querySelectorAll('.profile-panel').forEach(p => p.style.display = 'none');
+            document.getElementById(`profile-panel-${tab}`).style.display = 'block';
+
+            if (tab === 'saved') loadSavedVideos();
+            if (tab === 'analytics') loadCreatorAnalytics();
+        }
+    </script>
 
     <nav class="bottom-nav">
         <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
@@ -86,5 +135,16 @@
     </nav>
 
     <script src="app.js"></script>
+
+    <!-- PWA Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log('[PWA] Service Worker berdaftar:', reg.scope))
+                    .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
+            });
+        }
+    </script>
 </body>
 </html>
