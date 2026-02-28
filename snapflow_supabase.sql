@@ -25,3 +25,13 @@ CREATE POLICY "User boleh hantar laporan"
 
 -- Hanya admin boleh lihat semua laporan (guna service_role key)
 -- User biasa tidak boleh baca laporan
+
+-- ============================================================
+-- KEMASKINI: Tambah parent_id dalam comments (Komen Berbalas)
+-- Jalankan ini jika table comments sudah wujud
+-- ============================================================
+
+ALTER TABLE public.comments
+    ADD COLUMN IF NOT EXISTS parent_id BIGINT REFERENCES public.comments(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON public.comments(parent_id);

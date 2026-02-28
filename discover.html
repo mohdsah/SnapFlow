@@ -195,12 +195,21 @@
             <button class="dtab active" onclick="switchDiscoverTab('trending', this)">🔥 Trending</button>
             <button class="dtab" onclick="switchDiscoverTab('terbaru', this)">🆕 Terbaru</button>
             <button class="dtab" onclick="switchDiscoverTab('kreator', this)">⭐ Kreator</button>
+            <button class="dtab" onclick="switchDiscoverTab('leaderboard', this)">🏆 Leaderboard</button>
             <button class="dtab" onclick="switchDiscoverTab('hashtag', this)"># Hashtag</button>
         </div>
     </header>
 
     <!-- Search Results (hidden by default) -->
-    <div id="search-results-discover" style="display:none;"></div>
+    <div id="search-results-discover" style="display:none;">
+        <!-- Filter: Video / Kreator -->
+        <div id="search-filter-pills" style="display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #111;">
+            <button class="spill active" onclick="setSearchFilter('semua',this)" style="background:#222;border:none;color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Semua</button>
+            <button class="spill" onclick="setSearchFilter('video',this)" style="background:transparent;border:1px solid #222;color:#555;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🎬 Video</button>
+            <button class="spill" onclick="setSearchFilter('kreator',this)" style="background:transparent;border:1px solid #222;color:#555;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">👤 Kreator</button>
+        </div>
+        <div id="search-results-inner"></div>
+    </div>
 
     <!-- Main Content -->
     <div id="discover-content">

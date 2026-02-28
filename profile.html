@@ -37,7 +37,9 @@
 <body>
 
     <header style="padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111;">
-        <i class="fa-solid fa-user-plus" style="font-size: 18px; color: #555;"></i>
+        <button onclick="toggleTheme()" style="background:transparent;border:none;cursor:pointer;color:#888;font-size:18px;padding:0;" title="Tukar tema">
+            <i id="theme-toggle-icon" class="fa-solid fa-sun"></i>
+        </button>
         <strong id="display-username" style="font-size: 16px; font-weight: 700;">Memuatkan...</strong>
         <a href="edit-profile.html"><i class="fa-solid fa-ellipsis-vertical" style="font-size: 18px; color: #fff;"></i></a>
     </header>
@@ -80,6 +82,9 @@
             </div>
         </div>
 
+        <!-- Pinned Video -->
+        <div id="pinned-video-wrap" style="display:none;margin-top:4px;"></div>
+
         <!-- Tab Bar Profil -->
         <div style="display:flex; border-bottom:1px solid #111; margin-top:4px;">
             <button class="profile-tab-btn active" onclick="switchProfileTab('videos', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid #fff;color:#fff;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
@@ -110,6 +115,14 @@
     </main>
 
     <script>
+        // Load pinned video on startup
+        window.addEventListener('DOMContentLoaded', () => {
+            loadPinnedVideo();
+            // Set theme icon
+            const icon = document.getElementById('theme-toggle-icon');
+            if (icon) icon.className = isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        });
+
         function switchProfileTab(tab, el) {
             document.querySelectorAll('.profile-tab-btn').forEach(b => {
                 b.style.color = '#555';

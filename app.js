@@ -371,6 +371,43 @@ async function loadHomeFeed() {
 // ── State global untuk mute ─────────────────────
 let isMuted = true; // Default muted (standard autoplay policy)
 
+// ── State Dark/Light Mode ─────────────────────────
+let isDarkMode = localStorage.getItem('snapflow-theme') !== 'light';
+function applyTheme() {
+    const root = document.documentElement;
+    if (isDarkMode) {
+        root.style.setProperty('--bg', '#000');
+        root.style.setProperty('--bg2', '#111');
+        root.style.setProperty('--bg3', '#1a1a1a');
+        root.style.setProperty('--txt', '#fff');
+        root.style.setProperty('--txt2', '#888');
+        root.style.setProperty('--border', '#222');
+        document.body.style.background = 'var(--bg)';
+        document.body.style.color = 'var(--txt)';
+    } else {
+        root.style.setProperty('--bg', '#f5f5f5');
+        root.style.setProperty('--bg2', '#fff');
+        root.style.setProperty('--bg3', '#eee');
+        root.style.setProperty('--txt', '#000');
+        root.style.setProperty('--txt2', '#555');
+        root.style.setProperty('--border', '#ddd');
+        document.body.style.background = 'var(--bg)';
+        document.body.style.color = 'var(--txt)';
+    }
+}
+function toggleTheme() {
+    isDarkMode = !isDarkMode;
+    localStorage.setItem('snapflow-theme', isDarkMode ? 'dark' : 'light');
+    applyTheme();
+    showToast(isDarkMode ? '🌙 Mod Gelap' : '☀️ Mod Cerah', 'info');
+    // Update ikon toggle
+    const icon = document.getElementById('theme-toggle-icon');
+    if (icon) icon.className = isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+}
+// Apply tema semasa load
+document.addEventListener('DOMContentLoaded', applyTheme);
+applyTheme();
+
 // ── Tap sekali: play/pause ───────────────────────
 let tapTimeout = null;
 let tapCount   = 0;
@@ -676,6 +713,8 @@ async function toggleComments(videoId) {
     }
 }
 
+let replyingToComment = null; // { id, username }
+
 async function loadComments(videoId) {
     const list = document.getElementById('comment-list');
     if (!list) return;
@@ -683,27 +722,82 @@ async function loadComments(videoId) {
 
     try {
         const { data, error } = await snapSupabase.from('comments')
-            .select('*').eq('video_id', videoId).order('created_at', { ascending: false });
+            .select('*').eq('video_id', videoId).order('created_at', { ascending: true });
 
         if (error) throw error;
 
         if (!data || data.length === 0) {
             list.innerHTML = '<p style="text-align:center;color:#444;margin-top:20px;padding:20px;">Belum ada komen. Jadilah yang pertama! 💬</p>';
-        } else {
-            list.innerHTML = data.map(c => `
-                <div class="comment-item">
-                    <div class="user-avatar" style="background-image: url('https://ui-avatars.com/api/?name=${encodeURIComponent(escapeHtml(c.username || 'U'))}&background=random'); background-size:cover; background-color:#333; width:36px; height:36px; border-radius:50%; flex-shrink:0;"></div>
-                    <div class="comment-content" style="flex:1;">
-                        <strong style="font-size:13px;color:#ccc;">${escapeHtml(c.username || 'User')}</strong>
-                        <p style="margin:3px 0 0;font-size:14px;color:#eee;">${escapeHtml(c.comment_text)}</p>
-                        <span style="font-size:11px;color:#555;">${timeAgo(c.created_at)}</span>
-                    </div>
-                </div>
-            `).join('');
+            return;
         }
+
+        // Susun: komen utama dulu, kemudian replies di bawah komen parent
+        const roots   = data.filter(c => !c.parent_id);
+        const replies = data.filter(c =>  c.parent_id);
+
+        const buildComment = (c, isReply = false) => {
+            const childReplies = replies.filter(r => r.parent_id === c.id);
+            return \`
+                <div class="comment-item \${isReply ? 'comment-reply' : ''}" style="\${isReply ? 'padding-left:44px;margin-top:2px;' : ''}">
+                    <div style="background-image:url('https://ui-avatars.com/api/?name=\${encodeURIComponent(escapeHtml(c.username||'U'))}&background=random');background-size:cover;background-color:#333;width:\${isReply?'30px':'36px'};height:\${isReply?'30px':'36px'};border-radius:50%;flex-shrink:0;"></div>
+                    <div style="flex:1;min-width:0;">
+                        <strong style="font-size:13px;color:#ccc;">\${escapeHtml(c.username||'User')}</strong>
+                        <p style="margin:3px 0 4px;font-size:14px;color:#eee;line-height:1.4;">\${escapeHtml(c.comment_text)}</p>
+                        <div style="display:flex;gap:14px;align-items:center;">
+                            <span style="font-size:11px;color:#555;">\${timeAgo(c.created_at)}</span>
+                            \${!isReply ? \`<button onclick="setReplyTo(\${c.id}, '\${escapeHtml(c.username||'User')}')" style="background:transparent;border:none;color:#888;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:0;">Balas</button>\` : ''}
+                        </div>
+                        \${childReplies.length > 0 ? \`
+                            <button onclick="toggleReplies(\${c.id})" style="background:transparent;border:none;color:#fe2c55;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 0;display:flex;align-items:center;gap:4px;">
+                                <i class="fa-solid fa-caret-right" id="reply-caret-\${c.id}"></i> \${childReplies.length} balasan
+                            </button>
+                            <div id="replies-\${c.id}" style="display:none;">
+                                \${childReplies.map(r => buildComment(r, true)).join('')}
+                            </div>
+                        \` : ''}
+                    </div>
+                </div>\`;
+        };
+
+        list.innerHTML = roots.map(c => buildComment(c)).join('');
     } catch (err) {
         list.innerHTML = '<p style="text-align:center;color:#fe2c55;padding:20px;">Ralat memuatkan komen.</p>';
     }
+}
+
+function setReplyTo(commentId, username) {
+    replyingToComment = { id: commentId, username };
+    const input = document.getElementById('new-comment');
+    if (input) {
+        input.placeholder = \`Balas @\${username}...\`;
+        input.focus();
+    }
+    // Tunjuk label reply
+    let label = document.getElementById('reply-label');
+    if (!label) {
+        label = document.createElement('div');
+        label.id = 'reply-label';
+        label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 16px;background:#1a0008;font-size:12px;color:#fe2c55;';
+        const area = document.querySelector('.comment-input-area');
+        area?.parentNode?.insertBefore(label, area);
+    }
+    label.innerHTML = \`<i class="fa-solid fa-reply"></i> Balas @\${escapeHtml(username)} <button onclick="cancelReply()" style="margin-left:auto;background:transparent;border:none;color:#555;cursor:pointer;font-size:14px;">✕</button>\`;
+}
+
+function cancelReply() {
+    replyingToComment = null;
+    const input = document.getElementById('new-comment');
+    if (input) input.placeholder = 'Tambah komen...';
+    document.getElementById('reply-label')?.remove();
+}
+
+function toggleReplies(commentId) {
+    const el = document.getElementById(\`replies-\${commentId}\`);
+    const caret = document.getElementById(\`reply-caret-\${commentId}\`);
+    if (!el) return;
+    const isOpen = el.style.display !== 'none';
+    el.style.display = isOpen ? 'none' : 'block';
+    if (caret) caret.style.transform = isOpen ? 'rotate(0)' : 'rotate(90deg)';
 }
 
 async function sendComment() {
@@ -714,21 +808,26 @@ async function sendComment() {
     if (!user) return showToast('Log masuk dahulu.', 'warning');
 
     const commentText = input.value.trim();
+    const parentId = replyingToComment?.id || null;
     input.value = '';
+    cancelReply();
 
     try {
         await snapSupabase.from('comments').insert([{
             video_id: currentVideoId,
             user_id: user.id,
             username: user.user_metadata?.full_name || 'User',
-            comment_text: commentText
+            comment_text: commentText,
+            parent_id: parentId
         }]);
         loadComments(currentVideoId);
         updateAllCommentCounts();
 
-        // Update count di icon
-        const el = document.getElementById(`comment-count-${currentVideoId}`);
-        if (el) el.innerText = parseInt(el.innerText || 0) + 1;
+        // Update count di icon (hanya untuk komen utama)
+        if (!parentId) {
+            const el = document.getElementById(`comment-count-${currentVideoId}`);
+            if (el) el.innerText = parseInt(el.innerText || 0) + 1;
+        }
     } catch (err) {
         showToast('Gagal hantar komen.', 'error');
     }
@@ -1656,10 +1755,11 @@ async function renderDiscoverTab(tab) {
             </div>
         </div>`;
 
-    if (tab === 'trending') await renderTrending(contentEl);
-    else if (tab === 'terbaru') await renderTerbaru(contentEl);
-    else if (tab === 'kreator') await renderKreator(contentEl);
-    else if (tab === 'hashtag') await renderHashtag(contentEl);
+    if (tab === 'trending')     await renderTrending(contentEl);
+    else if (tab === 'terbaru')     await renderTerbaru(contentEl);
+    else if (tab === 'kreator')     await renderKreator(contentEl);
+    else if (tab === 'leaderboard') await renderLeaderboard(contentEl);
+    else if (tab === 'hashtag')     await renderHashtag(contentEl);
 }
 
 // ── Tab: Trending ────────────────────────────────
@@ -2574,4 +2674,242 @@ async function loadCreatorAnalytics() {
     } catch (err) {
         container.innerHTML = `<div style="text-align:center;padding:40px;color:#fe2c55;"><p>Gagal muatkan analitik.</p></div>`;
     }
+}
+
+// ==========================================
+// 23. CARIAN KREATOR (dengan filter Video/Kreator)
+// ==========================================
+
+let currentSearchFilter = 'semua';
+let lastSearchQuery = '';
+
+function setSearchFilter(filter, el) {
+    currentSearchFilter = filter;
+    document.querySelectorAll('.spill').forEach(b => {
+        b.style.background = 'transparent';
+        b.style.borderColor = '#222';
+        b.style.color = '#555';
+    });
+    el.style.background = '#222';
+    el.style.color = '#fff';
+    if (lastSearchQuery) searchDiscover(lastSearchQuery);
+}
+
+// Override searchDiscover untuk sokong filter kreator
+async function searchDiscover(query) {
+    lastSearchQuery = query;
+    const el = document.getElementById('search-results-inner') || document.getElementById('search-results-discover');
+    if (!el) return;
+
+    el.innerHTML = `<div style="padding:20px;text-align:center;color:#444;">Mencari "${escapeHtml(query)}"...</div>`;
+
+    try {
+        let videoResults = [], kreatorResults = [];
+
+        // Cari video
+        if (currentSearchFilter !== 'kreator') {
+            const { data: byCaption } = await snapSupabase
+                .from('videos').select('*').ilike('caption', `%${query}%`).limit(9);
+            videoResults = byCaption || [];
+        }
+
+        // Cari kreator (unique users dari videos table)
+        if (currentSearchFilter !== 'video') {
+            const { data: byUser } = await snapSupabase
+                .from('videos').select('user_id, username, likes_count')
+                .ilike('username', `%${query}%`).limit(20);
+
+            // Aggregate kreator unik
+            const kreatorMap = {};
+            (byUser || []).forEach(v => {
+                if (!kreatorMap[v.user_id]) {
+                    kreatorMap[v.user_id] = { user_id: v.user_id, username: v.username || 'User', totalLikes: 0, videoCount: 0 };
+                }
+                kreatorMap[v.user_id].totalLikes += (v.likes_count || 0);
+                kreatorMap[v.user_id].videoCount += 1;
+            });
+            kreatorResults = Object.values(kreatorMap).slice(0, 8);
+        }
+
+        if (videoResults.length === 0 && kreatorResults.length === 0) {
+            el.innerHTML = `
+                <div style="text-align:center;padding:50px 20px;color:#333;">
+                    <i class="fa-solid fa-magnifying-glass" style="font-size:36px;margin-bottom:14px;display:block;"></i>
+                    <p style="font-size:14px;">Tiada hasil untuk <strong style="color:#fff;">"${escapeHtml(query)}"</strong></p>
+                    <p style="font-size:13px;color:#333;margin-top:6px;">Cuba cari dengan perkataan lain</p>
+                </div>`;
+            return;
+        }
+
+        let html = '';
+
+        // Bahagian kreator
+        if (kreatorResults.length > 0) {
+            html += `<div style="padding:12px 16px 6px;font-size:13px;font-weight:700;color:#888;">👤 Kreator</div>`;
+            html += kreatorResults.map((c, i) => `
+                <div class="search-result-item fade-in" style="animation-delay:${i*0.04}s;">
+                    <div style="width:46px;height:46px;border-radius:50%;background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(c.username)}&background=random&size=100');background-size:cover;flex-shrink:0;border:1px solid #222;"></div>
+                    <div style="flex:1;min-width:0;">
+                        <strong style="font-size:14px;display:block;">@${escapeHtml(c.username)}</strong>
+                        <span style="font-size:12px;color:#555;">${c.videoCount} video · ${c.totalLikes} likes</span>
+                    </div>
+                    <button class="follow-kreator-btn" style="width:70px;" onclick="followCreatorById('${c.user_id}', this)">+ Ikuti</button>
+                </div>`).join('');
+        }
+
+        // Bahagian video
+        if (videoResults.length > 0) {
+            html += `<div style="padding:12px 16px 6px;font-size:13px;font-weight:700;color:#888;">🎬 Video (${videoResults.length})</div>`;
+            html += buildVideoGrid(videoResults, false);
+        }
+
+        el.innerHTML = html;
+
+    } catch (err) {
+        el.innerHTML = `<div style="padding:20px;text-align:center;color:#fe2c55;">Ralat semasa mencari.</div>`;
+    }
+}
+
+// ==========================================
+// 24. LEADERBOARD KREATOR
+// ==========================================
+
+async function renderLeaderboard(el) {
+    el.innerHTML = `<div style="text-align:center;padding:30px;color:#444;"><div class="loader-spin"></div></div>`;
+
+    try {
+        const { data: vids } = await snapSupabase
+            .from('videos').select('user_id, username, likes_count, created_at');
+
+        // Aggregate
+        const map = {};
+        (vids || []).forEach(v => {
+            if (!map[v.user_id]) map[v.user_id] = { user_id: v.user_id, username: v.username || 'Kreator', totalLikes: 0, videoCount: 0 };
+            map[v.user_id].totalLikes  += (v.likes_count || 0);
+            map[v.user_id].videoCount  += 1;
+        });
+
+        const top = Object.values(map)
+            .sort((a, b) => b.totalLikes - a.totalLikes)
+            .slice(0, 10);
+
+        if (top.length === 0) {
+            el.innerHTML = emptyState('Belum ada kreator. Jadilah yang pertama!', 'fa-trophy');
+            return;
+        }
+
+        const medals = ['🥇', '🥈', '🥉'];
+
+        el.innerHTML = `
+            <div style="padding:16px 16px 8px;">
+                <div style="background:linear-gradient(135deg,#1a0008,#0d0d0d);border:1px solid #2a0010;border-radius:14px;padding:16px;text-align:center;margin-bottom:20px;">
+                    <p style="margin:0;font-size:13px;color:#555;">Disusun mengikut</p>
+                    <h2 style="margin:4px 0 0;font-size:18px;font-weight:800;">❤️ Jumlah Likes Keseluruhan</h2>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                ${top.map((c, i) => `
+                    <div class="search-result-item fade-in" style="animation-delay:${i*0.05}s;padding:14px 16px;${i < 3 ? 'background:linear-gradient(to right,rgba(254,44,85,0.05),transparent);' : ''}">
+                        <div style="width:32px;text-align:center;flex-shrink:0;font-size:${i < 3 ? '22px' : '14px'};font-weight:800;color:${i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#444'};">
+                            ${i < 3 ? medals[i] : `#${i+1}`}
+                        </div>
+                        <div style="width:44px;height:44px;border-radius:50%;background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(c.username)}&background=random&size=100');background-size:cover;flex-shrink:0;border:${i===0?'2px solid #FFD700':i===1?'2px solid #C0C0C0':i===2?'2px solid #CD7F32':'1px solid #222'};"></div>
+                        <div style="flex:1;min-width:0;">
+                            <strong style="font-size:14px;display:block;">@${escapeHtml(c.username)}</strong>
+                            <span style="font-size:12px;color:#555;">${c.videoCount} video · <span style="color:#fe2c55;font-weight:700;">${c.totalLikes.toLocaleString()} likes</span></span>
+                        </div>
+                        <button class="follow-kreator-btn" style="width:70px;font-size:12px;" onclick="followCreatorById('${c.user_id}', this)">+ Ikuti</button>
+                    </div>`).join('')}
+            </div>`;
+
+    } catch (err) {
+        el.innerHTML = emptyState('Gagal memuatkan leaderboard.', 'fa-triangle-exclamation');
+    }
+}
+
+// ==========================================
+// 25. VIDEO DIPIN DI PROFIL
+// ==========================================
+
+async function loadPinnedVideo() {
+    const container = document.getElementById('pinned-video-wrap');
+    if (!container) return;
+
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return;
+
+    const pinnedId = localStorage.getItem(`snapflow-pinned-${user.id}`);
+    if (!pinnedId) { container.style.display = 'none'; return; }
+
+    const { data: vid } = await snapSupabase.from('videos').select('*').eq('id', pinnedId).single();
+    if (!vid) { container.style.display = 'none'; return; }
+
+    container.style.display = 'block';
+    container.innerHTML = `
+        <div style="padding:0 16px 12px;">
+            <p style="font-size:12px;font-weight:700;color:#555;margin:0 0 8px;display:flex;align-items:center;gap:6px;">
+                <i class="fa-solid fa-thumbtack" style="color:#fe2c55;"></i> VIDEO DIPIN
+            </p>
+            <div style="position:relative;border-radius:12px;overflow:hidden;aspect-ratio:16/9;background:#111;cursor:pointer;" onclick="window.location.href='index.html#video-${vid.id}'">
+                <video src="${escapeHtml(vid.video_url)}" preload="none" muted playsinline style="width:100%;height:100%;object-fit:cover;"
+                    onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>
+                <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,0.8),transparent);padding:10px 12px;">
+                    <p style="margin:0;font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(vid.caption || 'Video dipin')}</p>
+                    <p style="margin:3px 0 0;font-size:11px;color:#888;">❤️ ${vid.likes_count || 0} likes</p>
+                </div>
+                <button onclick="unpinVideo(event)" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);border:none;color:#fe2c55;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:12px;">✕</button>
+            </div>
+        </div>`;
+}
+
+async function showPinVideoModal() {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return showToast('Log masuk dahulu.', 'warning');
+
+    const { data: videos } = await snapSupabase.from('videos').select('*')
+        .eq('user_id', user.id).order('likes_count', { ascending: false }).limit(10);
+
+    if (!videos || videos.length === 0) return showToast('Anda belum ada video untuk dipin.', 'warning');
+
+    document.getElementById('pin-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'pin-modal';
+    modal.innerHTML = `
+        <div onclick="document.getElementById('pin-modal').remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:20px;z-index:9001;max-height:75vh;overflow-y:auto;border-top:1px solid #222;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+            <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;">📌 Pilih Video untuk Dipin</h3>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                ${videos.map(v => `
+                    <div class="search-result-item" onclick="pinVideo(${v.id})" style="gap:12px;">
+                        <video src="${escapeHtml(v.video_url)}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;" preload="none" muted></video>
+                        <div style="flex:1;min-width:0;">
+                            <p style="margin:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(v.caption || 'Tiada kapsyen')}</p>
+                            <p style="margin:3px 0 0;font-size:11px;color:#555;">❤️ ${v.likes_count || 0} likes</p>
+                        </div>
+                        <i class="fa-solid fa-thumbtack" style="color:#333;font-size:14px;flex-shrink:0;"></i>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+async function pinVideo(videoId) {
+    const { data: { user } } = await snapSupabase.auth.getUser();
+    if (!user) return;
+    localStorage.setItem(`snapflow-pinned-${user.id}`, videoId);
+    document.getElementById('pin-modal')?.remove();
+    showToast('Video berjaya dipin! 📌', 'success');
+    loadPinnedVideo();
+}
+
+function unpinVideo(event) {
+    event.stopPropagation();
+    snapSupabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        localStorage.removeItem(`snapflow-pinned-${user.id}`);
+        const wrap = document.getElementById('pinned-video-wrap');
+        if (wrap) wrap.style.display = 'none';
+        showToast('Pin dibuang.', 'info');
+    });
 }
