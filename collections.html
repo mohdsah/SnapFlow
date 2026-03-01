@@ -68,6 +68,25 @@
         /* Default collections */
         .default-col { border-color:#1a1a1a !important; }
     </style>
+
+    <!-- Modules: core, social, feed -->
+    <!-- Auth Guard -->
+    <script>
+    (() => {
+        try {
+            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
+            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
+            const isValid = session?.access_token && expiry && expiry > new Date();
+            if (!isValid) {
+                sessionStorage.setItem('sf_redirect_after_login', location.href);
+                location.replace('splash.html');
+            }
+        } catch(e) {
+            location.replace('splash.html');
+        }
+    })();
+    </script>
 </head>
 <body>
 
@@ -129,6 +148,10 @@
     </nav>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for collections.html -->
+    <!--
+        <script src="js/social.js" defer></script>
+    -->
     <script>
         const DEFAULT_COLLECTIONS = [
             { id:'fav',     name:'Kegemaran',  emoji:'❤️',  isDefault:true },

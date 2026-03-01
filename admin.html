@@ -25,6 +25,30 @@
         .loader-spin { width:24px; height:24px; border:3px solid #222; border-top-color:#fe2c55; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto; }
         @keyframes spin { to { transform:rotate(360deg); } }
     </style>
+
+    <!-- Modules: core, profile, feed -->
+    <!-- Admin Auth Guard: WAJIB admin role -->
+    <script>
+    (async () => {
+        // Step 1: Quick session check dari localStorage
+        try {
+            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
+            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
+            const isValid = session?.access_token && expiry && expiry > new Date();
+            if (!isValid) {
+                sessionStorage.setItem('sf_redirect_after_login', location.href);
+                location.replace('splash.html');
+                return;
+            }
+        } catch(e) {
+            location.replace('splash.html');
+            return;
+        }
+        // Step 2: Full admin check happens in checkAdminAccess() after app.js loads
+        // (see checkAdminAccess function in admin.html script section)
+    })();
+    </script>
 </head>
 <body>
 
@@ -129,35 +153,53 @@
     </div>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for admin.html -->
+    <!--
+        <script src="js/profile.js" defer></script>
+    -->
     <script>
-        const ADMIN_EMAILS = [
-            // Tambah emel admin anda di sini
-            // 'admin@snapflow.com',
-            // 'owner@snapflow.com'
-        ];
-
+        // ✅ FIX SECURITY: Jangan simpan role dalam localStorage
+        // Semak role terus dari Supabase profiles table
         async function checkAdminAccess() {
-            const { data: { user } } = await snapSupabase.auth.getUser();
+            const gate = document.getElementById('auth-gate');
 
-            // Semak: logged in + emel admin (atau uncomment untuk dev mode)
-            // DEV MODE: buang comment pada baris bawah untuk bypass semak
-            // const isAdmin = true;
-
-            const isAdmin = user && (
-                ADMIN_EMAILS.includes(user.email) ||
-                user.user_metadata?.is_admin === true
-            );
-
-            if (!isAdmin) {
-                document.getElementById('auth-gate').innerHTML = `
-                    <i class="fa-solid fa-shield-xmark" style="font-size:48px;color:#fe2c55;margin-bottom:16px;"></i>
-                    <h2 style="margin:0 0 8px;">Akses Dinafikan</h2>
-                    <p style="color:#555;font-size:13px;text-align:center;padding:0 30px;">Halaman ini hanya untuk pentadbir SnapFlow.</p>
-                    <a href="profile.html" style="margin-top:16px;background:#1a1a1a;color:#fff;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;">Kembali ke Profil</a>`;
+            // Step 1: Semak sama ada user logged in
+            const { data: { session } } = await snapSupabase.auth.getSession();
+            if (!session?.user) {
+                window.location.replace('login.html');
                 return;
             }
 
-            document.getElementById('auth-gate').style.display = 'none';
+            const user = session.user;
+
+            // Step 2: Semak role dari profiles table (BUKAN localStorage)
+            const { data: profile, error } = await snapSupabase
+                .from('profiles')
+                .select('role, is_admin')
+                .eq('id', user.id)
+                .single();
+
+            // Juga terima is_admin dari user_metadata (set melalui Supabase dashboard)
+            const isAdmin = !error && (
+                profile?.role === 'admin' ||
+                profile?.is_admin === true ||
+                user.user_metadata?.is_admin === true ||
+                user.app_metadata?.role === 'admin'
+            );
+
+            if (!isAdmin) {
+                gate.innerHTML = `
+                    <i class="fa-solid fa-shield-xmark" style="font-size:48px;color:#fe2c55;margin-bottom:16px;display:block;"></i>
+                    <h2 style="margin:0 0 8px;font-size:20px;">Akses Dinafikan</h2>
+                    <p style="color:#555;font-size:13px;text-align:center;padding:0 30px;margin-bottom:16px;">
+                        Halaman ini hanya untuk pentadbir SnapFlow.<br>
+                        <small style="color:#333;">User: ${user.email}</small>
+                    </p>
+                    <a href="profile.html" style="background:#1a1a1a;color:#fff;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">← Kembali ke Profil</a>`;
+                return;
+            }
+
+            gate.style.display = 'none';
             document.getElementById('admin-dashboard').style.display = 'block';
             refreshDashboard();
         }

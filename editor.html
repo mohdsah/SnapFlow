@@ -82,6 +82,25 @@
         .export-btn:active { opacity:0.8; }
         .export-btn:disabled { opacity:0.5; }
     </style>
+
+    <!-- Modules: core, upload -->
+    <!-- Auth Guard -->
+    <script>
+    (() => {
+        try {
+            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
+            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
+            const isValid = session?.access_token && expiry && expiry > new Date();
+            if (!isValid) {
+                sessionStorage.setItem('sf_redirect_after_login', location.href);
+                location.replace('splash.html');
+            }
+        } catch(e) {
+            location.replace('splash.html');
+        }
+    })();
+    </script>
 </head>
 <body>
 
@@ -239,22 +258,38 @@
         <!-- Filter Panel -->
         <div class="panel" id="panel-filter">
             <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;">
-                ${[
-                    ['Asal','none','#fff'],['Terang','brightness(1.3)','#fff8'],['Kontras','contrast(1.4)','#f6c90e'],
-                    ['Hitam Putih','grayscale(1)','#888'],['Sejuk','hue-rotate(180deg)','#00f2ea'],
-                    ['Vintage','sepia(0.6) saturate(0.8)','#c9a87c'],['Drama','contrast(1.3) saturate(1.5)','#fe2c55'],
-                    ['Blur Lembut','blur(1px)','#888'],
-                ].map(([name,val,col]) =>
-                    `<div onclick="applyFilter('${val}',this)"
-                        style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
-                        <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;
-                                    display:flex;align-items:center;justify-content:center;font-size:18px;
-                                    filter:${val};transition:border-color 0.2s;" class="filter-preview">
-                            🎬
-                        </div>
-                        <span style="font-size:10px;color:#666;">${name}</span>
-                    </div>`
-                ).join('')}
+                <div onclick="applyFilter('none',this)" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                    <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:18px;" class="filter-preview">🎬</div>
+                    <span style="font-size:10px;color:#666;">Asal</span>
+                </div>
+                <div onclick="applyFilter('brightness(1.3)',this)" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                    <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:18px;filter:brightness(1.3);" class="filter-preview">🎬</div>
+                    <span style="font-size:10px;color:#666;">Terang</span>
+                </div>
+                <div onclick="applyFilter('contrast(1.4)',this)" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                    <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:18px;filter:contrast(1.4);" class="filter-preview">🎬</div>
+                    <span style="font-size:10px;color:#666;">Kontras</span>
+                </div>
+                <div onclick="applyFilter('grayscale(1)',this)" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                    <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:18px;filter:grayscale(1);" class="filter-preview">🎬</div>
+                    <span style="font-size:10px;color:#666;">Hitam Putih</span>
+                </div>
+                <div onclick="applyFilter('hue-rotate(180deg)',this)" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                    <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:18px;filter:hue-rotate(180deg);" class="filter-preview">🎬</div>
+                    <span style="font-size:10px;color:#666;">Sejuk</span>
+                </div>
+                <div onclick="applyFilter('sepia(0.6) saturate(0.8)',this)" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                    <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:18px;filter:sepia(0.6);" class="filter-preview">🎬</div>
+                    <span style="font-size:10px;color:#666;">Vintage</span>
+                </div>
+                <div onclick="applyFilter('contrast(1.3) saturate(1.5)',this)" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                    <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:18px;filter:contrast(1.3) saturate(1.5);" class="filter-preview">🎬</div>
+                    <span style="font-size:10px;color:#666;">Drama</span>
+                </div>
+                <div onclick="applyFilter('blur(1px)',this)" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                    <div style="width:52px;height:52px;background:#1a1a1a;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:18px;filter:blur(1px);" class="filter-preview">🎬</div>
+                    <span style="font-size:10px;color:#666;">Blur</span>
+                </div>
             </div>
         </div>
 
@@ -262,19 +297,21 @@
         <div class="panel" id="panel-speed">
             <p style="margin:0 0 10px;font-size:13px;font-weight:700;">⚡ Laju Main Balik:</p>
             <div style="display:flex;gap:8px;justify-content:center;">
-                ${[0.5, 0.75, 1, 1.5, 2, 3].map(s =>
-                    `<button onclick="setPlaybackSpeed(${s},this)"
-                        style="background:#1a1a1a;border:1.5px solid ${s===1?'#fe2c55':'#222'};color:${s===1?'#fe2c55':'#888'};
-                               padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;"
-                        class="speed-btn ${s===1?'active':''}">
-                        ${s}x
-                    </button>`
-                ).join('')}
+                <button onclick="setPlaybackSpeed(0.5,this)" style="background:#1a1a1a;border:1.5px solid #222;color:#888;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" class="speed-btn">0.5x</button>
+                <button onclick="setPlaybackSpeed(0.75,this)" style="background:#1a1a1a;border:1.5px solid #222;color:#888;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" class="speed-btn">0.75x</button>
+                <button onclick="setPlaybackSpeed(1,this)" style="background:#1a1a1a;border:1.5px solid #fe2c55;color:#fe2c55;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" class="speed-btn active">1x</button>
+                <button onclick="setPlaybackSpeed(1.5,this)" style="background:#1a1a1a;border:1.5px solid #222;color:#888;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" class="speed-btn">1.5x</button>
+                <button onclick="setPlaybackSpeed(2,this)" style="background:#1a1a1a;border:1.5px solid #222;color:#888;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" class="speed-btn">2x</button>
+                <button onclick="setPlaybackSpeed(3,this)" style="background:#1a1a1a;border:1.5px solid #222;color:#888;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" class="speed-btn">3x</button>
             </div>
         </div>
     </div>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for editor.html -->
+    <!--
+        <script src="js/upload.js" defer></script>
+    -->
     <script>
         let editorVideo  = null;
         let videoFile    = null;

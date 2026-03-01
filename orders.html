@@ -14,6 +14,25 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Modules: core, shop -->
+    <!-- Auth Guard -->
+    <script>
+    (() => {
+        try {
+            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
+            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
+            const isValid = session?.access_token && expiry && expiry > new Date();
+            if (!isValid) {
+                sessionStorage.setItem('sf_redirect_after_login', location.href);
+                location.replace('splash.html');
+            }
+        } catch(e) {
+            location.replace('splash.html');
+        }
+    })();
+    </script>
 </head>
 <body style="background: #000; color: #fff; padding-bottom: 80px;">
 
@@ -36,7 +55,7 @@
             </div>
             
             <div style="display: flex; gap: 15px; align-items: center;">
-                <img src="https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=200" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">
+                <img loading="lazy" src="https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=200" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">
                 <div style="flex: 1;">
                     <h4 style="font-size: 14px; margin: 0;">Produk SnapFlow</h4>
                     <p style="font-size: 12px; color: #888; margin-top: 4px;">1 Unit | RM 1,150.00</p>
@@ -60,6 +79,10 @@
     </nav>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for orders.html -->
+    <!--
+        <script src="js/shop.js" defer></script>
+    -->
     <script>
         // Panggil fungsi untuk muat data dari Supabase
         loadMyOrders();

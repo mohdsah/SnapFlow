@@ -20,6 +20,25 @@
         .follow-action-btn.following { background:#1a1a1a; color:#fff; border:1px solid #333; }
         .follow-action-btn.not-following { background:#fe2c55; color:#fff; }
     </style>
+
+    <!-- Modules: core, profile -->
+    <!-- Auth Guard -->
+    <script>
+    (() => {
+        try {
+            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
+            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
+            const isValid = session?.access_token && expiry && expiry > new Date();
+            if (!isValid) {
+                sessionStorage.setItem('sf_redirect_after_login', location.href);
+                location.replace('splash.html');
+            }
+        } catch(e) {
+            location.replace('splash.html');
+        }
+    })();
+    </script>
 </head>
 <body>
 
@@ -62,6 +81,10 @@
     </nav>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for followers.html -->
+    <!--
+        <script src="js/profile.js" defer></script>
+    -->
     <script>
         let currentTab = 'followers';
         let allUsers = [];

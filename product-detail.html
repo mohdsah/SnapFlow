@@ -13,6 +13,16 @@
     <title>SnapFlow | Detail Produk</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Auth Check (semi-public) -->
+    <script>
+    window._isLoggedIn = (() => {
+        try {
+            const k = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const s = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+            return !!(s?.access_token && new Date(s.expires_at*1000) > new Date());
+        } catch(e) { return false; }
+    })();
+    </script>
 </head>
 <body style="background: #000; color: #fff;">
 
@@ -23,7 +33,7 @@
     </div>
 
     <div class="detail-container">
-        <img id="detail-img" src="" alt="Produk">
+        <img loading="lazy" id="detail-img" src="" alt="Produk">
         <div class="detail-content" style="padding: 20px;">
             <h2 id="detail-title" style="margin-bottom: 10px;"></h2>
             <h3 id="detail-price" style="color: #fe2c55; margin-bottom: 20px;"></h3>

@@ -33,6 +33,18 @@
         .action-btn:active { background: #222; }
         .action-btn.danger { background: #1a0008; border-color: #3a0010; color: #fe2c55; }
     </style>
+
+    <!-- Modules: core, profile, feed -->
+    <!-- Auth Check (semi-public) -->
+    <script>
+    window._isLoggedIn = (() => {
+        try {
+            const k = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const s = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+            return !!(s?.access_token && new Date(s.expires_at*1000) > new Date());
+        } catch(e) { return false; }
+    })();
+    </script>
 </head>
 <body>
 
@@ -178,6 +190,11 @@
     </nav>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for profile.html -->
+    <!--
+        <script src="js/profile.js" defer></script>
+    <script src="js/feed.js" defer></script>
+    -->
 
     <!-- PWA Service Worker -->
     <script>

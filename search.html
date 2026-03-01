@@ -65,6 +65,18 @@
         .empty-state { text-align:center; padding:60px 24px; color:#555; }
         .empty-state i { font-size:44px; color:#1a1a1a; display:block; margin-bottom:14px; }
     </style>
+
+    <!-- Modules: core, discover, feed -->
+    <!-- Auth Check (semi-public) -->
+    <script>
+    window._isLoggedIn = (() => {
+        try {
+            const k = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const s = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+            return !!(s?.access_token && new Date(s.expires_at*1000) > new Date());
+        } catch(e) { return false; }
+    })();
+    </script>
 </head>
 <body>
 
@@ -134,6 +146,10 @@
     </nav>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for search.html -->
+    <!--
+        <script src="js/discover.js" defer></script>
+    -->
     <script>
         let searchTimeout   = null;
         let currentTab      = 'all';
@@ -368,7 +384,7 @@
             if (!users.length) return `<div class="empty-state"><i class="fa-solid fa-user"></i><p style="color:#888;">Tiada pengguna dijumpai.</p></div>`;
             return users.map(u => `
             <div class="user-row" onclick="window.location.href='profile.html?user=${encodeURIComponent(u.user_id)}'">
-                <img class="user-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(u.username||'U')}&background=random&size=96" alt="">
+                <img loading="lazy" class="user-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(u.username||'U')}&background=random&size=96" alt="">
                 <div style="flex:1;min-width:0;">
                     <p style="margin:0;font-size:14px;font-weight:800;">${highlightMatch(escapeHtml('@'+(u.username||'')), query)}</p>
                     <p style="margin:2px 0 0;font-size:12px;color:#555;">Lihat profil →</p>

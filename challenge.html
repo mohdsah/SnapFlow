@@ -48,6 +48,18 @@
         .grid-vid-overlay { position:absolute; bottom:4px; left:4px; display:flex; align-items:center;
                             gap:3px; font-size:11px; font-weight:700; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
     </style>
+
+    <!-- Modules: core, social, discover -->
+    <!-- Auth Check (semi-public) -->
+    <script>
+    window._isLoggedIn = (() => {
+        try {
+            const k = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const s = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+            return !!(s?.access_token && new Date(s.expires_at*1000) > new Date());
+        } catch(e) { return false; }
+    })();
+    </script>
 </head>
 <body>
 
@@ -84,6 +96,11 @@
     </nav>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for challenge.html -->
+    <!--
+        <script src="js/social.js" defer></script>
+    <script src="js/discover.js" defer></script>
+    -->
     <script>
         let currentChalTab = 'trending';
         let currentUser    = null;

@@ -5,6 +5,12 @@ const supabaseUrl = "https://trrfsredzugdyppevcbw.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRycmZzcmVkenVnZHlwcGV2Y2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMzY5NTgsImV4cCI6MjA4NzgxMjk1OH0.o2siKHUQddz89mVBto0vEk9lIUZF5xYvp8eKBbXcc7s";
 const snapSupabase = supabase.createClient(supabaseUrl, supabaseKey);
 
+// ── Dev mode: tukar ke false sebelum production deploy ──
+const DEV_MODE = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const devLog   = (...args) => { if (DEV_MODE) console.log('[SnapFlow]', ...args); };
+const devWarn  = (...args) => { if (DEV_MODE) console.warn('[SnapFlow]', ...args); };
+const devErr   = (...args) => console.error('[SnapFlow]', ...args); // error sentiasa log
+
 // ==========================================
 // 2. HELPER FUNCTIONS
 // ==========================================
@@ -15,6 +21,53 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.appendChild(document.createTextNode(String(text)));
     return div.innerHTML;
+}
+
+
+
+
+// ── Empty State Helper ─────────────────────────────
+function showEmptyState(container, icon, title, subtitle, action) {
+    if (!container) return;
+    action = action || '';
+    subtitle = subtitle || '';
+    container.innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'min-height:200px;padding:40px 20px;text-align:center;gap:12px;">' +
+            '<i class="' + icon + '" style="font-size:48px;color:#333;"></i>' +
+            '<h3 style="margin:0;font-size:17px;font-weight:800;color:#888;">' + escapeHtml(title) + '</h3>' +
+            (subtitle ? '<p style="margin:0;font-size:13px;color:#555;">' + escapeHtml(subtitle) + '</p>' : '') +
+            action +
+        '</div>';
+}
+
+// ── Error State Helper ──────────────────────────────
+function showErrorState(container, message) {
+    message = message || 'Ralat berlaku. Cuba lagi.';
+    if (!container) return;
+    container.innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'min-height:200px;padding:40px 20px;text-align:center;gap:12px;">' +
+            '<i class="fa-solid fa-triangle-exclamation" style="font-size:40px;color:#fe2c55;"></i>' +
+            '<p style="margin:0;font-size:14px;color:#888;">' + escapeHtml(message) + '</p>' +
+            '<button onclick="location.reload()" style="background:#fe2c55;color:#fff;border:none;' +
+            'padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">' +
+            'Cuba Lagi</button>' +
+        '</div>';
+}
+
+// ── Loading Skeleton Helper ─────────────────────────
+function showSkeleton(container, count) {
+    count = count || 3;
+    if (!container) return;
+    var skeletons = '';
+    for (var i = 0; i < count; i++) {
+        skeletons += '<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px;animation:pulse 1.5s ease-in-out infinite;">' +
+            '<div style="background:#222;height:14px;border-radius:4px;width:60%;margin-bottom:8px;"></div>' +
+            '<div style="background:#222;height:10px;border-radius:4px;width:40%;"></div>' +
+            '</div>';
+    }
+    container.innerHTML = skeletons;
 }
 
 // ✅ BARU: Toast notification (ganti alert())
@@ -64,24 +117,128 @@ function timeAgo(dateStr) {
 }
 
 // ==========================================
-// 3. SISTEM SESI & AUTH
+// 3. SISTEM SESI & AUTH — SECURE
 // ==========================================
-async function checkUserSession() {
-    try {
-        const { data: { user } } = await snapSupabase.auth.getUser();
-        const currentPage = window.location.pathname;
-        const authPages = ['login.html', 'register.html', 'splash.html', 'forgot-password.html', 'update-password.html'];
-        const isAuthPage = authPages.some(p => currentPage.includes(p));
 
-        if (user && isAuthPage && !currentPage.includes('update-password.html')) {
-            window.location.href = "index.html";
-        } else if (!user && !isAuthPage) {
-            window.location.href = "splash.html";
-        }
+// Pages yang TIDAK perlukan login
+const AUTH_PAGES     = ['login.html','register.html','splash.html','forgot-password.html','update-password.html'];
+// Pages yang langsung skip semua auth check
+const SKIP_AUTH_PAGES = ['offline.html','404.html'];
+// Pages semi-public (boleh tengok tapi features terhad tanpa login)
+const SEMI_PUBLIC     = ['discover.html','search.html','profile.html'];
+
+// State cache supaya tidak query Supabase berulang kali
+let _authUser    = undefined; // undefined = belum check, null = tidak login
+let _authChecked = false;
+
+// ── Fungsi utama: dapatkan user (cached) ─────────
+async function getAuthUser(forceRefresh = false) {
+    if (_authChecked && !forceRefresh) return _authUser;
+    try {
+        const { data: { session } } = await snapSupabase.auth.getSession();
+        _authUser    = session?.user || null;
+        _authChecked = true;
+        // Cache user ID untuk fungsi lain
+        if (_authUser) _cachedUserId = _authUser.id;
+        return _authUser;
     } catch (err) {
-        console.error("Session check error:", err);
+        console.error('[Auth] getAuthUser error:', err);
+        _authUser = null;
+        return null;
     }
 }
+
+// ── Guard utama: panggil di setiap protected page ─
+async function requireAuth(redirectTo = 'splash.html') {
+    const user = await getAuthUser();
+    if (!user) {
+        window.location.replace(redirectTo);
+        return null;
+    }
+    return user;
+}
+
+// ── Guard admin: check role dari DB ────────────────
+async function requireAdmin() {
+    const user = await requireAuth();
+    if (!user) return null;
+
+    const { data: profile, error } = await snapSupabase
+        .from('profiles')
+        .select('role, is_admin')
+        .eq('id', user.id)
+        .single();
+
+    if (error || (!profile?.is_admin && profile?.role !== 'admin')) {
+        showToast('Akses dinafikan. Halaman ini hanya untuk admin.', 'error');
+        setTimeout(() => window.location.replace('index.html'), 1500);
+        return null;
+    }
+    return { user, profile };
+}
+
+// ── checkUserSession: panggil bila DOMContentLoaded ─
+async function checkUserSession() {
+    const currentPage = window.location.pathname;
+    const page        = currentPage.split('/').pop() || 'index.html';
+
+    // Skip pages tertentu
+    if (SKIP_AUTH_PAGES.some(p => page.includes(p))) return;
+
+    const isAuthPage   = AUTH_PAGES.some(p => page.includes(p));
+    const isSemiPublic = SEMI_PUBLIC.some(p => page.includes(p));
+
+    const user = await getAuthUser();
+
+    // Redirect user yang dah login keluar dari auth pages
+    if (user && isAuthPage && !page.includes('update-password')) {
+        window.location.replace('index.html');
+        return;
+    }
+
+    // Redirect ke splash jika tidak login (kecuali semi-public pages)
+    if (!user && !isAuthPage && !isSemiPublic) {
+        // Simpan URL asal untuk redirect balik selepas login
+        sessionStorage.setItem('sf_redirect_after_login', window.location.href);
+        window.location.replace('splash.html');
+        return;
+    }
+}
+
+// ── Auto refresh token & handle sign out ──────────
+snapSupabase.auth.onAuthStateChange((event, session) => {
+    const page = window.location.pathname.split('/').pop() || 'index.html';
+    const isAuthPage   = AUTH_PAGES.some(p => page.includes(p));
+    const isSkipPage   = SKIP_AUTH_PAGES.some(p => page.includes(p));
+    const isSemiPublic = SEMI_PUBLIC.some(p => page.includes(p));
+
+    if (isSkipPage) return;
+
+    // Update cache
+    _authUser    = session?.user || null;
+    _authChecked = true;
+    if (_authUser) _cachedUserId = _authUser.id;
+
+    if (event === 'SIGNED_IN' && isAuthPage) {
+        // Redirect balik ke page asal atau index
+        const redirect = sessionStorage.getItem('sf_redirect_after_login');
+        sessionStorage.removeItem('sf_redirect_after_login');
+        window.location.replace(redirect && !AUTH_PAGES.some(p => redirect.includes(p)) ? redirect : 'index.html');
+    }
+
+    if (event === 'SIGNED_OUT' && !isAuthPage && !isSemiPublic) {
+        window.location.replace('splash.html');
+    }
+
+    if (event === 'TOKEN_REFRESHED') {
+        // Token refreshed silently — no action needed
+    }
+
+    if (event === 'USER_UPDATED') {
+        // Refresh cached user data
+        getAuthUser(true);
+    }
+});
 
 // ✅ BARU: Handle Login
 async function handleLogin() {
@@ -320,7 +477,7 @@ async function loadHomeFeed() {
                 <div class="side-bar">
                     <div class="action-item" onclick="handleFollow('${escapeHtml(vid.user_id)}', this)">
                         <div class="avatar-wrap">
-                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random" alt="avatar">
+                            <img loading="lazy" src="https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random" alt="avatar">
                             <div class="follow-plus-btn" id="follow-btn-${escapeHtml(vid.user_id)}">
                                 <i class="fa-solid fa-plus" style="font-size:10px;color:#fff;"></i>
                             </div>
@@ -441,8 +598,19 @@ function handleTouchEnd(event, videoId) {
     const last = window._tapTimes?.[videoId] || 0;
     const diff = now - last;
 
-    // Ignore jika klik pada sidebar atau butang
-    if (event.target.closest('.side-bar') || event.target.closest('.mute-btn') || event.target.closest('.comment-sheet')) return;
+    // Ignore jika klik pada sidebar, butang, atau mana-mana elemen interaktif
+    const clickTarget = event.target;
+    if (
+        clickTarget.closest('.side-bar') ||
+        clickTarget.closest('.action-item') ||
+        clickTarget.closest('.mute-btn') ||
+        clickTarget.closest('.comment-sheet') ||
+        clickTarget.closest('.video-progress-track') ||
+        clickTarget.closest('button') ||
+        clickTarget.closest('a') ||
+        clickTarget.tagName === 'BUTTON' ||
+        clickTarget.tagName === 'A'
+    ) return;
 
     if (diff < 300 && diff > 0) {
         // Double-tap!
@@ -588,7 +756,7 @@ function showShareSheet(videoId, caption) {
 
     const sheet = document.createElement('div');
     sheet.id = 'snap-share-sheet';
-    sheet.innerHTML = \`
+    sheet.innerHTML = `
         <div onclick="document.getElementById('snap-share-sheet').remove()"
              style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:8000;"></div>
         <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:20px;z-index:8001;border-top:1px solid #222;">
@@ -611,7 +779,7 @@ function showShareSheet(videoId, caption) {
                     <i class="fa-solid fa-share-nodes" style="font-size:22px;"></i><span>Lain-lain</span>
                 </button>
             </div>
-        </div>\`;
+        </div>`;
 
     document.body.appendChild(sheet);
 }
@@ -755,26 +923,26 @@ async function loadComments(videoId) {
 
         const buildComment = (c, isReply = false) => {
             const childReplies = replies.filter(r => r.parent_id === c.id);
-            return \`
-                <div class="comment-item \${isReply ? 'comment-reply' : ''}" style="\${isReply ? 'padding-left:44px;margin-top:2px;' : ''}">
-                    <div style="background-image:url('https://ui-avatars.com/api/?name=\${encodeURIComponent(escapeHtml(c.username||'U'))}&background=random');background-size:cover;background-color:#333;width:\${isReply?'30px':'36px'};height:\${isReply?'30px':'36px'};border-radius:50%;flex-shrink:0;"></div>
+            return `
+                <div class="comment-item ${isReply ? 'comment-reply' : ''}" style="${isReply ? 'padding-left:44px;margin-top:2px;' : ''}">
+                    <div style="background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(escapeHtml(c.username||'U'))}&background=random');background-size:cover;background-color:#333;width:${isReply?'30px':'36px'};height:${isReply?'30px':'36px'};border-radius:50%;flex-shrink:0;"></div>
                     <div style="flex:1;min-width:0;">
-                        <strong style="font-size:13px;color:#ccc;">\${escapeHtml(c.username||'User')}</strong>
-                        <p style="margin:3px 0 4px;font-size:14px;color:#eee;line-height:1.4;">\${escapeHtml(c.comment_text)}</p>
+                        <strong style="font-size:13px;color:#ccc;">${escapeHtml(c.username||'User')}</strong>
+                        <p style="margin:3px 0 4px;font-size:14px;color:#eee;line-height:1.4;">${escapeHtml(c.comment_text)}</p>
                         <div style="display:flex;gap:14px;align-items:center;">
-                            <span style="font-size:11px;color:#555;">\${timeAgo(c.created_at)}</span>
-                            \${!isReply ? \`<button onclick="setReplyTo(\${c.id}, '\${escapeHtml(c.username||'User')}')" style="background:transparent;border:none;color:#888;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:0;">Balas</button>\` : ''}
+                            <span style="font-size:11px;color:#555;">${timeAgo(c.created_at)}</span>
+                            ${!isReply ? `<button onclick="setReplyTo(${c.id}, '${escapeHtml(c.username||'User')}')" style="background:transparent;border:none;color:#888;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:0;">Balas</button>` : ''}
                         </div>
-                        \${childReplies.length > 0 ? \`
-                            <button onclick="toggleReplies(\${c.id})" style="background:transparent;border:none;color:#fe2c55;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 0;display:flex;align-items:center;gap:4px;">
-                                <i class="fa-solid fa-caret-right" id="reply-caret-\${c.id}"></i> \${childReplies.length} balasan
+                        ${childReplies.length > 0 ? `
+                            <button onclick="toggleReplies(${c.id})" style="background:transparent;border:none;color:#fe2c55;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 0;display:flex;align-items:center;gap:4px;">
+                                <i class="fa-solid fa-caret-right" id="reply-caret-${c.id}"></i> ${childReplies.length} balasan
                             </button>
-                            <div id="replies-\${c.id}" style="display:none;">
-                                \${childReplies.map(r => buildComment(r, true)).join('')}
+                            <div id="replies-${c.id}" style="display:none;">
+                                ${childReplies.map(r => buildComment(r, true)).join('')}
                             </div>
-                        \` : ''}
+                        ` : ''}
                     </div>
-                </div>\`;
+                </div>`;
         };
 
         list.innerHTML = roots.map(c => buildComment(c)).join('');
@@ -787,7 +955,7 @@ function setReplyTo(commentId, username) {
     replyingToComment = { id: commentId, username };
     const input = document.getElementById('new-comment');
     if (input) {
-        input.placeholder = \`Balas @\${username}...\`;
+        input.placeholder = `Balas @${username}...`;
         input.focus();
     }
     // Tunjuk label reply
@@ -799,7 +967,7 @@ function setReplyTo(commentId, username) {
         const area = document.querySelector('.comment-input-area');
         area?.parentNode?.insertBefore(label, area);
     }
-    label.innerHTML = \`<i class="fa-solid fa-reply"></i> Balas @\${escapeHtml(username)} <button onclick="cancelReply()" style="margin-left:auto;background:transparent;border:none;color:#555;cursor:pointer;font-size:14px;">✕</button>\`;
+    label.innerHTML = `<i class="fa-solid fa-reply"></i> Balas @${escapeHtml(username)} <button onclick="cancelReply()" style="margin-left:auto;background:transparent;border:none;color:#555;cursor:pointer;font-size:14px;">✕</button>`;
 }
 
 function cancelReply() {
@@ -810,8 +978,8 @@ function cancelReply() {
 }
 
 function toggleReplies(commentId) {
-    const el = document.getElementById(\`replies-\${commentId}\`);
-    const caret = document.getElementById(\`reply-caret-\${commentId}\`);
+    const el = document.getElementById(`replies-${commentId}`);
+    const caret = document.getElementById(`reply-caret-${commentId}`);
     if (!el) return;
     const isOpen = el.style.display !== 'none';
     el.style.display = isOpen ? 'none' : 'block';
@@ -1257,8 +1425,8 @@ const PRODUCTS = [
     { id: 8, name: 'Kek Coklat Homemade', brand: 'Makanan', price: 45, img: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400', desc: 'Kek coklat lembap buatan tangan, tempahan sahaja.' },
 ];
 
-let cart = JSON.parse(localStorage.getItem('snapflow_cart') || '[]');
-function saveCart() { localStorage.setItem('snapflow_cart', JSON.stringify(cart)); }
+let cart = JSON.parse(localStorage.getItem('sf_cart_v2') || localStorage.getItem('snapflow_cart') || '[]');
+function saveCart() { localStorage.setItem('sf_cart_v2', JSON.stringify(cart)); }
 
 function filterBrand(brand, el) {
     document.querySelectorAll('.brand-item').forEach(b => b.classList.remove('active'));
@@ -1273,7 +1441,7 @@ function filterBrand(brand, el) {
 
     grid.innerHTML = filtered.map(p => `
         <div class="product-card" onclick="window.location.href='product-detail.html?id=${p.id}'">
-            <img src="${p.img}" alt="${escapeHtml(p.name)}" style="width:100%;aspect-ratio:1/1;object-fit:cover;">
+            <img loading="lazy" src="${p.img}" alt="${escapeHtml(p.name)}" style="width:100%;aspect-ratio:1/1;object-fit:cover;">
             <div style="padding:10px;">
                 <h3 style="font-size:13px;margin:0 0 5px;">${escapeHtml(p.name)}</h3>
                 <p style="color:#fe2c55;font-weight:bold;margin:0 0 8px;font-size:14px;">RM ${p.price.toLocaleString()}</p>
@@ -1292,7 +1460,7 @@ function loadShop() {
 
     grid.innerHTML = PRODUCTS.map(p => `
         <div class="product-card">
-            <img src="${p.img}" alt="${escapeHtml(p.name)}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px 10px 0 0;">
+            <img loading="lazy" src="${p.img}" alt="${escapeHtml(p.name)}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px 10px 0 0;">
             <div style="padding:12px;">
                 <h3 style="font-size:14px;margin:0 0 5px;">${escapeHtml(p.name)}</h3>
                 <p style="color:#fe2c55;font-weight:bold;margin:0 0 10px;">RM ${p.price.toLocaleString()}</p>
@@ -1353,7 +1521,7 @@ function renderCart() {
 
     container.innerHTML = cart.map(item => `
         <div style="display:flex;gap:15px;padding:15px;border-bottom:1px solid #111;align-items:center;">
-            <img src="${item.img}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;">
+            <img loading="lazy" src="${item.img}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;">
             <div style="flex:1;">
                 <strong style="font-size:14px;">${escapeHtml(item.name)}</strong>
                 <p style="color:#fe2c55;margin:5px 0;font-weight:bold;">RM ${item.price.toLocaleString()}</p>
@@ -1403,7 +1571,16 @@ function goToCheckout(productName, price) {
 // ==========================================
 // 14. CHAT / MESEJ
 // ==========================================
-let chatSubscription = null;
+let chatSubscription  = null;
+let _chatMsgIds       = new Set();
+
+// Cleanup bila page unload — prevent memory leak
+window.addEventListener('beforeunload', () => {
+    if (chatSubscription) {
+        snapSupabase.removeChannel(chatSubscription);
+        chatSubscription = null;
+    }
+});
 
 async function loadMessages() {
     const chatBox = document.getElementById('chat-box');
@@ -1477,6 +1654,8 @@ async function sendMessage() {
 
 function listenMessages() {
     if (chatSubscription) return;
+    if (chatSubscription) { snapSupabase.removeChannel(chatSubscription); chatSubscription = null; }
+    _chatMsgIds.clear();
     chatSubscription = snapSupabase.channel('messages')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
             loadMessages();
@@ -2528,29 +2707,37 @@ function saveSavedVideos() {
     localStorage.setItem('snapflow_saved', JSON.stringify([...savedVideos]));
 }
 
-// ── Toggle simpan video ───────────────────────────
+// ── Toggle simpan video (dengan Collection Picker) ──
 async function showBookmarkAction(videoId) {
-    const { data: { user } } = await snapSupabase.auth.getUser();
+    const user = await getAuthUser();
     if (!user) return showToast('Log masuk dahulu untuk simpan video.', 'warning');
 
-    const icon = document.getElementById(`bookmark-icon-${videoId}`);
+    const icon    = document.getElementById(`bookmark-icon-${videoId}`);
     const isSaved = savedVideos.has(videoId);
 
     if (isSaved) {
         savedVideos.delete(videoId);
         saveSavedVideos();
-        if (icon) { icon.style.color = '#fff'; icon.className = 'fa-solid fa-bookmark'; }
-        showToast('Video dibuang dari koleksi.', 'info');
+        if (icon) { icon.style.color = '#fff'; icon.className = 'fa-solid fa-bookmark'; icon.style.transform = ''; }
+        showToast('Video dibuang dari simpanan.', 'info');
     } else {
         savedVideos.add(videoId);
         saveSavedVideos();
-        if (icon) { icon.style.color = '#fe2c55'; icon.className = 'fa-solid fa-bookmark'; }
-        showToast('Video disimpan ke koleksi! 🔖', 'success');
-
-        // Animasi denyut
         if (icon) {
+            icon.style.color     = '#fe2c55';
+            icon.className       = 'fa-solid fa-bookmark';
             icon.style.transform = 'scale(1.4)';
             setTimeout(() => { icon.style.transform = 'scale(1)'; }, 200);
+        }
+
+        // Tunjuk collection picker
+        const { data: vid } = await snapSupabase.from('videos')
+            .select('id,video_url,caption,likes_count').eq('id', videoId).single();
+
+        if (vid && typeof window.openCollectionPicker === 'function') {
+            window.openCollectionPicker(videoId, vid);
+        } else {
+            showToast('Video disimpan! 🔖 Pergi Profil → Koleksi untuk urus.', 'success');
         }
     }
 }
@@ -2645,6 +2832,22 @@ function showVideoOptions(videoId, videoOwnerId) {
 
                 <button onclick="showShareSheet(${videoId}, '')" style="width:100%;background:transparent;border:none;color:#fff;padding:14px;text-align:left;font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;">
                     <i class="fa-solid fa-share" style="width:20px;color:#00f2ea;"></i> Kongsi Video
+                </button>
+
+                ${!isOwner ? `
+                <button onclick="document.getElementById('snap-options-sheet').remove(); startDuet(${videoId}, document.querySelector('.video-container[data-video-id=\"${videoId}\"] video')?.src||'', '${videoOwnerId}')" style="width:100%;background:transparent;border:none;color:#fff;padding:14px;text-align:left;font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;">
+                    <i class="fa-solid fa-users" style="width:20px;color:#f6c90e;"></i> Duet
+                </button>
+                <button onclick="document.getElementById('snap-options-sheet').remove(); startStitch(${videoId}, document.querySelector('.video-container[data-video-id=\"${videoId}\"] video')?.src||'', '${videoOwnerId}')" style="width:100%;background:transparent;border:none;color:#fff;padding:14px;text-align:left;font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;">
+                    <i class="fa-solid fa-scissors" style="width:20px;color:#c084fc;"></i> Stitch
+                </button>` : ''}
+
+                <button onclick="document.getElementById('snap-options-sheet').remove(); generateSubtitleForVideo(${videoId}, document.querySelector('.video-container[data-video-id=\"${videoId}\"] video')?.src||'')" style="width:100%;background:transparent;border:none;color:#fff;padding:14px;text-align:left;font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;">
+                    <i class="fa-solid fa-closed-captioning" style="width:20px;color:#00f2ea;"></i> Jana Subtitle AI
+                </button>
+
+                <button onclick="document.getElementById('snap-options-sheet').remove(); window.location.href='challenge.html'" style="width:100%;background:transparent;border:none;color:#fff;padding:14px;text-align:left;font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1a1a1a;">
+                    <i class="fa-solid fa-trophy" style="width:20px;color:#f6c90e;"></i> Lihat Cabaran
                 </button>
 
                 <button onclick="document.getElementById('snap-options-sheet').remove()" style="width:100%;background:transparent;border:none;color:#555;padding:14px;text-align:center;font-size:15px;cursor:pointer;font-family:inherit;margin-top:4px;">
@@ -2858,79 +3061,6 @@ function setSearchFilter(filter, el) {
 }
 
 // Override searchDiscover untuk sokong filter kreator
-async function searchDiscover(query) {
-    lastSearchQuery = query;
-    const el = document.getElementById('search-results-inner') || document.getElementById('search-results-discover');
-    if (!el) return;
-
-    el.innerHTML = `<div style="padding:20px;text-align:center;color:#444;">Mencari "${escapeHtml(query)}"...</div>`;
-
-    try {
-        let videoResults = [], kreatorResults = [];
-
-        // Cari video
-        if (currentSearchFilter !== 'kreator') {
-            const { data: byCaption } = await snapSupabase
-                .from('videos').select('*').ilike('caption', `%${query}%`).limit(9);
-            videoResults = byCaption || [];
-        }
-
-        // Cari kreator (unique users dari videos table)
-        if (currentSearchFilter !== 'video') {
-            const { data: byUser } = await snapSupabase
-                .from('videos').select('user_id, username, likes_count')
-                .ilike('username', `%${query}%`).limit(20);
-
-            // Aggregate kreator unik
-            const kreatorMap = {};
-            (byUser || []).forEach(v => {
-                if (!kreatorMap[v.user_id]) {
-                    kreatorMap[v.user_id] = { user_id: v.user_id, username: v.username || 'User', totalLikes: 0, videoCount: 0 };
-                }
-                kreatorMap[v.user_id].totalLikes += (v.likes_count || 0);
-                kreatorMap[v.user_id].videoCount += 1;
-            });
-            kreatorResults = Object.values(kreatorMap).slice(0, 8);
-        }
-
-        if (videoResults.length === 0 && kreatorResults.length === 0) {
-            el.innerHTML = `
-                <div style="text-align:center;padding:50px 20px;color:#333;">
-                    <i class="fa-solid fa-magnifying-glass" style="font-size:36px;margin-bottom:14px;display:block;"></i>
-                    <p style="font-size:14px;">Tiada hasil untuk <strong style="color:#fff;">"${escapeHtml(query)}"</strong></p>
-                    <p style="font-size:13px;color:#333;margin-top:6px;">Cuba cari dengan perkataan lain</p>
-                </div>`;
-            return;
-        }
-
-        let html = '';
-
-        // Bahagian kreator
-        if (kreatorResults.length > 0) {
-            html += `<div style="padding:12px 16px 6px;font-size:13px;font-weight:700;color:#888;">👤 Kreator</div>`;
-            html += kreatorResults.map((c, i) => `
-                <div class="search-result-item fade-in" style="animation-delay:${i*0.04}s;">
-                    <div style="width:46px;height:46px;border-radius:50%;background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(c.username)}&background=random&size=100');background-size:cover;flex-shrink:0;border:1px solid #222;"></div>
-                    <div style="flex:1;min-width:0;">
-                        <strong style="font-size:14px;display:block;">@${escapeHtml(c.username)}</strong>
-                        <span style="font-size:12px;color:#555;">${c.videoCount} video · ${c.totalLikes} likes</span>
-                    </div>
-                    <button class="follow-kreator-btn" style="width:70px;" onclick="followCreatorById('${c.user_id}', this)">+ Ikuti</button>
-                </div>`).join('');
-        }
-
-        // Bahagian video
-        if (videoResults.length > 0) {
-            html += `<div style="padding:12px 16px 6px;font-size:13px;font-weight:700;color:#888;">🎬 Video (${videoResults.length})</div>`;
-            html += buildVideoGrid(videoResults, false);
-        }
-
-        el.innerHTML = html;
-
-    } catch (err) {
-        el.innerHTML = `<div style="padding:20px;text-align:center;color:#fe2c55;">Ralat semasa mencari.</div>`;
-    }
-}
 
 // ==========================================
 // 24. LEADERBOARD KREATOR
@@ -3504,7 +3634,7 @@ async function openStory(storyId) {
         <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:0 14px 14px;position:relative;">
             ${story.media_type === 'video'
                 ? `<video src="${escapeHtml(story.media_url)}" autoplay muted playsinline loop style="max-width:100%;max-height:100%;border-radius:12px;object-fit:cover;"></video>`
-                : `<img src="${escapeHtml(story.media_url)}" style="max-width:100%;max-height:100%;border-radius:12px;object-fit:cover;" alt="story">`
+                : `<img loading="lazy" src="${escapeHtml(story.media_url)}" style="max-width:100%;max-height:100%;border-radius:12px;object-fit:cover;" alt="story">`
             }
             ${story.caption ? `<div style="position:absolute;bottom:24px;left:24px;right:24px;background:rgba(0,0,0,0.6);padding:10px 14px;border-radius:10px;font-size:14px;text-align:center;">${escapeHtml(story.caption)}</div>` : ''}
         </div>`;
@@ -3562,7 +3692,7 @@ function previewStoryFile(input) {
     if (file.type.startsWith('video')) {
         preview.innerHTML = `<video src="${url}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></video>`;
     } else {
-        preview.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" alt="preview">`;
+        preview.innerHTML = `<img loading="lazy" src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" alt="preview">`;
     }
 }
 
@@ -4064,6 +4194,8 @@ function showLocalNotification(title, body, icon = '') {
 }
 
 // Intercept realtime notifikasi → tunjuk push notification
+let _realtimeChannel = null;
+
 function setupPushFromRealtime() {
     if (!snapSupabase) return;
 
@@ -4513,7 +4645,7 @@ function buildVideoHTML(vid, isLiked, username) {
         <div class="side-bar">
             <div class="action-item" onclick="handleFollow('${escapeHtml(vid.user_id)}', this)">
                 <div class="avatar-wrap">
-                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random" alt="avatar">
+                    <img loading="lazy" src="https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random" alt="avatar">
                     <div class="follow-plus-btn" id="follow-btn-${escapeHtml(vid.user_id)}">
                         <i class="fa-solid fa-plus" style="font-size:10px;color:#fff;"></i>
                     </div>
@@ -5521,175 +5653,282 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 50. CARIAN GLOBAL — Pembantu Feed
+
+// ==========================================
+// BATCH 7 — CIRI TAMBAHAN (BERSIH)
 // ==========================================
 
-// Tunjuk butang carian dalam header feed
+// ── 50. CARIAN GLOBAL ──────────────────────
 function initSearchButton() {
+    // Tambah ikon carian dalam header jika belum ada
+    const existingBtn = document.getElementById('global-search-btn');
+    if (existingBtn) return;
     const header = document.querySelector('header');
     if (!header) return;
-    // Tambah ikon carian jika belum ada
-    if (!document.getElementById('global-search-btn')) {
-        const btn = document.createElement('button');
-        btn.id   = 'global-search-btn';
-        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
-        btn.style.cssText = 'background:transparent;border:none;color:#888;font-size:18px;cursor:pointer;padding:4px 8px;';
-        btn.onclick = () => window.location.href = 'search.html';
-        header.appendChild(btn);
-    }
+    const btn       = document.createElement('a');
+    btn.id          = 'global-search-btn';
+    btn.href        = 'search.html';
+    btn.style.cssText = 'color:#888;font-size:18px;text-decoration:none;padding:4px 8px;flex-shrink:0;';
+    btn.innerHTML   = '<i class="fa-solid fa-magnifying-glass"></i>';
+    header.appendChild(btn);
 }
 
-// ==========================================
-// 51. DUET & STITCH — Butang dalam Feed
-// ==========================================
-
-// Tambah butang Duet ke video options
-function addDuetOption(videoId, videoUrl, username) {
-    return `
-    <button onclick="startDuet(${videoId},'${escapeHtml(videoUrl)}','${escapeHtml(username)}')"
-        style="width:100%;background:transparent;border:none;border-top:1px solid #1a1a1a;color:#ccc;
-               padding:14px;text-align:left;font-size:14px;cursor:pointer;font-family:inherit;
-               display:flex;align-items:center;gap:10px;">
-        <i class="fa-solid fa-users" style="color:#f6c90e;width:20px;"></i> Duet
-    </button>
-    <button onclick="startStitch(${videoId},'${escapeHtml(videoUrl)}','${escapeHtml(username)}')"
-        style="width:100%;background:transparent;border:none;border-top:1px solid #1a1a1a;color:#ccc;
-               padding:14px;text-align:left;font-size:14px;cursor:pointer;font-family:inherit;
-               display:flex;align-items:center;gap:10px;">
-        <i class="fa-solid fa-scissors" style="color:#c084fc;width:20px;"></i> Stitch
-    </button>`;
-}
-
+// ── 51. DUET & STITCH ──────────────────────
 function startDuet(videoId, videoUrl, creator) {
-    document.querySelectorAll('[id^="video-options-menu-"]').forEach(m => m.remove());
-    const encoded = encodeURIComponent(videoUrl);
-    window.location.href = `duet.html?videoId=${videoId}&videoUrl=${encoded}&creator=${encodeURIComponent(creator)}&mode=duet`;
+    document.getElementById('snap-options-sheet')?.remove();
+    if (!videoUrl) return showToast('URL video tidak ditemui.', 'error');
+    const url = `duet.html?videoId=${videoId}&videoUrl=${encodeURIComponent(videoUrl)}&creator=${encodeURIComponent(creator)}&mode=duet`;
+    window.location.href = url;
 }
 
 function startStitch(videoId, videoUrl, creator) {
-    document.querySelectorAll('[id^="video-options-menu-"]').forEach(m => m.remove());
-    const encoded = encodeURIComponent(videoUrl);
-    window.location.href = `duet.html?videoId=${videoId}&videoUrl=${encoded}&creator=${encodeURIComponent(creator)}&mode=stitch`;
+    document.getElementById('snap-options-sheet')?.remove();
+    if (!videoUrl) return showToast('URL video tidak ditemui.', 'error');
+    const url = `duet.html?videoId=${videoId}&videoUrl=${encodeURIComponent(videoUrl)}&creator=${encodeURIComponent(creator)}&mode=stitch`;
+    window.location.href = url;
 }
 
-// Patch showVideoOptions untuk sertakan Duet + Stitch
-const _origShowOpts = window.showVideoOptions;
-if (typeof showVideoOptions === 'function') {
-    const _origFn = showVideoOptions;
-    window.showVideoOptions = function(videoId, userId) {
-        _origFn(videoId, userId);
-        // Cari video data
-        setTimeout(() => {
-            const menu = document.getElementById(`video-options-menu-${videoId}`);
-            if (!menu) return;
-            const vidEl  = document.querySelector(`.video-container[data-video-id="${videoId}"] video`);
-            const vidUrl = vidEl?.src || '';
-            // Cari username dari DOM
-            const userEl = document.querySelector(`.video-container[data-video-id="${videoId}"] .creator-handle`);
-            const uname  = (userEl?.innerText || '@user').replace('@','');
+// ── 52. KOLEKSI BOOKMARK ───────────────────
+// openCollectionPicker dipanggil oleh showBookmarkAction
+window.openCollectionPicker = function(videoId, videoData) {
+    document.getElementById('col-picker-modal')?.remove();
 
-            const duetDiv = document.createElement('div');
-            duetDiv.innerHTML = addDuetOption(videoId, vidUrl, uname);
-            const list = menu.querySelector('.options-list');
-            if (list) list.insertBefore(duetDiv, list.firstChild);
-        }, 50);
-    };
-}
+    // Ambil koleksi dari localStorage
+    let cols = [];
+    try { cols = JSON.parse(localStorage.getItem('sf_collections') || '[]'); } catch(e) {}
 
-// ==========================================
-// 52. BOOKMARK KOLEKSI — Pembantu
-// ==========================================
+    if (!cols.length) {
+        cols = [
+            { id:'fav',      name:'Kegemaran',       emoji:'❤️' },
+            { id:'watch',    name:'Tonton Kemudian',  emoji:'⏰' },
+            { id:'masak',    name:'Resepi',           emoji:'🍳' },
+            { id:'lawak',    name:'Lawak',            emoji:'😂' },
+            { id:'tutorial', name:'Tutorial',         emoji:'📚' },
+        ];
+        localStorage.setItem('sf_collections', JSON.stringify(cols));
+    }
 
-// Override showBookmarkAction untuk tunjuk collection picker
-const _origBookmark = window.showBookmarkAction;
-async function showBookmarkAction(videoId) {
-    const { data: { user } } = await snapSupabase.auth.getUser();
-    if (!user) return showToast('Log masuk dahulu untuk simpan video.', 'warning');
+    const modal = document.createElement('div');
+    modal.id    = 'col-picker-modal';
+    modal.innerHTML = `
+        <div onclick="document.getElementById('col-picker-modal').remove()"
+             style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9500;"></div>
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;
+                    padding:20px;z-index:9501;border-top:1px solid #222;max-height:65vh;overflow-y:auto;">
+            <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
+            <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;">🔖 Simpan ke Koleksi</h3>
+            ${cols.map(col => {
+                let colVids = [];
+                try { colVids = JSON.parse(localStorage.getItem(`sf_col_${col.id}`) || '[]'); } catch(e) {}
+                const isAdded = colVids.some(v => v.id === videoId);
+                return `
+                <div onclick="addVideoToCollection('${col.id}', ${JSON.stringify(videoData).replace(/"/g,'&quot;')})"
+                     style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;
+                            cursor:pointer;margin-bottom:6px;border:1.5px solid ${isAdded ? '#fe2c55' : 'transparent'};
+                            background:${isAdded ? '#1a0005' : '#1a1a1a'};">
+                    <span style="font-size:22px;width:32px;text-align:center;">${col.emoji}</span>
+                    <div style="flex:1;">
+                        <p style="margin:0;font-size:14px;font-weight:700;">${escapeHtml(col.name)}</p>
+                        <p style="margin:2px 0 0;font-size:11px;color:#555;">${colVids.length} video</p>
+                    </div>
+                    ${isAdded ? '<i class="fa-solid fa-check" style="color:#fe2c55;"></i>' : ''}
+                </div>`;
+            }).join('')}
+            <button onclick="document.getElementById('col-picker-modal').remove();window.location.href='collections.html'"
+                style="width:100%;background:transparent;border:1px dashed #333;color:#555;padding:11px;
+                       border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px;">
+                + Urus Koleksi →
+            </button>
+        </div>`;
+    document.body.appendChild(modal);
+};
 
-    const icon  = document.getElementById(`bookmark-icon-${videoId}`);
-    const isSaved = savedVideos.has(videoId);
+window.addVideoToCollection = function(colId, videoData) {
+    let colVids = [];
+    try { colVids = JSON.parse(localStorage.getItem(`sf_col_${colId}`) || '[]'); } catch(e) {}
 
-    if (isSaved) {
-        // Buang dari semua simpan
-        savedVideos.delete(videoId);
-        saveSavedVideos();
-        if (icon) { icon.style.color = '#fff'; icon.className = 'fa-solid fa-bookmark'; }
+    if (colVids.some(v => v.id === videoData.id)) {
+        // Toggle off — buang dari koleksi
+        colVids = colVids.filter(v => v.id !== videoData.id);
+        localStorage.setItem(`sf_col_${colId}`, JSON.stringify(colVids));
         showToast('Video dibuang dari koleksi.', 'info');
     } else {
-        // Tambah ke saved + tunjuk collection picker
-        savedVideos.add(videoId);
-        saveSavedVideos();
-        if (icon) { icon.style.color = '#fe2c55'; icon.className = 'fa-solid fa-bookmark'; }
+        colVids.push(videoData);
+        localStorage.setItem(`sf_col_${colId}`, JSON.stringify(colVids));
+        let cols = [];
+        try { cols = JSON.parse(localStorage.getItem('sf_collections') || '[]'); } catch(e) {}
+        const col = cols.find(c => c.id === colId);
+        showToast(`Disimpan ke "${col?.name || 'Koleksi'}"! 📁`, 'success');
+    }
+    document.getElementById('col-picker-modal')?.remove();
+};
 
-        // Cari data video untuk collection picker
-        const { data: vid } = await snapSupabase.from('videos')
-            .select('id,video_url,caption,likes_count').eq('id', videoId).single();
+// ── 53. VIDEO EDITOR INTEGRATION ──────────
+function checkEditorMeta() {
+    try {
+        const meta = JSON.parse(localStorage.getItem('sf_editor_meta') || 'null');
+        if (!meta) return;
+        localStorage.removeItem('sf_editor_meta');
+        showToast('Video dari editor bersedia untuk upload! ✂️', 'success');
+    } catch(e) {}
+}
 
-        if (vid && typeof window.openCollectionPicker === 'function') {
-            window.openCollectionPicker(videoId, vid);
-        } else {
-            showToast('Video disimpan! 🔖', 'success');
+function checkDuetMeta() {
+    try {
+        const meta = JSON.parse(localStorage.getItem('sf_duet_meta') || 'null');
+        if (!meta) return;
+        localStorage.removeItem('sf_duet_meta');
+        const captionEl = document.getElementById('video-caption');
+        if (!captionEl) return;
+        const tag  = meta.mode === 'stitch' ? '#stitch' : '#duet';
+        const orig = meta.originalCreator ? `@${meta.originalCreator}` : '';
+        captionEl.value = `${tag} ${orig} #snapflow`.trim();
+        showToast(`${meta.mode === 'duet' ? 'Duet' : 'Stitch'} bersedia untuk upload! 🎭`, 'success');
+    } catch(e) {}
+}
+
+// ── 54. CHALLENGE AUTO-HASHTAG ─────────────
+function checkPendingChallengeHashtag() {
+    const hashtag = localStorage.getItem('sf_pending_challenge_hashtag');
+    if (!hashtag) return;
+    const captionEl = document.getElementById('video-caption');
+    if (!captionEl) return;
+    if (!captionEl.value.includes(hashtag)) {
+        captionEl.value = (captionEl.value + ' ' + hashtag).trim();
+        showToast(`Hashtag cabaran ${hashtag} ditambah! 🏆`, 'success');
+    }
+    localStorage.removeItem('sf_pending_challenge_hashtag');
+}
+
+async function updateChallengeEntryCount(caption) {
+    if (!caption) return;
+    const hashtags = (caption.match(/#[\w]+/g) || []);
+    for (const tag of hashtags) {
+        const { data: chal } = await snapSupabase.from('challenges')
+            .select('id,entry_count').eq('hashtag', tag.toLowerCase()).single().catch(() => ({ data: null }));
+        if (!chal) continue;
+        await snapSupabase.from('challenges')
+            .update({ entry_count: (chal.entry_count || 0) + 1 }).eq('id', chal.id);
+        const { data: { user } } = await snapSupabase.auth.getUser();
+        if (user) {
+            await snapSupabase.from('challenge_entries')
+                .upsert([{ challenge_id: chal.id, user_id: user.id }]).catch(() => {});
         }
     }
 }
 
-// ==========================================
-// 53. VIDEO EDITOR — Upload integration
-// ==========================================
-
-// Baca metadata editor dari localStorage bila sampai dari editor
-function checkEditorMeta() {
-    const metaStr = localStorage.getItem('sf_editor_meta');
-    if (!metaStr) return;
-
+// ── 55. LIVE BAR (Feed) ────────────────────
+async function loadLiveBar() {
+    const liveBar = document.getElementById('live-bar');
+    if (!liveBar) return;
     try {
-        const meta = JSON.parse(metaStr);
-        localStorage.removeItem('sf_editor_meta');
-        if (meta && document.getElementById('video-caption')) {
-            showToast('Video dari editor bersedia untuk upload!', 'success');
-        }
+        const { data: sessions } = await snapSupabase.from('live_sessions')
+            .select('session_id,host_id,host_name,viewer_count,title')
+            .eq('is_active', true).order('viewer_count', { ascending: false }).limit(6);
+
+        if (!sessions?.length) { liveBar.style.display = 'none'; return; }
+        liveBar.style.display = 'flex';
+        liveBar.innerHTML = `
+            <a href="live.html" style="text-decoration:none;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 8px;">
+                <div style="width:52px;height:52px;background:#1a0005;border-radius:50%;border:2.5px solid #fe2c55;
+                            display:flex;align-items:center;justify-content:center;font-size:18px;">
+                    🔴
+                </div>
+                <span style="font-size:10px;color:#888;">Go Live</span>
+            </a>
+            ${sessions.map(s => `
+            <a href="live.html" style="text-decoration:none;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 6px;">
+                <div style="position:relative;width:52px;height:52px;">
+                    <div style="width:52px;height:52px;border-radius:50%;border:2.5px solid #fe2c55;
+                                background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(s.host_name||'U')}&background=random&size=104');
+                                background-size:cover;"></div>
+                    <span style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:#fe2c55;
+                                 color:#fff;font-size:8px;font-weight:900;padding:1px 5px;border-radius:20px;">LIVE</span>
+                </div>
+                <span style="font-size:10px;color:#ccc;white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;">
+                    @${escapeHtml((s.host_name||'User').split(' ')[0])}
+                </span>
+            </a>`).join('')}`;
+    } catch(e) { console.warn('loadLiveBar:', e); }
+}
+
+// ── 56. LOG AKTIVITI AUTO ──────────────────
+function recordActivityAuto(type, desc, risk = 'low') {
+    try {
+        const logs  = JSON.parse(localStorage.getItem('sf_activity_log') || '[]');
+        const ua    = navigator.userAgent;
+        let browser = 'Browser', os = 'Unknown';
+        if (ua.includes('Chrome'))       browser = 'Chrome';
+        else if (ua.includes('Safari'))  browser = 'Safari';
+        else if (ua.includes('Firefox')) browser = 'Firefox';
+        else if (ua.includes('Edge'))    browser = 'Edge';
+        if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+        else if (ua.includes('Android')) os = 'Android';
+        else if (ua.includes('Windows')) os = 'Windows';
+        else if (ua.includes('Mac'))     os = 'macOS';
+
+        logs.unshift({ id: Date.now(), type, desc, risk, browser, os, timestamp: new Date().toISOString() });
+        localStorage.setItem('sf_activity_log', JSON.stringify(logs.slice(0, 100)));
     } catch(e) {}
 }
 
-// Baca metadata duet bila sampai dari duet page
-function checkDuetMeta() {
-    const metaStr = localStorage.getItem('sf_duet_meta');
-    if (!metaStr) return;
-
-    try {
-        const meta = JSON.parse(metaStr);
-        localStorage.removeItem('sf_duet_meta');
-        if (meta && document.getElementById('video-caption')) {
-            const captionEl = document.getElementById('video-caption');
-            const tag  = meta.mode === 'duet' ? '#duet' : '#stitch';
-            const orig = meta.originalCreator ? `@${meta.originalCreator}` : '';
-            captionEl.value = `${tag} ${orig} #snapflow`.trim();
-            showToast(`${meta.mode === 'duet' ? 'Duet' : 'Stitch'} dengan ${meta.originalCreator||'kreator'} bersedia!`, 'success');
-        }
-    } catch(e) {}
-}
-
-// Hook ke DOMContentLoaded untuk semak metadata
+// ── DOMContentLoaded hooks ─────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('from') === 'editor') checkEditorMeta();
-    if (urlParams.get('from') === 'duet')   checkDuetMeta();
+    const params = new URLSearchParams(window.location.search);
 
-    // Init search button di semua halaman yang ada header
+    // Upload page
+    if (params.get('from') === 'editor') checkEditorMeta();
+    if (params.get('from') === 'duet')   checkDuetMeta();
+    if (document.getElementById('video-caption')) checkPendingChallengeHashtag();
+
+    // Live bar
+    if (document.getElementById('live-bar')) loadLiveBar();
+
+    // Search button
     initSearchButton();
+
+    // Log aktiviti (1x per jam)
+    const lastLog = parseInt(localStorage.getItem('sf_last_login_log') || '0');
+    if (Date.now() - lastLog > 3600000) {
+        snapSupabase?.auth?.getUser?.().then(({ data: { user } }) => {
+            if (user) {
+                recordActivityAuto('login', 'Sesi aktif', 'low');
+                localStorage.setItem('sf_last_login_log', Date.now().toString());
+            }
+        }).catch(() => {});
+    }
 });
 
-// ==========================================
-// 54. ANALITIK LANJUTAN — Link dari profil
-// ==========================================
+// ── viewVideo: navigate ke video dalam feed ──────
+function viewVideo(videoId) {
+    if (!videoId) return;
+    window.location.href = `index.html#video-${videoId}`;
+}
 
-// timeAgo helper jika belum ada
-if (typeof timeAgo !== 'function') {
-    function timeAgo(isoStr) {
-        const diff = Date.now() - new Date(isoStr).getTime();
-        if (diff < 60000)    return 'Baru sahaja';
-        if (diff < 3600000)  return `${Math.floor(diff/60000)} minit lalu`;
-        if (diff < 86400000) return `${Math.floor(diff/3600000)} jam lalu`;
-        return `${Math.floor(diff/86400000)} hari lalu`;
-    }
+// ── openAddToCollection: buka collection picker ──
+function openAddToCollection(colId) {
+    // Redirect ke collections page
+    window.location.href = 'collections.html';
+}
+
+// ── back: shortcut untuk history.back() ──────────
+function back() {
+    window.history.back();
+}
+
+// ── retryConnection: untuk offline.html ──────────
+function retryConnection() {
+    window.location.reload();
+}
+
+// ── filterShop: cari produk dalam shop ───────────
+function filterShop(category) {
+    const cards = document.querySelectorAll('[data-category]');
+    cards.forEach(card => {
+        const match = !category || category === 'all' || card.dataset.category === category;
+        card.style.display = match ? '' : 'none';
+    });
+    document.querySelectorAll('.cat-tab, .filter-tab, .shop-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.cat === category || (!category && btn.dataset.cat === 'all'));
+    });
 }

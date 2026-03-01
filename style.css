@@ -65,6 +65,7 @@ input, textarea { font-family: inherit; }
     height: 100%;
     object-fit: cover;
     cursor: pointer;
+    pointer-events: none; /* Klik dikendalikan oleh video-container bukan video element */
 }
 
 /* Gradient overlay bawah */
@@ -80,11 +81,12 @@ input, textarea { font-family: inherit; }
 /* Info caption */
 .video-info {
     position: absolute;
-    bottom: calc(var(--nav-height) + 72px); /* angkat lebih tinggi untuk bagi ruang progress bar */
+    bottom: calc(var(--nav-height) + 72px);
     left: 15px;
     width: 68%;
-    z-index: 10;
+    z-index: 20;
     text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    pointer-events: none; /* Teks info tidak perlu intercept klik */
 }
 
 .video-info h3 {
@@ -112,7 +114,7 @@ input, textarea { font-family: inherit; }
     flex-direction: column;
     align-items: center;
     gap: 18px;
-    z-index: 10;
+    z-index: 30; /* Tingkat dari 10 ke 30 supaya di atas semua overlay */
 }
 
 .action-item {
@@ -122,6 +124,13 @@ input, textarea { font-family: inherit; }
     gap: 4px;
     cursor: pointer;
     transition: transform var(--transition);
+    pointer-events: auto; /* Pastikan klik sentiasa berfungsi */
+    -webkit-tap-highlight-color: rgba(255,255,255,0.1);
+    user-select: none;
+    -webkit-user-select: none;
+    min-width: 44px; /* Minimum saiz boleh tekan (accessibility) */
+    min-height: 44px;
+    justify-content: center;
 }
 
 .action-item:active { transform: scale(0.9); }
@@ -620,7 +629,7 @@ input, textarea { font-family: inherit; }
     position: absolute;
     top: 70px;
     right: 14px;
-    z-index: 20;
+    z-index: 35; /* Tingkat supaya di atas sidebar */
     background: rgba(0, 0, 0, 0.45);
     border: none;
     color: #fff;
@@ -716,6 +725,7 @@ input, textarea { font-family: inherit; }
     z-index: 25;
     padding: 0 0 calc(var(--nav-height, 65px) + 4px);
     background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+    pointer-events: none; /* Benarkan klik lepas ke butang di bawah */
 }
 
 .video-time-row {
@@ -736,6 +746,7 @@ input, textarea { font-family: inherit; }
     padding: 12px 14px;
     cursor: pointer;
     box-sizing: border-box;
+    pointer-events: auto; /* Enable klik pada track walaupun wrap ada pointer-events:none */
 }
 
 /* Bar latar */
@@ -1419,3 +1430,45 @@ mark {
     transition: border-color 0.2s, transform 0.15s;
 }
 .filter-preview:active { transform: scale(0.9); }
+
+
+/* ==========================================
+   CRITICAL FIX: BUTTON CLICK ACCESSIBILITY
+   ========================================== */
+
+/* Pastikan semua butang dan pautan boleh diklik */
+button, .nav-item, .nav-plus, a, [onclick] {
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: rgba(254, 44, 85, 0.15);
+    touch-action: manipulation; /* Hapus 300ms click delay pada mobile */
+}
+
+/* Action items dalam feed - jamin boleh diklik */
+.side-bar .action-item {
+    pointer-events: auto !important;
+    z-index: 35;
+    position: relative;
+    touch-action: manipulation;
+}
+
+/* Bottom nav - pastikan boleh diklik di semua halaman */
+.bottom-nav {
+    pointer-events: auto !important;
+}
+.bottom-nav .nav-item,
+.bottom-nav .nav-plus {
+    pointer-events: auto !important;
+    touch-action: manipulation;
+    position: relative;
+}
+
+/* Hapus 300ms tap delay untuk semua elemen interaktif */
+html {
+    touch-action: manipulation;
+}
+
+/* Pastikan modal dismiss backdrop boleh diklik */
+[onclick*="remove()"] {
+    cursor: pointer;
+    pointer-events: auto !important;
+}

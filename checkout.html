@@ -14,6 +14,25 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Modules: core, shop -->
+    <!-- Auth Guard -->
+    <script>
+    (() => {
+        try {
+            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
+            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
+            const isValid = session?.access_token && expiry && expiry > new Date();
+            if (!isValid) {
+                sessionStorage.setItem('sf_redirect_after_login', location.href);
+                location.replace('splash.html');
+            }
+        } catch(e) {
+            location.replace('splash.html');
+        }
+    })();
+    </script>
 </head>
 <body style="background: #000; color: #fff; padding-bottom: 100px;">
 
@@ -40,7 +59,7 @@
 
         <!-- Item Pesanan -->
         <div id="checkout-item" style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222; display: flex; gap: 15px; align-items: flex-start;">
-            <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200" id="checkout-img" style="width: 80px; height: 80px; border-radius: 10px; object-fit: cover;">
+            <img loading="lazy" src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200" id="checkout-img" style="width: 80px; height: 80px; border-radius: 10px; object-fit: cover;">
             <div style="flex: 1;">
                 <h3 style="font-size: 14px; margin-bottom: 5px; font-weight:700;" id="item-name">Produk SnapFlow</h3>
                 <p style="font-size: 12px; color: #666; margin-bottom: 6px;">Kuantiti: 1</p>
@@ -118,6 +137,10 @@
     </div>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for checkout.html -->
+    <!--
+        <script src="js/shop.js" defer></script>
+    -->
     <script>
         // Ambil item dari URL params atau cart
         window.onload = function() {

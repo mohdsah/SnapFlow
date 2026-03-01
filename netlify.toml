@@ -1,56 +1,76 @@
 # ============================================================
-#  NETLIFY CONFIG untuk SnapFlow
-#  Fail ini WAJIB ada di root folder sebelum deploy
+#  NETLIFY CONFIG — SnapFlow
+#  WAJIB ada di root folder sebelum deploy
 # ============================================================
 
-# ── Redirect rules ──────────────────────────────
+[build]
+  publish = "."
+
+# ── ROOT redirect ke splash ──────────────────────
 [[redirects]]
   from = "/"
-  to = "/splash.html"
+  to   = "/splash.html"
   status = 302
 
-# ── Header keselamatan + PWA ─────────────────────
+# ── SPA Fallback: 404 → splash (PENTING untuk SPA) ──
+# Ini fix masalah 404 bila user refresh page
+[[redirects]]
+  from   = "/*"
+  to     = "/splash.html"
+  status = 200
+  conditions = {Role = ["public"]}
+
+# Custom 404 page
+[[redirects]]
+  from   = "/*"
+  to     = "/404.html"
+  status = 404
+
+# ── Security Headers ─────────────────────────────
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Frame-Options = "DENY"
-    X-XSS-Protection = "1; mode=block"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options             = "DENY"
+    X-XSS-Protection            = "1; mode=block"
+    X-Content-Type-Options      = "nosniff"
+    Referrer-Policy             = "strict-origin-when-cross-origin"
+    Permissions-Policy          = "camera=(self), microphone=(self), geolocation=()"
+    Content-Security-Policy     = "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://api.openai.com;"
 
-# Service worker — jangan di-cache lama
+# Service worker — JANGAN cache (supaya update segera)
 [[headers]]
   for = "/service-worker.js"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
-    Content-Type = "application/javascript"
+    Pragma        = "no-cache"
 
-# Manifest — cache sederhana
+# Manifest
 [[headers]]
   for = "/manifest.json"
   [headers.values]
     Cache-Control = "public, max-age=86400"
-    Content-Type = "application/manifest+json"
 
-# HTML — jangan cache (supaya update terus nampak)
+# HTML — jangan cache (update terus nampak)
 [[headers]]
   for = "/*.html"
   [headers.values]
-    Cache-Control = "no-cache"
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
-# CSS & JS — cache 1 minggu
+# CSS & JS — cache dengan versi (update bila deploy baru)
 [[headers]]
   for = "/style.css"
   [headers.values]
-    Cache-Control = "public, max-age=604800"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/app.js"
   [headers.values]
-    Cache-Control = "public, max-age=604800"
+    Cache-Control = "public, max-age=31536000, immutable"
 
-# Custom 404 page
-[[redirects]]
-  from = "/*"
-  to   = "/404.html"
-  status = 404
+# Supabase Edge Functions CORS
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin  = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "authorization, x-client-info, apikey, content-type"

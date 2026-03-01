@@ -17,6 +17,18 @@
     <style>
         body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 20px); overflow-y: auto; }
     </style>
+
+    <!-- Modules: core, shop -->
+    <!-- Auth Check (semi-public) -->
+    <script>
+    window._isLoggedIn = (() => {
+        try {
+            const k = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const s = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+            return !!(s?.access_token && new Date(s.expires_at*1000) > new Date());
+        } catch(e) { return false; }
+    })();
+    </script>
 </head>
 <body>
 
@@ -67,6 +79,10 @@
     </style>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for shop.html -->
+    <!--
+        <script src="js/shop.js" defer></script>
+    -->
     <script>
         function filterShop(brand, el) {
             document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
@@ -78,7 +94,7 @@
             grid.innerHTML = filtered.map(p => `
                 <div class="product-card">
                     <div style="position:relative;">
-                        <img src="${p.img}" alt="${escapeHtml(p.name)}" style="width:100%;aspect-ratio:1/1;object-fit:cover;">
+                        <img loading="lazy" src="${p.img}" alt="${escapeHtml(p.name)}" style="width:100%;aspect-ratio:1/1;object-fit:cover;">
                         <div style="position:absolute;top:8px;left:8px;background:#fe2c55;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;">${p.brand}</div>
                     </div>
                     <div style="padding:12px;">
@@ -104,7 +120,7 @@
             // Guna filterShop tapi pass produk terus
             grid.innerHTML = filtered.map(p => `
                 <div class="product-card">
-                    <img src="${p.img}" style="width:100%;aspect-ratio:1/1;object-fit:cover;">
+                    <img loading="lazy" src="${p.img}" style="width:100%;aspect-ratio:1/1;object-fit:cover;">
                     <div style="padding:12px;">
                         <h3 style="font-size:13px;margin:0 0 6px;">${escapeHtml(p.name)}</h3>
                         <p style="color:#fe2c55;font-weight:700;margin:0 0 10px;">RM ${p.price.toLocaleString()}</p>

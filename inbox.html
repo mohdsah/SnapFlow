@@ -58,6 +58,25 @@
         .filter-pill { background: #111; color: #666; border: 1px solid #222; padding: 6px 14px; border-radius: 100px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: all 0.2s; font-family: inherit; }
         .filter-pill.active { background: #1a0008; color: #fe2c55; border-color: #3a0010; }
     </style>
+
+    <!-- Modules: core, chat -->
+    <!-- Auth Guard -->
+    <script>
+    (() => {
+        try {
+            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
+            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
+            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
+            const isValid = session?.access_token && expiry && expiry > new Date();
+            if (!isValid) {
+                sessionStorage.setItem('sf_redirect_after_login', location.href);
+                location.replace('splash.html');
+            }
+        } catch(e) {
+            location.replace('splash.html');
+        }
+    })();
+    </script>
 </head>
 <body>
 
@@ -140,6 +159,10 @@
     </nav>
 
     <script src="app.js"></script>
+    <!-- Page-specific modules for inbox.html -->
+    <!--
+        <script src="js/chat.js" defer></script>
+    -->
     <script>
         // Tunjuk prompt notifikasi jika belum dibenarkan
         if ('Notification' in window && Notification.permission === 'default') {
