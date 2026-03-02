@@ -1,267 +1,209 @@
-# 🚀 Panduan Deploy SnapFlow
-### Netlify + GitHub + Supabase
+# SnapFlow v4.0 — Panduan Deploy Production
+
+## Prasyarat
+
+- Akaun Supabase (Free tier OK untuk testing)
+- Akaun Stripe (untuk pembayaran)
+- Akaun Netlify (hosting)
+- Node.js 18+ (untuk Supabase CLI)
 
 ---
 
-## BAHAGIAN 1 — SUPABASE (5 minit)
+## STEP 1 — Supabase Setup
 
-### Langkah 1.1 — Jalankan SQL
-1. Buka **Supabase Dashboard** → pilih projek anda
-2. Pergi ke **SQL Editor** → **New Query**
-3. Salin semua kandungan dari fail `snapflow_supabase.sql`
-4. Klik **Run** — semak semua 6 table ada ✅
+### 1a. Buat Projek Baru
+```
+supabase.com → New Project
+Project Name: snapflow
+Database Password: [simpan dengan selamat]
+Region: Southeast Asia (Singapore)
+```
 
-### Langkah 1.2 — Aktifkan Realtime
-1. Pergi ke **Database** → **Replication**
-2. Cari table: `videos`, `likes`, `comments`, `notifications`, `messages`
-3. Toggle ON untuk semua table tersebut
+### 1b. Run SQL Schema
+```
+Supabase Dashboard → SQL Editor → New Query
+Paste: kandungan snapflow_supabase.sql
+Klik: RUN
+```
 
-### Langkah 1.3 — Setup Storage
-1. Pergi ke **Storage** → **Buckets**
-2. Semak ada dua bucket: `videos` dan `images`
-3. Jika belum ada — SQL tadi akan buat secara automatik
+### 1c. Konfigurasi Auth
+```
+Authentication → Settings:
+  Site URL: https://your-app.netlify.app
+  Redirect URLs: https://your-app.netlify.app/*
 
-### Langkah 1.4 — Semak URL & Key
-1. Pergi ke **Settings** → **API**
-2. Catat **Project URL** dan **anon/public** key
-3. Pastikan nilai dalam `app.js` betul:
+Authentication → Providers:
+  Email: ✅ Enable
+  Email Confirmations: ✅ ON (cadangan)
+  Google OAuth: Setup jika perlu
+  Apple Sign In: Setup jika perlu
+```
+
+### 1d. Realtime Tables
+```
+Database → Replication → Source → supabase_realtime
+Tambah tables: messages, notifications, live_sessions
+```
+
+### 1e. Storage Buckets
+```
+Storage → New Bucket:
+  - videos      (Public: ON, Max: 100MB)
+  - thumbnails  (Public: ON, Max: 5MB)
+  - avatars     (Public: ON, Max: 2MB)
+```
+
+---
+
+## STEP 2 — Kemaskini Konfigurasi App
+
+Edit `app.js` baris 4-5:
 ```javascript
-const supabaseUrl = "https://XXXXX.supabase.co";
-const supabaseKey = "eyJhbGci...";
+const supabaseUrl = "https://YOUR-PROJECT.supabase.co";
+const supabaseKey = "eyJ..."; // anon/public key sahaja
 ```
 
 ---
 
-## BAHAGIAN 2 — GITHUB (5 minit)
+## STEP 3 — Deploy Edge Functions
 
-### Langkah 2.1 — Buat Repository
-1. Pergi ke [github.com](https://github.com) → **New repository**
-2. Nama repo: `snapflow` (atau nama lain)
-3. Pilih **Public** atau **Private**
-4. **JANGAN** tick "Add README" — repo mesti kosong
-5. Klik **Create repository**
-
-### Langkah 2.2 — Upload Fail ke GitHub
-**Cara A — Guna GitHub Web (Mudah):**
-1. Dalam repo baru, klik **uploading an existing file**
-2. Drag & drop SEMUA fail dari folder SnapFlow-upgraded
-3. Pastikan termasuk: `netlify.toml`, `manifest.json`, `service-worker.js`
-4. Commit message: `Initial SnapFlow deployment`
-5. Klik **Commit changes**
-
-**Cara B — Guna Terminal (Laju):**
+### Install Supabase CLI
 ```bash
-cd SnapFlow-upgraded
-git init
+npm install -g supabase
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+```
+
+### Set Secrets
+```bash
+supabase secrets set STRIPE_SECRET_KEY=sk_live_xxx
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_xxx
+supabase secrets set STRIPE_PRO_PRICE_ID=price_xxx
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-xxx
+supabase secrets set CRON_SECRET=pilih_secret_kuat_rawak
+supabase secrets set APP_URL=https://your-app.netlify.app
+```
+
+### Deploy Semua Functions
+```bash
+supabase functions deploy create-checkout
+supabase functions deploy stripe-webhook
+supabase functions deploy publish-scheduled
+supabase functions deploy generate-caption
+supabase functions deploy generate-subtitle
+supabase functions deploy weekly-report
+supabase functions deploy cleanup-stories
+```
+
+---
+
+## STEP 4 — Setup Stripe
+
+### Webhook
+```
+Stripe Dashboard → Developers → Webhooks → Add Endpoint
+
+Endpoint URL:
+https://YOUR_PROJECT.supabase.co/functions/v1/stripe-webhook
+
+Events untuk subscribe:
+✅ checkout.session.completed
+✅ customer.subscription.created
+✅ customer.subscription.updated
+✅ customer.subscription.deleted
+✅ invoice.payment_failed
+```
+
+Salin `Signing secret` (whsec_xxx) → set sebagai `STRIPE_WEBHOOK_SECRET`
+
+---
+
+## STEP 5 — Deploy ke Netlify
+
+### Auto Deploy (GitHub)
+```bash
 git add .
-git commit -m "Initial SnapFlow deployment"
-git remote add origin https://github.com/NAMA_ANDA/snapflow.git
-git branch -M main
-git push -u origin main
+git commit -m "SnapFlow v4.0 production"
+git push origin main
+# GitHub Actions CI/CD akan deploy ke Netlify
 ```
 
-### Langkah 2.3 — Semak Struktur Fail
-Pastikan struktur dalam GitHub seperti ini:
+### Manual Deploy
 ```
-snapflow/
-├── index.html          ← Mesti ada di ROOT
-├── app.js
-├── style.css
-├── manifest.json       ← PENTING untuk PWA
-├── service-worker.js   ← PENTING untuk PWA
-├── netlify.toml        ← PENTING untuk Netlify
-├── splash.html
-├── discover.html
-├── ... (semua .html lain)
-└── .github/
-    └── workflows/
-        └── deploy.yml  ← Auto-deploy (optional)
+Netlify Dashboard → Sites → Import from Git
+Build command: (kosong)
+Publish directory: .
 ```
 
 ---
 
-## BAHAGIAN 3 — NETLIFY (5 minit)
+## STEP 6 — Test Sebelum Launch
 
-### Langkah 3.1 — Sambung GitHub ke Netlify
-1. Buka [netlify.com](https://netlify.com) → **Log in**
-2. Klik **Add new site** → **Import an existing project**
-3. Pilih **Deploy with GitHub**
-4. Authorize Netlify untuk akses GitHub anda
-5. Pilih repo `snapflow`
+### Auth Flow
+```
+✅ Daftar akaun baru → dapat emel pengesahan
+✅ Klik link emel → akaun aktif
+✅ Log masuk → redirect ke home
+✅ Lupa kata laluan → dapat emel reset
+✅ Reset kata laluan → boleh login
+✅ Log keluar → redirect ke splash
+```
 
-### Langkah 3.2 — Tetapan Deploy
-Isi tetapan berikut:
-| Tetapan | Nilai |
-|---------|-------|
-| Branch to deploy | `main` |
-| Base directory | *(kosongkan)* |
-| Build command | *(kosongkan)* |
-| Publish directory | `.` |
+### Payment Flow
+```
+✅ Tambah produk ke cart
+✅ Checkout → Stripe payment page
+✅ Bayar dengan kad test: 4242 4242 4242 4242
+✅ Order berjaya → redirect ke order-success
+✅ Cuba manipulate harga dalam URL → HARUS GAGAL
+```
 
-Klik **Deploy site**
-
-### Langkah 3.3 — Tukar Domain (Optional)
-1. Pergi ke **Site configuration** → **Domain management**
-2. Klik **Add custom domain** untuk domain sendiri, ATAU
-3. Klik **Change site name** untuk tukar nama subdomain
-   - Contoh: `snapflow-saya.netlify.app`
+### Security Tests
+```
+✅ Buka admin.html tanpa login → redirect ke splash
+✅ Buka cart.html tanpa login → redirect ke splash
+✅ Cuba akses admin sebagai user biasa → "Akses Dinafikan"
+✅ Supabase RLS → query data orang lain HARUS gagal
+```
 
 ---
 
-## BAHAGIAN 4 — GITHUB SECRETS (Untuk Auto-Deploy)
+## Checklist Keselamatan
 
-> Langkah ini untuk fail `.github/workflows/deploy.yml` supaya
-> GitHub auto-deploy ke Netlify setiap kali push.
+```
+✅ Tiada sk_live / sk_test dalam frontend
+✅ Tiada whsec_ dalam frontend
+✅ Tiada service_role key dalam frontend
+✅ Supabase anon key sahaja dalam app.js (ini normal & selamat)
+✅ RLS aktif semua 26 tables
+✅ 65 RLS policies configured
+✅ Stripe harga dari database (bukan frontend)
+✅ JWT verification dalam semua Edge Functions
+✅ CRON_SECRET untuk publish-scheduled
+✅ Auth guard untuk 26 HTML pages
+✅ Admin role verify dari database
+```
 
-### Langkah 4.1 — Dapatkan Netlify Token
-1. Netlify Dashboard → **User settings** → **Applications**
-2. Klik **New access token**
-3. Nama: `GitHub Actions`
-4. Salin token (simpan, hanya nampak sekali)
+---
 
-### Langkah 4.2 — Dapatkan Site ID
-1. Netlify Dashboard → pilih site SnapFlow
-2. **Site configuration** → **General**
-3. Salin **Site ID** (format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
+## Maklumat Berguna
 
-### Langkah 4.3 — Tambah Secrets ke GitHub
-1. GitHub → repo `snapflow` → **Settings** → **Secrets and variables** → **Actions**
-2. Klik **New repository secret** — tambah DUA secret:
-
-| Name | Value |
+| Item | Nilai |
 |------|-------|
-| `NETLIFY_AUTH_TOKEN` | Token dari Langkah 4.1 |
-| `NETLIFY_SITE_ID` | Site ID dari Langkah 4.2 |
-
-**Selepas ini** — setiap `git push` ke branch `main` akan auto-deploy ke Netlify! ✅
-
----
-
-## BAHAGIAN 5 — SEMAKAN AKHIR
-
-### Checklist PWA ✅
-Setelah deploy, buka Chrome DevTools → **Lighthouse** → **Progressive Web App**:
-
-- [ ] HTTPS aktif (Netlify auto-buat)
-- [ ] `manifest.json` dikenali
-- [ ] Service Worker berdaftar
-- [ ] Boleh install dari Chrome/Edge
-- [ ] Halaman offline berfungsi (matikan internet, reload)
-
-### Test Install di Telefon
-1. Buka URL Netlify dalam **Chrome Android** atau **Safari iOS**
-2. **Android** — Banner "Add to Home Screen" akan muncul automatik
-3. **iOS** — Ketik ikon Kongsi → "Add to Home Screen"
-
-### URL Supabase Realtime
-Pastikan Realtime berfungsi:
-1. Buka dua tab browser dengan URL yang sama
-2. Tab 1: Like sebuah video
-3. Tab 2: Kiraan like sepatutnya update automatik ⚡
+| Supabase Project | trrfsredzugdyppevcbw |
+| Supabase URL | https://trrfsredzugdyppevcbw.supabase.co |
+| Stripe Mode | Test (tukar ke Live untuk production) |
+| SW Version | v4.0.0 |
+| App Version | SnapFlow v4.0 |
 
 ---
 
-## MASALAH LAZIM
+## Cron Jobs (Supabase Edge Functions Scheduler)
 
-**❌ Service Worker gagal daftar**
-- Pastikan URL adalah HTTPS (bukan HTTP)
-- Netlify auto-provide HTTPS — jadi sepatutnya ok
-
-**❌ Video tidak boleh upload**
-- Semak Supabase Storage bucket `videos` wujud
-- Semak RLS policy Storage dalam SQL
-
-**❌ Supabase API error 401**
-- Semak `supabaseKey` dalam `app.js` — mesti key `anon/public`
-- Bukan `service_role` key
-
-**❌ Realtime tidak berfungsi**
-- Semak Replication dah ON untuk table `likes`, `comments`, `notifications`
-- Semak dalam Supabase: Database → Replication
-
-**❌ PWA tidak muncul prompt install**
-- Mesti HTTPS
-- Mesti ada `manifest.json` dengan icon 192x192 dan 512x512
-- Chrome akan prompt setelah pengguna lawat beberapa kali
-
----
-
-*Dijana oleh SnapFlow Setup Guide*
-
----
-
-## Batch 5 — Setup Diperlukan
-
-### 🔐 Google & Apple Login
-1. Supabase Dashboard → **Authentication → Providers**
-2. **Google:** Aktifkan → isi Client ID + Secret dari [Google Cloud Console](https://console.cloud.google.com)
-   - Tambah Redirect URL: `https://<project>.supabase.co/auth/v1/callback`
-3. **Apple:** Aktifkan → isi Services ID dari [Apple Developer](https://developer.apple.com)
-   - Tambah Redirect URL: `https://<project>.supabase.co/auth/v1/callback`
-
-### 🤖 AI Caption (Claude API)
-```bash
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-npx supabase functions deploy generate-caption
+```
+publish-scheduled  → */5 * * * *   (setiap 5 minit)
+cleanup-stories    → 0 * * * *     (setiap jam)
+weekly-report      → 0 9 * * 1     (Isnin 9am)
 ```
 
-### 📧 Laporan Mingguan (Email via Resend)
-1. Daftar di [resend.com](https://resend.com) dan sahkan domain
-2. Set secrets:
-```bash
-supabase secrets set RESEND_API_KEY=re_...
-supabase secrets set APP_URL=https://snapflow-anda.netlify.app
-npx supabase functions deploy weekly-report
-```
-3. Supabase Dashboard → **Edge Functions → Cron Jobs → Add:**
-   - Schedule: `0 8 * * 1` (Isnin 8:00 pagi)
-   - Function: `weekly-report`
-
-### 🎁 Virtual Tip / Hadiah
-Jalankan SQL baru dalam **snapflow_supabase.sql** untuk table `gifts` dan `coin_transactions`
-
-### 🔑 Semua Secrets Yang Diperlukan
-```
-ANTHROPIC_API_KEY    → sk-ant-...       (AI Caption)
-RESEND_API_KEY       → re_...           (Email)
-STRIPE_SECRET_KEY    → sk_live_...      (Stripe Pro)
-STRIPE_WEBHOOK_SECRET → whsec_...       (Stripe Webhook)
-APP_URL              → https://...      (URL app anda)
-```
-
----
-
-## Batch 6 — Setup Diperlukan
-
-### 🏆 Video Cabaran (#Challenge)
-Jalankan SQL baru dalam `snapflow_supabase.sql` untuk table `challenges`, `challenge_entries`, `challenge_participants`
-
-### 🔴 SnapFlow Live
-Jalankan SQL untuk table `live_sessions`
-- Live chat guna Supabase Realtime Broadcast — tiada setup tambahan
-- WebRTC kamera memerlukan HTTPS (Netlify/Vercel auto-HTTPS ✅)
-
-### 🎬 AI Subtitle (Whisper)
-```bash
-supabase secrets set OPENAI_API_KEY=sk-...
-npx supabase functions deploy generate-subtitle
-```
-Daftar di [platform.openai.com](https://platform.openai.com) untuk dapatkan API key
-
-### 📊 Share Analytics
-Jalankan SQL untuk table `video_shares` (auto-rekod setiap share)
-
-### 🔒 Log Aktiviti
-- Disimpan dalam `localStorage` — tiada backend diperlukan
-- Link boleh diakses dari **Edit Profil → Log Aktiviti & Keselamatan**
-
-### Semua Edge Functions (7 functions):
-```bash
-npx supabase functions deploy generate-caption
-npx supabase functions deploy generate-subtitle
-npx supabase functions deploy weekly-report
-npx supabase functions deploy create-checkout
-npx supabase functions deploy stripe-webhook
-npx supabase functions deploy publish-scheduled
-npx supabase functions deploy cleanup-stories
-```
+Setup dalam: Supabase Dashboard → Edge Functions → [function] → Schedules

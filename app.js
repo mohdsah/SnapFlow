@@ -2220,7 +2220,7 @@ async function checkUnreadNotifications() {
     if (dot) dot.style.display = count > 0 ? 'block' : 'none';
 }
 // ==========================================
-// 15. REALTIME — LIKE & KOMEN
+// 16. REALTIME — LIKE & KOMEN
 // ==========================================
 
 let realtimeChannel = null;
@@ -2270,7 +2270,7 @@ function startRealtimeSubscriptions() {
         }, (payload) => {
             const newComment = payload.new;
 
-            // 1. Update kiraan komen di sidebar
+            // ── Kemaskini kiraan komen
             const countEl = document.getElementById(`comment-count-${newComment.video_id}`);
             if (countEl) {
                 const current = parseInt(countEl.innerText) || 0;
@@ -2279,7 +2279,7 @@ function startRealtimeSubscriptions() {
                 animateCommentIcon(newComment.video_id);
             }
 
-            // 2. Jika panel komen sedang terbuka untuk video ini,
+            // ── Jika panel komen terbuka untuk video ini,
             //    tambah komen baru terus tanpa perlu reload semua
             if (currentVideoId === newComment.video_id) {
                 appendNewComment(newComment);
@@ -6128,89 +6128,12 @@ function checkDuetMeta() {
 }
 
 // ── 54. CHALLENGE AUTO-HASHTAG ─────────────
-function checkPendingChallengeHashtag() {
-    const hashtag = localStorage.getItem('sf_pending_challenge_hashtag');
-    if (!hashtag) return;
-    const captionEl = document.getElementById('video-caption');
-    if (!captionEl) return;
-    if (!captionEl.value.includes(hashtag)) {
-        captionEl.value = (captionEl.value + ' ' + hashtag).trim();
-        showToast(`Hashtag cabaran ${hashtag} ditambah! 🏆`, 'success');
-    }
-    localStorage.removeItem('sf_pending_challenge_hashtag');
-}
 
-async function updateChallengeEntryCount(caption) {
-    if (!caption) return;
-    const hashtags = (caption.match(/#[\w]+/g) || []);
-    for (const tag of hashtags) {
-        const { data: chal } = await snapSupabase.from('challenges')
-            .select('id,entry_count').eq('hashtag', tag.toLowerCase()).single().catch(() => ({ data: null }));
-        if (!chal) continue;
-        await snapSupabase.from('challenges')
-            .update({ entry_count: (chal.entry_count || 0) + 1 }).eq('id', chal.id);
-        const { data: { user } } = await snapSupabase.auth.getUser();
-        if (user) {
-            await snapSupabase.from('challenge_entries')
-                .upsert([{ challenge_id: chal.id, user_id: user.id }]).catch(() => {});
-        }
-    }
-}
 
 // ── 55. LIVE BAR (Feed) ────────────────────
-async function loadLiveBar() {
-    const liveBar = document.getElementById('live-bar');
-    if (!liveBar) return;
-    try {
-        const { data: sessions } = await snapSupabase.from('live_sessions')
-            .select('session_id,host_id,host_name,viewer_count,title')
-            .eq('is_active', true).order('viewer_count', { ascending: false }).limit(6);
-
-        if (!sessions?.length) { liveBar.style.display = 'none'; return; }
-        liveBar.style.display = 'flex';
-        liveBar.innerHTML = `
-            <a href="live.html" style="text-decoration:none;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 8px;">
-                <div style="width:52px;height:52px;background:#1a0005;border-radius:50%;border:2.5px solid #fe2c55;
-                            display:flex;align-items:center;justify-content:center;font-size:18px;">
-                    🔴
-                </div>
-                <span style="font-size:10px;color:#888;">Go Live</span>
-            </a>
-            ${sessions.map(s => `
-            <a href="live.html" style="text-decoration:none;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 6px;">
-                <div style="position:relative;width:52px;height:52px;">
-                    <div style="width:52px;height:52px;border-radius:50%;border:2.5px solid #fe2c55;
-                                background-image:url('https://ui-avatars.com/api/?name=${encodeURIComponent(s.host_name||'U')}&background=random&size=104');
-                                background-size:cover;"></div>
-                    <span style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:#fe2c55;
-                                 color:#fff;font-size:8px;font-weight:900;padding:1px 5px;border-radius:20px;">LIVE</span>
-                </div>
-                <span style="font-size:10px;color:#ccc;white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;">
-                    @${escapeHtml((s.host_name||'User').split(' ')[0])}
-                </span>
-            </a>`).join('')}`;
-    } catch(e) { console.warn('loadLiveBar:', e); }
-}
 
 // ── 56. LOG AKTIVITI AUTO ──────────────────
-function recordActivityAuto(type, desc, risk = 'low') {
-    try {
-        const logs  = JSON.parse(localStorage.getItem('sf_activity_log') || '[]');
-        const ua    = navigator.userAgent;
-        let browser = 'Browser', os = 'Unknown';
-        if (ua.includes('Chrome'))       browser = 'Chrome';
-        else if (ua.includes('Safari'))  browser = 'Safari';
-        else if (ua.includes('Firefox')) browser = 'Firefox';
-        else if (ua.includes('Edge'))    browser = 'Edge';
-        if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
-        else if (ua.includes('Android')) os = 'Android';
-        else if (ua.includes('Windows')) os = 'Windows';
-        else if (ua.includes('Mac'))     os = 'macOS';
 
-        logs.unshift({ id: Date.now(), type, desc, risk, browser, os, timestamp: new Date().toISOString() });
-        localStorage.setItem('sf_activity_log', JSON.stringify(logs.slice(0, 100)));
-    } catch(e) {}
-}
 
 // ── DOMContentLoaded hooks ─────────────────
 document.addEventListener('DOMContentLoaded', () => {
