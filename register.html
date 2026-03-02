@@ -1,114 +1,98 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-    <meta charset="UTF-8">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Daftar Akaun | SnapFlow</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { background:#000; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
-        .auth-wrap { width:100%; max-width:400px; padding:36px 24px; text-align:center; }
-        .auth-logo { font-size:34px; font-weight:900; background:linear-gradient(135deg,#fff 30%,#fe2c55 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:6px; }
-        .auth-sub  { color:#555; font-size:14px; margin-bottom:28px; }
-        .form-group { text-align:left; margin-bottom:14px; }
-        .form-group label { font-size:12px; color:#555; display:block; margin-bottom:6px; margin-left:2px; }
-        .form-group input { width:100%; background:#111; border:1px solid #2a2a2a; padding:13px 16px; border-radius:12px; color:#fff; font-size:15px; outline:none; transition:border-color 0.2s; box-sizing:border-box; font-family:inherit; }
-        .form-group input:focus { border-color:#fe2c55; }
-        .field-hint { font-size:11px; margin:4px 0 0 4px; display:block; min-height:16px; transition:color 0.2s; color:#555; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <title>Daftar | SKYNET</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-    <div class="auth-wrap" id="main-wrap">
-        <h1 class="auth-logo">SnapFlow</h1>
-        <p class="auth-sub">Cipta akaun baharu anda</p>
+<body class="auth-page" style="justify-content:flex-start;padding-top:40px;">
 
-        <div class="form-group">
-            <label>Nama Penuh</label>
-            <input type="text" id="reg-fullname" placeholder="Nama penuh anda"
-                   autocomplete="name" onkeydown="if(event.key==='Enter') document.getElementById('reg-username').focus()">
-        </div>
+  <div class="auth-logo">SKYNET</div>
+  <p class="auth-tagline">Mulakan perjalanan kreator anda</p>
 
-        <div class="form-group">
-            <label>Username <span style="color:#333;font-size:10px;">(huruf, nombor, _ sahaja)</span></label>
-            <input type="text" id="reg-username" placeholder="contoh: ahmad_razif99"
-                   autocomplete="username" maxlength="30"
-                   oninput="bersihkanUsername(this); semakUsername(this.value)"
-                   onkeydown="if(event.key==='Enter') document.getElementById('reg-email').focus()">
-            <span class="field-hint" id="username-hint"></span>
-        </div>
+  <div class="auth-box">
+    <h2 class="auth-title">Daftar Akaun</h2>
 
-        <div class="form-group">
-            <label>Alamat Email</label>
-            <input type="email" id="reg-email" placeholder="email@contoh.com"
-                   autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('reg-password').focus()">
-        </div>
-
-        <div class="form-group" style="margin-bottom:24px;">
-            <label>Kata Laluan <span style="color:#333;font-size:10px;">(min. 6 aksara)</span></label>
-            <input type="password" id="reg-password" placeholder="••••••••"
-                   autocomplete="new-password" onkeydown="if(event.key==='Enter') handleRegister()">
-        </div>
-
-        <button onclick="handleRegister()" class="login-btn-main">Daftar Sekarang</button>
-
-        <p style="margin-top:24px; color:#555; font-size:14px;">
-            Sudah ada akaun? <a href="login.html" style="color:#fe2c55; font-weight:700;">Log Masuk</a>
-        </p>
+    <div class="input-wrap">
+      <label>Nama Penuh</label>
+      <input id="reg-fullname" class="sn-input" type="text" placeholder="Nama anda" autocomplete="name">
     </div>
 
-    <script src="app.js"></script>
-    <script>
-    // Auto-bersihkan username (buang karakter tidak sah)
-    function bersihkanUsername(input) {
-        var val = input.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
-        if (input.value !== val) input.value = val;
-    }
+    <div class="input-wrap">
+      <label>Username</label>
+      <div style="position:relative;">
+        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px;">@</span>
+        <input id="reg-username" class="sn-input" type="text" placeholder="namapengguna" autocomplete="username" style="padding-left:32px;"
+          oninput="bersihkanUsername(this); semakUsername(this.value)">
+      </div>
+      <span id="username-status" style="font-size:11px;margin-top:5px;display:block;font-family:var(--font);"></span>
+    </div>
 
-    // Semak availability username secara live
-    var _usernameTimer = null;
-    function semakUsername(val) {
-        var hint = document.getElementById('username-hint');
-        if (!val) { hint.textContent = ''; return; }
-        if (val.length < 3) {
-            hint.style.color = '#ef4444';
-            hint.textContent = 'Terlalu pendek (min. 3 aksara)'; return;
-        }
-        if (val.length > 30) {
-            hint.style.color = '#ef4444';
-            hint.textContent = 'Terlalu panjang (maks. 30 aksara)'; return;
-        }
-        hint.style.color = '#555';
-        hint.textContent = 'Menyemak...';
-        clearTimeout(_usernameTimer);
-        _usernameTimer = setTimeout(async function() {
-            try {
-                var { data } = await snapSupabase
-                    .from('profiles').select('id').eq('username', val).maybeSingle();
-                if (data) {
-                    hint.style.color = '#ef4444';
-                    hint.textContent = '✗ Username sudah digunakan';
-                } else {
-                    hint.style.color = '#22c55e';
-                    hint.textContent = '✓ Username tersedia!';
-                }
-            } catch(e) { hint.textContent = ''; }
-        }, 700);
-    }
-    </script>
+    <div class="input-wrap">
+      <label>Emel</label>
+      <input id="reg-email" class="sn-input" type="email" placeholder="nama@emel.com" autocomplete="email" inputmode="email">
+    </div>
 
-    <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-            navigator.serviceWorker.register('/service-worker.js').catch(function(){});
-        });
+    <div class="input-wrap" style="position:relative;">
+      <label>Kata Laluan</label>
+      <input id="reg-password" class="sn-input" type="password" placeholder="Min 6 aksara" autocomplete="new-password" style="padding-right:46px;">
+      <button onclick="togglePw('reg-password',this)" style="position:absolute;right:14px;bottom:14px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0;">
+        <i class="fa-regular fa-eye"></i>
+      </button>
+      <!-- Strength bar -->
+      <div id="strength-bar" style="height:3px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden;display:none;">
+        <div id="strength-fill" style="height:100%;width:0%;transition:width 0.3s,background 0.3s;border-radius:2px;"></div>
+      </div>
+      <span id="strength-label" style="font-size:10px;color:var(--text3);display:block;margin-top:4px;font-family:var(--font);"></span>
+    </div>
+
+    <button class="btn-primary" onclick="handleRegister()">Buat Akaun</button>
+  </div>
+
+  <div class="auth-footer" style="margin-top:16px;">
+    Sudah ada akaun? <a href="login.html">Log Masuk</a>
+  </div>
+
+  <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:12px;padding:0 20px;line-height:1.5;">
+    Dengan mendaftar, anda bersetuju dengan <a href="#" style="color:var(--accent);">Terma Penggunaan</a> kami.
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    function togglePw(id, btn) {
+      const input = document.getElementById(id);
+      const isText = input.type === 'text';
+      input.type = isText ? 'password' : 'text';
+      btn.innerHTML = isText ? '<i class="fa-regular fa-eye"></i>' : '<i class="fa-regular fa-eye-slash"></i>';
     }
-    </script>
+    // Password strength
+    document.getElementById('reg-password')?.addEventListener('input', function() {
+      const bar = document.getElementById('strength-bar');
+      const fill = document.getElementById('strength-fill');
+      const label = document.getElementById('strength-label');
+      if (!this.value) { bar.style.display='none'; label.textContent=''; return; }
+      bar.style.display = 'block';
+      let score = 0;
+      if (this.value.length >= 6) score++;
+      if (this.value.length >= 10) score++;
+      if (/[A-Z]/.test(this.value)) score++;
+      if (/[0-9]/.test(this.value)) score++;
+      if (/[^A-Za-z0-9]/.test(this.value)) score++;
+      const colors = ['#ef4444','#f97316','#eab308','#22c55e','#16a34a'];
+      const labels = ['Sangat Lemah','Lemah','Sederhana','Kuat','Sangat Kuat'];
+      fill.style.width = (score*20)+'%';
+      fill.style.background = colors[score-1] || '#ef4444';
+      label.textContent = labels[score-1] || '';
+      label.style.color = colors[score-1] || 'var(--text3)';
+    });
+  </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // ============================================================
-//  SnapFlow — Service Worker v4.0.0
+//  SKYNET — Service Worker v4.0.0
 //  - Versioned cache (bump SW_VERSION untuk force update)
 //  - Update notification popup
 //  - Offline fallback
@@ -7,8 +7,8 @@
 // ============================================================
 
 const SW_VERSION    = 'v4.0.0';
-const CACHE_STATIC  = `snapflow-static-${SW_VERSION}`;
-const CACHE_DYNAMIC = `snapflow-dynamic-${SW_VERSION}`;
+const CACHE_STATIC  = `skynet-static-${SW_VERSION}`;
+const CACHE_DYNAMIC = `skynet-dynamic-${SW_VERSION}`;
 
 // Files untuk pre-cache (static shell)
 const STATIC_FILES = [
@@ -157,10 +157,10 @@ async function syncPendingComments() {
 self.addEventListener('push', function(event) {
     if (!event.data) return;
     var data = {};
-    try { data = event.data.json(); } catch(e) { data = { title: 'SnapFlow', body: event.data.text() }; }
+    try { data = event.data.json(); } catch(e) { data = { title: 'SKYNET', body: event.data.text() }; }
 
     event.waitUntil(
-        self.registration.showNotification(data.title || 'SnapFlow', {
+        self.registration.showNotification(data.title || 'SKYNET', {
             body:    data.body    || 'Ada notifikasi baharu',
             icon:    data.icon    || 'https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192',
             badge:   data.badge   || 'https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=72',

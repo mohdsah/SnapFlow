@@ -1,5 +1,5 @@
 // ============================================================
-//  SnapFlow — AUTH GUARD (Central)
+//  SKYNET — AUTH GUARD (Central)
 //  Include dalam semua protected page SEBELUM app.js
 //  <script src="auth-guard.js"></script>
 // ============================================================
@@ -46,7 +46,7 @@
     // ── Redirect jika tiada session (fast check) ─────────────
     if (!fastSession) {
         // Simpan URL asal untuk redirect balik selepas login
-        sessionStorage.setItem('sf_redirect_after_login', window.location.href);
+        sessionStorage.setItem('sn_redirect_after_login', window.location.href);
         window.location.replace('splash.html');
         return;
     }
@@ -104,7 +104,7 @@
                                 'margin-bottom:16px;"></i>' +
                                 '<h2 style="margin:0 0 8px;">Akses Dinafikan</h2>' +
                                 '<p style="color:#555;font-size:14px;margin:0 0 24px;">' +
-                                'Halaman ini hanya untuk admin SnapFlow.</p>' +
+                                'Halaman ini hanya untuk admin SKYNET.</p>' +
                                 '<a href="index.html" style="background:#fe2c55;color:#fff;' +
                                 'padding:12px 24px;border-radius:10px;font-weight:700;' +
                                 'text-decoration:none;font-size:14px;">Kembali ke Utama</a></div>';

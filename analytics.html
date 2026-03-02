@@ -2,12 +2,12 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Analitik | SnapFlow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Analitik | SKYNET</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -396,9 +396,9 @@
 
         function exportReport() {
             const { videos, followers, totalLikes, totalViews, days } = analyticsData;
-            const text = `📊 Laporan Analitik SnapFlow\nTempoh: ${days} hari\n\nViews: ${formatNum(totalViews)}\nLikes: ${formatNum(totalLikes)}\nPengikut Baru: ${followers}\nVideo: ${videos?.length||0}\n\nDijana: ${new Date().toLocaleString('ms-MY')}`;
+            const text = `📊 Laporan Analitik SKYNET\nTempoh: ${days} hari\n\nViews: ${formatNum(totalViews)}\nLikes: ${formatNum(totalLikes)}\nPengikut Baru: ${followers}\nVideo: ${videos?.length||0}\n\nDijana: ${new Date().toLocaleString('ms-MY')}`;
             if (navigator.share) {
-                navigator.share({ title: 'Laporan SnapFlow', text });
+                navigator.share({ title: 'Laporan SKYNET', text });
             } else {
                 navigator.clipboard.writeText(text);
                 showToast('Laporan disalin ke clipboard!', 'success');

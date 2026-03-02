@@ -2,10 +2,10 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Admin Dashboard | SnapFlow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Admin Dashboard | SKYNET</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -38,7 +38,7 @@
             const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
             const isValid = session?.access_token && expiry && expiry > new Date();
             if (!isValid) {
-                sessionStorage.setItem('sf_redirect_after_login', location.href);
+                sessionStorage.setItem('sn_redirect_after_login', location.href);
                 location.replace('splash.html');
                 return;
             }
@@ -192,7 +192,7 @@
                     <i class="fa-solid fa-shield-xmark" style="font-size:48px;color:#fe2c55;margin-bottom:16px;display:block;"></i>
                     <h2 style="margin:0 0 8px;font-size:20px;">Akses Dinafikan</h2>
                     <p style="color:#555;font-size:13px;text-align:center;padding:0 30px;margin-bottom:16px;">
-                        Halaman ini hanya untuk pentadbir SnapFlow.<br>
+                        Halaman ini hanya untuk pentadbir SKYNET.<br>
                         <small style="color:#333;">User: ${user.email}</small>
                     </p>
                     <a href="profile.html" style="background:#1a1a1a;color:#fff;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">← Kembali ke Profil</a>`;

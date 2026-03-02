@@ -7,9 +7,9 @@ const snapSupabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ── Dev mode: tukar ke false sebelum production deploy ──
 const DEV_MODE = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const devLog   = (...args) => { if (DEV_MODE) devLog('[SnapFlow]', ...args); };
-const devWarn  = (...args) => { if (DEV_MODE) console.warn('[SnapFlow]', ...args); };
-const devErr   = (...args) => console.error('[SnapFlow]', ...args); // error sentiasa log
+const devLog   = (...args) => { if (DEV_MODE) console.log('[SKYNET]', ...args); };
+const devWarn  = (...args) => { if (DEV_MODE) console.warn('[SKYNET]', ...args); };
+const devErr   = (...args) => console.error('[SKYNET]', ...args); // error sentiasa log
 
 // ==========================================
 // 2. HELPER FUNCTIONS
@@ -145,7 +145,7 @@ async function getAuthUser(forceRefresh = false) {
 async function requireAuth(redirectTo = 'splash.html') {
     const user = await getAuthUser();
     if (!user) {
-        sessionStorage.setItem('sf_redirect_after_login', window.location.href);
+        sessionStorage.setItem('sn_redirect_after_login', window.location.href);
         window.location.replace(redirectTo);
         return null;
     }
@@ -175,7 +175,7 @@ async function checkUserSession() {
         window.location.replace('index.html'); return;
     }
     if (!user && !isAuth && !isSemi) {
-        sessionStorage.setItem('sf_redirect_after_login', window.location.href);
+        sessionStorage.setItem('sn_redirect_after_login', window.location.href);
         window.location.replace('splash.html');
     }
     // Load cart dari server bila user login
@@ -193,8 +193,8 @@ snapSupabase.auth.onAuthStateChange((event, session) => {
     if (_authUser) _cachedUserId = _authUser.id;
 
     if (event === 'SIGNED_IN' && isAuth && !page.includes('update-password')) {
-        const redir = sessionStorage.getItem('sf_redirect_after_login');
-        sessionStorage.removeItem('sf_redirect_after_login');
+        const redir = sessionStorage.getItem('sn_redirect_after_login');
+        sessionStorage.removeItem('sn_redirect_after_login');
         const safe  = redir && !AUTH_PAGES.some(p => redir.includes(p));
         window.location.replace(safe ? redir : 'index.html');
     }
@@ -332,11 +332,11 @@ async function handleLogin() {
 // Notis email belum disahkan
 function _tunjukNotisEmailBelumSahkan(email) {
     var safeEmail = String(email).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    var existing  = document.getElementById('sf-notis-emel');
+    var existing  = document.getElementById('sn-notis-emel');
     if (existing) existing.remove();
 
     var notis = document.createElement('div');
-    notis.id  = 'sf-notis-emel';
+    notis.id  = 'sn-notis-emel';
     notis.innerHTML =
         '<div style="background:#111;border:1px solid #2a2a2a;border-radius:12px;' +
         'padding:20px;margin-top:16px;text-align:center;">' +
@@ -490,7 +490,7 @@ async function handleRegister() {
 async function handleLogout() {
     var ok = await _showConfirmDialog(
         'Log Keluar?',
-        'Anda pasti mahu log keluar dari SnapFlow?',
+        'Anda pasti mahu log keluar dari SKYNET?',
         'Ya, Log Keluar', 'Batal'
     );
     if (!ok) return;
@@ -690,11 +690,13 @@ async function loadHomeFeed() {
             }
 
         } else {
-            // ── Tab Untuk Anda: semua video ──
+            // ── Tab Untuk Anda: semua video yang sudah published ──
             ({ data: videos, error } = await snapSupabase
                 .from('videos')
                 .select('*')
-                .order('created_at', { ascending: false }));
+                .eq('is_published', true)
+                .order('created_at', { ascending: false })
+                .limit(50));
         }
 
         if (error) throw error;
@@ -714,7 +716,9 @@ async function loadHomeFeed() {
             return `
             <div class="video-container" data-video-id="${vid.id}" ontouchstart="handleTouchStart(event, ${vid.id})" ontouchend="handleTouchEnd(event, ${vid.id})" ondblclick="handleDoubleTap(${vid.id}, event)">
 
-                <video src="${escapeHtml(vid.video_url)}" loop playsinline preload="none" muted></video>
+                ${vid.video_url && /\.(jpg|jpeg|png|gif|webp)/i.test(vid.video_url)
+                    ? `<img src="${escapeHtml(vid.video_url)}" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;" loading="lazy">`
+                    : `<video src="${escapeHtml(vid.video_url)}" loop playsinline preload="none" muted style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;"></video>`}
 
                 <div class="video-gradient"></div>
 
@@ -797,7 +801,7 @@ async function loadHomeFeed() {
         videos.forEach(vid => initVideoReactions(vid.id));
 
     } catch (err) {
-        console.error("loadHomeFeed error:", err);
+        devErr("[feed]", err); showToast("Gagal muatkan feed.", "error");
         feedContainer.innerHTML = `<div style="height:100vh;display:flex;align-items:center;justify-content:center;color:#fe2c55;">Ralat memuatkan feed. Cuba lagi.</div>`;
     }
 }
@@ -806,7 +810,7 @@ async function loadHomeFeed() {
 let isMuted = true; // Default muted (standard autoplay policy)
 
 // ── State Dark/Light Mode ─────────────────────────
-let isDarkMode = localStorage.getItem('snapflow-theme') !== 'light';
+let isDarkMode = localStorage.getItem('skynet-theme') !== 'light';
 function applyTheme() {
     const root = document.documentElement;
     if (isDarkMode) {
@@ -831,7 +835,7 @@ function applyTheme() {
 }
 function toggleTheme() {
     isDarkMode = !isDarkMode;
-    localStorage.setItem('snapflow-theme', isDarkMode ? 'dark' : 'light');
+    localStorage.setItem('skynet-theme', isDarkMode ? 'dark' : 'light');
     applyTheme();
     showToast(isDarkMode ? '🌙 Mod Gelap' : '☀️ Mod Cerah', 'info');
     // Update ikon toggle
@@ -1011,7 +1015,7 @@ function showShareSheet(videoId, caption) {
     document.getElementById('snap-share-sheet')?.remove();
 
     const pageUrl = `${window.location.origin}/index.html#video-${videoId}`;
-    const text = caption ? `${caption} — SnapFlow` : 'Tengok video ini di SnapFlow!';
+    const text = caption ? `${caption} — SKYNET` : 'Tengok video ini di SKYNET!';
 
     const sheet = document.createElement('div');
     sheet.id = 'snap-share-sheet';
@@ -1050,13 +1054,13 @@ function shareToWhatsApp(url, caption) {
 }
 
 function shareToTelegram(url, caption) {
-    const text = encodeURIComponent(caption || 'Tengok video ini di SnapFlow!');
+    const text = encodeURIComponent(caption || 'Tengok video ini di SKYNET!');
     window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${text}`, '_blank');
     document.getElementById('snap-share-sheet')?.remove();
 }
 
 function shareToTwitter(url, caption) {
-    const text = encodeURIComponent(`${caption || 'Tengok video ini!'} #SnapFlow`);
+    const text = encodeURIComponent(`${caption || 'Tengok video ini!'} #SKYNET`);
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, '_blank');
     document.getElementById('snap-share-sheet')?.remove();
 }
@@ -1070,7 +1074,7 @@ function copyVideoLink(url) {
 
 function nativeShare(url, text) {
     if (navigator.share) {
-        navigator.share({ title: 'SnapFlow', text, url });
+        navigator.share({ title: 'SKYNET', text, url });
     } else {
         copyVideoLink(url);
     }
@@ -1079,7 +1083,7 @@ function nativeShare(url, text) {
 
 function handleShare(url) {
     if (navigator.share) {
-        navigator.share({ title: 'SnapFlow Video', url });
+        navigator.share({ title: 'SKYNET Video', url });
     } else {
         navigator.clipboard.writeText(url).then(() => showToast('Pautan disalin!', 'success'));
     }
@@ -1367,9 +1371,10 @@ async function handleSearch(event) {
 // 10. UPLOAD VIDEO/GAMBAR
 // ==========================================
 // State untuk upload
-let currentFilter  = 'none';
+let currentFilter   = 'none';
 let compressEnabled = false;
-let isDuetMode     = false;
+let isDuetMode      = false;
+let scheduleAt      = null;   // datetime string atau null (untuk jadual publish)
 let duetSourceVideo = null; // { id, url }
 
 function previewFile(event) {
@@ -1459,20 +1464,35 @@ function toggleCompress(toggle) {
 }
 
 async function startUpload() {
-    const fileInput = document.getElementById('file-input');
-    const caption   = document.getElementById('video-caption')?.value?.trim();
-    const btn       = document.getElementById('upload-btn');
+    const fileInput  = document.getElementById('file-input');
+    const captionEl  = document.getElementById('video-caption');
+    const scheduleEl = document.getElementById('schedule-datetime');
+    const draftEl    = document.getElementById('draft-toggle');
+    const btn        = document.getElementById('upload-btn');
+
+    const caption  = captionEl?.value?.trim() || '';
+    // ✅ FIX: Baca scheduleAt dari input datetime (jika diisi & bukan mod draf)
+    const isDraft  = draftEl?.checked === true;
+    scheduleAt = (!isDraft && scheduleEl?.value) ? scheduleEl.value : null;
 
     if (!fileInput?.files[0]) return showToast('Sila pilih fail dahulu.', 'warning');
 
     let file = fileInput.files[0];
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) return showToast('Fail terlalu besar. Maksimum 50MB.', 'error');
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) return showToast('Fail terlalu besar. Maksimum 100MB.', 'error');
+
+    // Validate jenis fail
+    const allowedTypes = ['video/mp4','video/webm','video/mov','video/avi','video/quicktime',
+                          'image/jpeg','image/png','image/gif','image/webp'];
+    if (!allowedTypes.some(t => file.type.startsWith(t.split('/')[0])) &&
+        !file.type.startsWith('video/') && !file.type.startsWith('image/')) {
+        return showToast('Jenis fail tidak disokong. Guna MP4, MOV, JPG, atau PNG.', 'error');
+    }
 
     setLoading(btn, true, 'Memproses...');
 
     try {
-        const { data: { user } } = await snapSupabase.auth.getUser();
+        const user = await getAuthUser();
         if (!user) { setLoading(btn, false, 'Kongsi Sekarang'); return showToast('Sila log masuk.', 'warning'); }
 
         // ── Video Compression (jika aktif) ───────────────
@@ -1489,40 +1509,86 @@ async function startUpload() {
 
         setLoading(btn, true, 'Memuat naik...');
 
-        const fileExt  = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-        const bucket   = file.type.startsWith('video/') ? 'videos' : 'images';
+        const fileExt    = file.name.split('.').pop().toLowerCase();
+        const isVideo    = file.type.startsWith('video/');
+        // ✅ FIX: guna bucket 'videos' untuk video, 'media' untuk gambar
+        // Jika bucket 'media' belum ada, guna 'videos' untuk semua
+        const bucket     = isVideo ? 'videos' : 'media';
+        const fileName   = `${user.id}/${Date.now()}.${fileExt}`;
 
-        const { error: uploadError } = await snapSupabase.storage
-            .from(bucket).upload(fileName, file, { upsert: false });
-        if (uploadError) throw uploadError;
+        // ── Upload ke Supabase Storage ─────────────────────────
+        const { data: uploadData, error: uploadError } = await snapSupabase.storage
+            .from(bucket)
+            .upload(fileName, file, {
+                upsert:      false,
+                contentType: file.type,
+                cacheControl: '3600',
+            });
 
-        const { data: { publicUrl } } = snapSupabase.storage.from(bucket).getPublicUrl(fileName);
+        if (uploadError) {
+            // Jika bucket 'media' tak wujud, cuba 'videos' sebagai fallback
+            if (!isVideo && uploadError.message?.includes('Bucket not found')) {
+                const fallbackResult = await snapSupabase.storage
+                    .from('videos').upload(fileName, file, { upsert: false, contentType: file.type });
+                if (fallbackResult.error) throw fallbackResult.error;
+            } else {
+                throw uploadError;
+            }
+        }
 
-        // Tambah filter label dalam caption jika bukan 'none'
-        const filterLabel  = currentFilter !== 'none' ? ` [filter:${currentFilter.replace(/[()%,.]/g,'')}]` : '';
-        const duetLabel    = isDuetMode && duetSourceVideo ? ` [duet:${duetSourceVideo.id}]` : '';
+        const { data: urlData } = snapSupabase.storage.from(bucket).getPublicUrl(fileName);
+        const publicUrl = urlData.publicUrl;
+
+        if (!publicUrl) throw new Error('Gagal dapatkan URL fail. Semak Storage bucket.');
+
+        // ── Ambil username dari profiles ───────────────────────
+        let displayName = user.user_metadata?.full_name || user.user_metadata?.username || 'User';
+        try {
+            const { data: prof } = await snapSupabase
+                .from('profiles').select('username, full_name').eq('id', user.id).single();
+            if (prof) displayName = prof.full_name || prof.username || displayName;
+        } catch(e) {}
+
+        // ── Bina caption akhir ─────────────────────────────────
+        const filterLabel  = (currentFilter && currentFilter !== 'none')
+            ? ` [filter:${currentFilter.replace(/[()%,.]/g, '')}]` : '';
+        const duetLabel    = isDuetMode && duetSourceVideo
+            ? ` [duet:${duetSourceVideo.id}]` : '';
         const finalCaption = (caption || '') + filterLabel + duetLabel;
 
-        const { error: dbError } = await snapSupabase.from('videos').insert([{
-            user_id:    user.id,
-            video_url:  publicUrl,
-            caption:    finalCaption,
-            username:   user.user_metadata?.full_name || 'User',
-            likes_count: 0,
-            is_duet:    isDuetMode,
-            duet_source_id: isDuetMode && duetSourceVideo ? duetSourceVideo.id : null,
-            scheduled_at:  scheduleAt || null,
-            is_published:  scheduleAt ? false : true,
-        }]);
-        if (dbError) throw dbError;
+        // ── Simpan ke database ─────────────────────────────────
+        const insertData = {
+            user_id:      user.id,
+            username:     displayName,
+            video_url:    publicUrl,
+            caption:      finalCaption,
+            likes_count:  0,
+            is_published: scheduleAt ? false : true,
+            scheduled_at: scheduleAt || null,
+            video_type:   isDuetMode ? 'duet' : 'original',
+            // ✅ FIX: guna nama column yang betul (duet_from bukan duet_source_id)
+            duet_from:    (isDuetMode && duetSourceVideo) ? duetSourceVideo.id : null,
+        };
 
+        const { data: inserted, error: dbError } = await snapSupabase
+            .from('videos').insert([insertData]).select('id').single();
+
+        if (dbError) {
+            // Tunjuk error spesifik untuk debugging
+            console.error('[upload] DB error:', dbError);
+            throw new Error('Gagal simpan ke database: ' + (dbError.message || dbError.details || 'Unknown error'));
+        }
+
+        // ── Berjaya ────────────────────────────────────────────
         if (scheduleAt) {
-            const dt = new Date(scheduleAt).toLocaleString('ms-MY');
-            showToast(`Video dijadualkan pada ${dt} 📅`, 'success');
+            const dt = new Date(scheduleAt).toLocaleString('ms-MY', { dateStyle: 'medium', timeStyle: 'short' });
+            showToast(`Video dijadualkan untuk ${dt} 📅`, 'success');
         } else {
             showToast('Video berjaya dikongsikan! 🎉', 'success');
         }
+
+        // Reset scheduleAt selepas upload berjaya
+        scheduleAt = null;
         setTimeout(() => window.location.href = 'index.html', 1500);
 
     } catch (err) {
@@ -1632,20 +1698,26 @@ async function loadProfileData() {
             return;
         }
 
-        profileGrid.innerHTML = myVideos.map(vid => `
+        profileGrid.innerHTML = myVideos.map(vid => {
+            const isImage = vid.video_url && /\.(jpg|jpeg|png|gif|webp)/i.test(vid.video_url);
+            const thumb = isImage
+                ? `<img src="${escapeHtml(vid.video_url)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.style.background='var(--bg4)'">`
+                : `<canvas id="thumb-${vid.id}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111;"></canvas>`;
+            return `
             <div class="profile-video-item" onclick="viewVideo(${vid.id})" id="pvitem-${vid.id}">
-                <canvas id="thumb-${vid.id}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111;"></canvas>
+                ${thumb}
                 <div class="profile-video-overlay">
-                    <i class="fa-solid fa-heart"></i> ${vid.likes_count || 0}
+                    <i class="fa-solid fa-${isImage ? 'image' : 'heart'}"></i> ${isImage ? '' : (vid.likes_count || 0)}
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
 
-        // Jana thumbnail untuk setiap video selepas render
-        myVideos.forEach(vid => generateThumbnail(vid.video_url, vid.id));
+        // Jana thumbnail untuk video (bukan gambar)
+        myVideos.filter(v => v.video_url && !/\.(jpg|jpeg|png|gif|webp)/i.test(v.video_url))
+            .forEach(vid => generateThumbnail(vid.video_url, vid.id));
 
     } catch (error) {
-        console.error("Ralat Load Profile:", error);
+        devErr("[profile]", error); showToast("Gagal muatkan profil.", "error");
         showToast('Gagal muatkan profil.', 'error');
     }
 }
@@ -1693,7 +1765,7 @@ let cart = [];
 
 // Load dari localStorage dulu (pantas)
 try {
-    var _rawCart = localStorage.getItem('sf_cart_v2');
+    var _rawCart = localStorage.getItem('sn_cart_v2');
     if (_rawCart) {
         var _parsed = JSON.parse(_rawCart);
         // Hanya simpan product_id dan qty — BUANG harga dari cache lama
@@ -1704,7 +1776,7 @@ try {
 function saveCart() {
     // Simpan TANPA harga (harga akan diambil dari DB pada checkout)
     var safeCart = cart.map(function(i){ return { id: i.id, name: i.name, img: i.img || '', qty: i.qty }; });
-    try { localStorage.setItem('sf_cart_v2', JSON.stringify(safeCart)); } catch(e) {}
+    try { localStorage.setItem('sn_cart_v2', JSON.stringify(safeCart)); } catch(e) {}
     // Sync ke Supabase (async, tidak perlu tunggu)
     _syncCartToSupabase();
 }
@@ -1888,7 +1960,7 @@ async function checkout() {
     // Simpan cart items ke sessionStorage (untuk checkout page ambil)
     // Cart hanya simpan product_id dan qty — harga dikira server
     const checkoutItems = cart.map(i => ({ product_id: i.id, qty: i.qty }));
-    sessionStorage.setItem('sf_checkout_items', JSON.stringify(checkoutItems));
+    sessionStorage.setItem('sn_checkout_items', JSON.stringify(checkoutItems));
     window.location.href = 'checkout.html';
 }
 
@@ -2077,10 +2149,10 @@ function renderNotifications() {
 
     const welcomeHtml = currentNotifFilter === 'all' ? `
         <div class="notif-row">
-            <div class="notif-avatar" style="background-image:url('https://ui-avatars.com/api/?name=SnapFlow&background=fe2c55&color=fff');">
+            <div class="notif-avatar" style="background-image:url('https://ui-avatars.com/api/?name=SKYNET&background=fe2c55&color=fff');">
                 <div class="notif-type-icon" style="background:#fe2c55;"><i class="fa-solid fa-star" style="color:#fff;"></i></div>
             </div>
-            <div class="notif-body"><p><strong>SnapFlow</strong> — Selamat datang! Kongsi momen istimewa anda bersama dunia! 🎬</p><span>Hari ini</span></div>
+            <div class="notif-body"><p><strong>SKYNET</strong> — Selamat datang! Kongsi momen istimewa anda bersama dunia! 🎬</p><span>Hari ini</span></div>
         </div>` : '';
 
     list.innerHTML = welcomeHtml + filtered.map(n => buildNotifRow(n)).join('');
@@ -2173,7 +2245,7 @@ async function loadMessageThreads(user) {
             <div class="chat-row" onclick="window.location.href='chat.html?seller=${t.partnerId}'">
                 <div class="chat-avatar" style="background-image:url('https://ui-avatars.com/api/?name=Penjual&background=random');"></div>
                 <div class="chat-info">
-                    <strong>Penjual SnapFlow</strong>
+                    <strong>Penjual SKYNET</strong>
                     <span>${escapeHtml(t.message_text)}</span>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
@@ -2230,7 +2302,7 @@ function startRealtimeSubscriptions() {
     if (realtimeChannel) return;
 
     realtimeChannel = snapSupabase
-        .channel('snapflow-realtime')
+        .channel('skynet-realtime')
 
         // ── REALTIME LIKES ──────────────────────────
         .on('postgres_changes', {
@@ -2397,7 +2469,7 @@ const TRENDING_HASHTAGS = [
     { tag: '#viral',     count: '2.4J' },
     { tag: '#trending',  count: '1.8J' },
     { tag: '#fyp',       count: '5.1J' },
-    { tag: '#snapflow',  count: '980K' },
+    { tag: '#skynet',  count: '980K' },
     { tag: '#lucu',      count: '1.2J' },
     { tag: '#masakan',   count: '876K' },
     { tag: '#fesyen',    count: '654K' },
@@ -2465,7 +2537,7 @@ async function renderTrending(el) {
             <div class="kedai-banner fade-in" onclick="window.location.href='shop.html'">
                 <i class="fa-solid fa-bag-shopping"></i>
                 <div>
-                    <h3>Kedai SnapFlow</h3>
+                    <h3>Kedai SKYNET</h3>
                     <p>Jelajah produk pilihan kreator</p>
                 </div>
                 <i class="fa-solid fa-chevron-right" style="color:#333;margin-left:auto;font-size:12px;"></i>
@@ -2911,7 +2983,7 @@ window.addEventListener('beforeinstallprompt', (event) => {
     if (installBtn) installBtn.style.display = 'flex';
 
     // Tunjuk banner install selepas 3 saat (kalau belum dismiss)
-    const bannerDismissed = localStorage.getItem('snapflow-pwa-banner-dismissed');
+    const bannerDismissed = localStorage.getItem('skynet-pwa-banner-dismissed');
     if (!bannerDismissed) {
         setTimeout(() => {
             const banner = document.getElementById('pwa-install-banner');
@@ -2940,7 +3012,7 @@ async function installPWA() {
     const { outcome } = await deferredInstallPrompt.userChoice;
 
     if (outcome === 'accepted') {
-        showToast('SnapFlow berjaya dipasang! 🎉', 'success');
+        showToast('SKYNET berjaya dipasang! 🎉', 'success');
         deferredInstallPrompt = null;
     } else {
         showToast('Anda boleh install kemudian dari header.', 'info');
@@ -2951,7 +3023,7 @@ async function installPWA() {
 function dismissInstallBanner() {
     const banner = document.getElementById('pwa-install-banner');
     if (banner) banner.style.display = 'none';
-    localStorage.setItem('snapflow-pwa-banner-dismissed', '1');
+    localStorage.setItem('skynet-pwa-banner-dismissed', '1');
 }
 
 // ── Panduan install untuk iOS Safari ─────────────
@@ -2974,7 +3046,7 @@ function showIOSInstallGuide() {
     modal.innerHTML = `
         <div style="background:#111; border:1px solid #222; border-radius:20px; padding:24px; width:100%; text-align:center;">
             <div style="width:56px;height:56px;background:#fe2c55;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:26px;font-weight:900;color:#fff;">S</div>
-            <h3 style="font-size:18px;font-weight:800;margin:0 0 8px;">Install SnapFlow</h3>
+            <h3 style="font-size:18px;font-weight:800;margin:0 0 8px;">Install SKYNET</h3>
             ${isIOS && isSafari ? `
                 <p style="font-size:14px;color:#888;line-height:1.6;margin:0 0 20px;">
                     Untuk install di iPhone/iPad:<br>
@@ -3004,7 +3076,7 @@ function showIOSInstallGuide() {
 
 // ── Detect bila app berjaya diinstall ────────────
 window.addEventListener('appinstalled', () => {
-    showToast('SnapFlow berjaya dipasang di telefon anda! 🎉', 'success');
+    showToast('SKYNET berjaya dipasang di telefon anda! 🎉', 'success');
     deferredInstallPrompt = null;
 
     // Sorokkan butang install
@@ -3041,10 +3113,10 @@ document.head.appendChild(pwaStyle);
 // ==========================================
 
 // Simpan dalam localStorage (boleh migrate ke Supabase kemudian)
-let savedVideos = new Set(JSON.parse(localStorage.getItem('snapflow_saved') || '[]'));
+let savedVideos = new Set(JSON.parse(localStorage.getItem('skynet_saved') || '[]'));
 
 function saveSavedVideos() {
-    localStorage.setItem('snapflow_saved', JSON.stringify([...savedVideos]));
+    localStorage.setItem('skynet_saved', JSON.stringify([...savedVideos]));
 }
 
 // ── Toggle simpan video (dengan Collection Picker) ──
@@ -3470,7 +3542,7 @@ async function loadPinnedVideo() {
     const { data: { user } } = await snapSupabase.auth.getUser();
     if (!user) return;
 
-    const pinnedId = localStorage.getItem(`snapflow-pinned-${user.id}`);
+    const pinnedId = localStorage.getItem(`skynet-pinned-${user.id}`);
     if (!pinnedId) { container.style.display = 'none'; return; }
 
     const { data: vid } = await snapSupabase.from('videos').select('*').eq('id', pinnedId).single();
@@ -3529,7 +3601,7 @@ async function showPinVideoModal() {
 async function pinVideo(videoId) {
     const { data: { user } } = await snapSupabase.auth.getUser();
     if (!user) return;
-    localStorage.setItem(`snapflow-pinned-${user.id}`, videoId);
+    localStorage.setItem(`skynet-pinned-${user.id}`, videoId);
     document.getElementById('pin-modal')?.remove();
     showToast('Video berjaya dipin! 📌', 'success');
     loadPinnedVideo();
@@ -3539,7 +3611,7 @@ function unpinVideo(event) {
     event.stopPropagation();
     snapSupabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;
-        localStorage.removeItem(`snapflow-pinned-${user.id}`);
+        localStorage.removeItem(`skynet-pinned-${user.id}`);
         const wrap = document.getElementById('pinned-video-wrap');
         if (wrap) wrap.style.display = 'none';
         showToast('Pin dibuang.', 'info');
@@ -4051,7 +4123,7 @@ async function uploadStory() {
     try {
         const ext  = file.name.split('.').pop();
         const path = `stories/${user.id}/${Date.now()}.${ext}`;
-        const bucket = file.type.startsWith('video') ? 'videos' : 'images';
+        const bucket = file.type.startsWith('video') ? 'videos' : 'stories';
 
         const { error: uploadErr } = await snapSupabase.storage
             .from(bucket).upload(path, file, { upsert: true });
@@ -4279,10 +4351,10 @@ function buildDuetPlayer(mainUrl, sourceUrl, videoId) {
 // ==========================================
 
 // Simpan senarai blok dalam localStorage (boleh migrate ke Supabase kemudian)
-let blockedUsers = new Set(JSON.parse(localStorage.getItem('snapflow_blocked') || '[]'));
+let blockedUsers = new Set(JSON.parse(localStorage.getItem('skynet_blocked') || '[]'));
 
 function saveBlockedUsers() {
-    localStorage.setItem('snapflow_blocked', JSON.stringify([...blockedUsers]));
+    localStorage.setItem('skynet_blocked', JSON.stringify([...blockedUsers]));
 }
 
 function isUserBlocked(userId) {
@@ -4477,8 +4549,8 @@ if (!_lastCleanup || parseInt(_lastCleanup) < _oneHourAgo) {
 const FCM_CONFIG = {
     // Isi nilai ini dari Firebase Console → Project Settings → Web App
     apiKey:            "GANTI_DENGAN_FCM_API_KEY",
-    authDomain:        "snapflow-app.firebaseapp.com",
-    projectId:         "snapflow-app",
+    authDomain:        "skynet-app.firebaseapp.com",
+    projectId:         "skynet-app",
     messagingSenderId: "GANTI_DENGAN_SENDER_ID",
     appId:             "GANTI_DENGAN_APP_ID",
     vapidKey:          "GANTI_DENGAN_VAPID_KEY"
@@ -4526,7 +4598,7 @@ function showLocalNotification(title, body, icon = '') {
         icon: icon || 'https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=64',
         badge: 'https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=32',
         vibrate: [200, 100, 200],
-        tag: 'snapflow-notif',
+        tag: 'skynet-notif',
         renotify: true
     });
     notif.onclick = () => { window.focus(); notif.close(); };
@@ -4557,8 +4629,8 @@ function setupPushFromRealtime() {
                 mention: '📢 Anda disebut dalam komen!'
             };
 
-            const msg = typeMsg[notif.type] || 'Notifikasi baharu dari SnapFlow';
-            showLocalNotification('SnapFlow', msg);
+            const msg = typeMsg[notif.type] || 'Notifikasi baharu dari SKYNET';
+            showLocalNotification('SKYNET', msg);
         })
         .subscribe();
 }
@@ -4574,7 +4646,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Semak sama ada user verified (untuk papar dalam video feed)
 const verifiedUsers = new Set(
-    JSON.parse(localStorage.getItem('snapflow_verified') || '[]')
+    JSON.parse(localStorage.getItem('skynet_verified') || '[]')
 );
 
 async function refreshVerifiedCache() {
@@ -4594,7 +4666,7 @@ async function refreshVerifiedCache() {
 
         verifiedUsers.clear();
         verified.forEach(uid => verifiedUsers.add(uid));
-        localStorage.setItem('snapflow_verified', JSON.stringify(verified));
+        localStorage.setItem('skynet_verified', JSON.stringify(verified));
     } catch (e) {
         console.warn('refreshVerifiedCache error:', e);
     }
@@ -4689,7 +4761,7 @@ checkScheduledVideos(); // Semak terus masa load
 // })
 
 // ==========================================
-// 37. SNAPFLOW PRO (Stripe Integration)
+// 37. SKYNET PRO (Stripe Integration)
 // ==========================================
 
 // Konfigurasi Stripe — ganti dengan publishable key anda
@@ -4731,8 +4803,8 @@ async function openProModal() {
                             box-shadow:0 0 30px rgba(246,201,14,0.4);font-size:28px;">⭐</div>
                 <h2 style="margin:0 0 6px;font-size:22px;font-weight:900;
                            background:linear-gradient(135deg,#f6c90e,#ffdf6b);
-                           -webkit-background-clip:text;-webkit-text-fill-color:transparent;">SnapFlow Pro</h2>
-                <p style="margin:0;font-size:14px;color:#555;">Buka semua ciri premium SnapFlow</p>
+                           -webkit-background-clip:text;-webkit-text-fill-color:transparent;">SKYNET Pro</h2>
+                <p style="margin:0;font-size:14px;color:#555;">Buka semua ciri premium SKYNET</p>
             </div>
 
             <!-- Status kalau dah Pro -->
@@ -4751,7 +4823,7 @@ async function openProModal() {
                     ['🎬', 'Upload Video HD', 'Resolusi sehingga 4K, saiz fail hingga 500MB'],
                     ['∞',  'Upload Tanpa Had',  'Tiada limit 10 video/hari — upload sesuka hati'],
                     ['📅', 'Jadual Post Lanjutan', 'Jadualkan sehingga 30 post sekaligus'],
-                    ['🚫', 'Tiada Iklan', 'Nikmati SnapFlow tanpa gangguan iklan'],
+                    ['🚫', 'Tiada Iklan', 'Nikmati SKYNET tanpa gangguan iklan'],
                     ['🎨', 'Filter Eksklusif Pro', '15 filter tambahan untuk video anda'],
                 ].map(([icon, title, desc]) => `
                     <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:#111;border-radius:10px;border:1px solid #1a1a1a;">
@@ -4810,9 +4882,9 @@ async function startStripeCheckout() {
         // DEMO MODE — simulate Pro activation
         localStorage.setItem('sf_pro_status', 'active');
         document.getElementById('pro-modal')?.remove();
-        showToast('SnapFlow Pro diaktifkan! ⭐', 'success');
+        showToast('SKYNET Pro diaktifkan! ⭐', 'success');
         showProBadge();
-        showLocalNotification('SnapFlow Pro', '⭐ Selamat datang ke SnapFlow Pro! Semua ciri premium telah dibuka.');
+        showLocalNotification('SKYNET Pro', '⭐ Selamat datang ke SKYNET Pro! Semua ciri premium telah dibuka.');
 
     } catch (err) {
         showToast('Pembayaran gagal: ' + err.message, 'error');
@@ -4825,7 +4897,7 @@ function managePro() {
     // window.location.href = 'https://billing.stripe.com/p/login/...'
 
     // DEMO: batalkan Pro
-    if (confirm('Batalkan SnapFlow Pro?')) {
+    if (confirm('Batalkan SKYNET Pro?')) {
         localStorage.removeItem('sf_pro_status');
         document.getElementById('pro-modal')?.remove();
         showToast('Langganan Pro dibatalkan.', 'info');
@@ -5103,7 +5175,7 @@ function showRateLimitWarning(result) {
 
             ${!result.isPro ? `
             <div style="background:#1a1200;border:1px solid #333;border-radius:12px;padding:14px;margin-bottom:16px;">
-                <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#f6c90e;">⭐ Naik ke SnapFlow Pro</p>
+                <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#f6c90e;">⭐ Naik ke SKYNET Pro</p>
                 <p style="margin:0;font-size:13px;color:#665500;">Upload sehingga 50 video/jam tanpa had harian.</p>
             </div>
             <button onclick="document.getElementById('rate-limit-modal').remove();openProModal();"
@@ -5374,7 +5446,7 @@ async function sendGift(videoId, creatorId, giftId, coins, emoji, giftName) {
     // Animasi hadiah terbang
     showGiftAnimation(emoji, videoId);
     showToast(`${emoji} ${giftName} dihantar kepada kreator!`, 'success');
-    showLocalNotification?.('SnapFlow', `Anda menghantar ${emoji} ${giftName}!`);
+    showLocalNotification?.('SKYNET', `Anda menghantar ${emoji} ${giftName}!`);
 }
 
 function showGiftAnimation(emoji, videoId) {
@@ -5525,10 +5597,10 @@ async function generateAICaption(file) {
 
         // Fallback: Jana kapsyen generik berdasarkan nama fail
         const fallbackCaptions = [
-            'Video terbaru dari SnapFlow! 🔥 #viral #trending #snapflow',
-            'Konten hari ini — jangan miss! ✨ #fyp #foryou #snapflow',
-            'Cuba tengok ni! 👀 #snapflow #viral #trending',
-            'Konten eksklusif untuk korang! 💯 #snapflow #content #malaysia',
+            'Video terbaru dari SKYNET! 🔥 #viral #trending #skynet',
+            'Konten hari ini — jangan miss! ✨ #fyp #foryou #skynet',
+            'Cuba tengok ni! 👀 #skynet #viral #trending',
+            'Konten eksklusif untuk korang! 💯 #skynet #content #malaysia',
         ];
         const random = fallbackCaptions[Math.floor(Math.random() * fallbackCaptions.length)];
         const captionEl = document.getElementById('video-caption');
@@ -5727,7 +5799,7 @@ async function updateChallengeEntryCount(caption) {
 }
 
 // ==========================================
-// 47. SNAPFLOW LIVE — Pembantu Feed
+// 47. SKYNET LIVE — Pembantu Feed
 // ==========================================
 
 // Tunjuk live users bar dalam feed
@@ -6122,7 +6194,7 @@ function checkDuetMeta() {
         if (!captionEl) return;
         const tag  = meta.mode === 'stitch' ? '#stitch' : '#duet';
         const orig = meta.originalCreator ? `@${meta.originalCreator}` : '';
-        captionEl.value = `${tag} ${orig} #snapflow`.trim();
+        captionEl.value = `${tag} ${orig} #skynet`.trim();
         showToast(`${meta.mode === 'duet' ? 'Duet' : 'Stitch'} bersedia untuk upload! 🎭`, 'success');
     } catch(e) {}
 }

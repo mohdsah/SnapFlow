@@ -1,4 +1,4 @@
-# SnapFlow v4.0 — Panduan Deploy Production
+# SKYNET v4.0 — Panduan Deploy Production
 
 ## Prasyarat
 
@@ -14,7 +14,7 @@
 ### 1a. Buat Projek Baru
 ```
 supabase.com → New Project
-Project Name: snapflow
+Project Name: skynet
 Database Password: [simpan dengan selamat]
 Region: Southeast Asia (Singapore)
 ```
@@ -22,7 +22,7 @@ Region: Southeast Asia (Singapore)
 ### 1b. Run SQL Schema
 ```
 Supabase Dashboard → SQL Editor → New Query
-Paste: kandungan snapflow_supabase.sql
+Paste: kandungan skynet_supabase.sql
 Klik: RUN
 ```
 
@@ -123,7 +123,7 @@ Salin `Signing secret` (whsec_xxx) → set sebagai `STRIPE_WEBHOOK_SECRET`
 ### Auto Deploy (GitHub)
 ```bash
 git add .
-git commit -m "SnapFlow v4.0 production"
+git commit -m "SKYNET v4.0 production"
 git push origin main
 # GitHub Actions CI/CD akan deploy ke Netlify
 ```
@@ -194,7 +194,7 @@ Publish directory: .
 | Supabase URL | https://trrfsredzugdyppevcbw.supabase.co |
 | Stripe Mode | Test (tukar ke Live untuk production) |
 | SW Version | v4.0.0 |
-| App Version | SnapFlow v4.0 |
+| App Version | SKYNET v4.0 |
 
 ---
 

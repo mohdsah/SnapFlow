@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tiada Sambungan | SnapFlow</title>
+    <title>Tiada Sambungan | SKYNET</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="style.css">
@@ -76,7 +76,7 @@
     <div class="content">
         <span class="wifi-icon">📡</span>
         <h2>Tiada Sambungan Internet</h2>
-        <p>SnapFlow memerlukan sambungan internet untuk memuatkan video. Semak rangkaian WiFi atau data anda.</p>
+        <p>SKYNET memerlukan sambungan internet untuk memuatkan video. Semak rangkaian WiFi atau data anda.</p>
 
         <div class="status-bar">
             <div class="status-row">
@@ -148,7 +148,7 @@
         // Auto-redirect bila sambungan pulih
         window.addEventListener('online', () => {
             document.querySelector('h2').innerText = 'Sambungan Pulih! 🎉';
-            document.querySelector('p').innerText  = 'Mengalihkan ke SnapFlow...';
+            document.querySelector('p').innerText  = 'Mengalihkan ke SKYNET...';
             setTimeout(() => window.location.replace('/index.html'), 1000);
         });
 

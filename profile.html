@@ -1,200 +1,178 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-    <meta charset="UTF-8">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SnapFlow">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192&bold=true">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Profil | SnapFlow</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="auth-guard.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 20px); overflow-y: auto; }
-        .stat-item { text-align: center; }
-        .stat-item strong { font-size: 18px; font-weight: 700; display: block; }
-        .stat-item span { color: #666; font-size: 12px; margin-top: 2px; display: block; }
-        .action-btn {
-            background: #1a1a1a;
-            color: #fff;
-            border: 1px solid #2a2a2a;
-            padding: 9px 22px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .action-btn:active { background: #222; }
-        .action-btn.danger { background: #1a0008; border-color: #3a0010; color: #fe2c55; }
-    </style>
-
-    <!-- Modules: core, profile, feed -->
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <title>Profil | SKYNET</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="auth-guard.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <header style="padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111;">
-        <button onclick="toggleTheme()" style="background:transparent;border:none;cursor:pointer;color:#888;font-size:18px;padding:0;" title="Tukar tema">
-            <i id="theme-toggle-icon" class="fa-solid fa-sun"></i>
-        </button>
-        <strong id="display-username" style="font-size: 16px; font-weight: 700;">Memuatkan...</strong>
-        <a href="edit-profile.html"><i class="fa-solid fa-ellipsis-vertical" style="font-size: 18px; color: #fff;"></i></a>
-    </header>
+  <!-- Header -->
+  <header class="app-header">
+    <span style="font-size:13px;color:var(--text3);" id="display-username">@username</span>
+    <span style="flex:1;"></span>
+    <button onclick="window.location.href='edit-profile.html'" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:6px;">
+      <i class="fa-solid fa-ellipsis"></i>
+    </button>
+  </header>
 
-    <main style="padding: 24px 20px; text-align: center;">
+  <main style="padding-bottom:calc(var(--nav-height) + var(--safe-bottom) + 8px);">
 
-        <!-- Avatar -->
-        <div id="profile-avatar" style="width: 90px; height: 90px; border-radius: 50%; background: #1a1a1a; margin: 0 auto 14px; background-size: cover; background-position: center; border: 2.5px solid #2a2a2a;"></div>
+    <!-- Profile Info -->
+    <section class="profile-header">
 
-        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;">
-            <h3 id="display-fullname" style="margin: 0; font-size: 20px; font-weight: 700;">Nama</h3>
-            <span id="verified-badge" style="display:none;background:#1da1f2;border-radius:50%;width:20px;height:20px;align-items:center;justify-content:center;flex-shrink:0;" title="Akaun Disahkan">
-                <i class="fa-solid fa-check" style="font-size:11px;color:#fff;"></i>
-            </span>
-            <span id="pro-badge" style="display:none;background:linear-gradient(135deg,#f6c90e,#ffdf6b);color:#000;font-size:10px;font-weight:900;padding:2px 7px;border-radius:6px;" title="SnapFlow Pro">PRO</span>
-        </div>
-        <p id="display-handle" style="color: #555; margin: 5px 0 10px; font-size: 14px;">@username</p>
+      <!-- Avatar -->
+      <div class="profile-avatar-wrap">
+        <div id="profile-avatar" style="width:90px;height:90px;border-radius:50%;border:3px solid transparent;background:var(--bg4) linear-gradient(var(--bg4),var(--bg4)) padding-box;background-size:cover;background-position:center;"></div>
+      </div>
 
-        <!-- Bio Text -->
-        <p id="display-bio" style="color:#888;font-size:13px;line-height:1.5;margin:0 20px 10px;min-height:0;"></p>
+      <!-- Name + Badges -->
+      <div class="profile-name">
+        <span id="display-fullname">Nama</span>
+        <span id="verified-badge" style="display:none;" class="verified-icon" title="Akaun Disahkan">
+          <i class="fa-solid fa-check"></i>
+        </span>
+        <span id="pro-badge" style="display:none;" class="pro-badge">PRO</span>
+      </div>
 
-        <!-- Bio Links -->
-        <div id="bio-links-display" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px;"></div>
+      <p class="profile-handle" id="display-handle">@username</p>
 
-        <!-- Action Buttons -->
-        <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 28px;">
-            <button class="action-btn" onclick="openProModal()" style="background:linear-gradient(135deg,#1a1200,#0d0900);border:1px solid #f6c90e33;color:#f6c90e;">
-                <i class="fa-solid fa-star" style="font-size:12px;"></i> Pro
-            </button>
-            <button class="action-btn" onclick="window.location.href='followers.html'">
-                <i class="fa-solid fa-users" style="font-size:12px;"></i> Pengikut
-            </button>
-            <button class="action-btn" onclick="window.location.href='analytics.html'" style="background:#0d001a;border:1px solid #2a0050;color:#c084fc;">
-                <i class="fa-solid fa-chart-line" style="font-size:12px;"></i> Analitik
-            </button>
-            <button class="action-btn" onclick="window.location.href='collections.html'" style="background:#001a09;border:1px solid #003a10;color:#00f2ea;">
-                <i class="fa-solid fa-bookmark" style="font-size:12px;"></i> Koleksi
-            </button>
-            <button class="action-btn" onclick="window.location.href='edit-profile.html'">
-                <i class="fa-solid fa-pen" style="font-size:12px;"></i> Edit Profil
-            </button>
-            <button class="action-btn danger" onclick="handleLogout()">
-                <i class="fa-solid fa-right-from-bracket" style="font-size:12px;"></i> Log Keluar
-            </button>
-        </div>
+      <!-- Bio -->
+      <p class="profile-bio" id="display-bio"></p>
 
-        <!-- Creator Coins -->
-        <div id="creator-coins" style="text-align:center;font-size:12px;color:#555;margin:-8px 0 14px;"></div>
+      <!-- Bio Links -->
+      <div id="bio-links-display" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:0 16px 12px;"></div>
 
-        <!-- Stats -->
-        <div style="display: flex; justify-content: center; gap: 30px; border-top: 1px solid #111; border-bottom: 1px solid #111; padding: 18px 0; margin-bottom: 20px;">
-            <div class="stat-item">
-                <strong id="following-count">0</strong>
-                <span>Following</span>
-            </div>
-            <div class="stat-item">
-                <strong id="followers-count">0</strong>
-                <span>Followers</span>
-            </div>
-            <div class="stat-item">
-                <strong id="total-likes-display">0</strong>
-                <span>Likes</span>
-            </div>
-            <div class="stat-item">
-                <strong id="video-count">0</strong>
-                <span>Video</span>
-            </div>
-        </div>
+      <!-- Coins -->
+      <div id="creator-coins" style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:4px;"></div>
+    </section>
 
-        <!-- Pinned Video -->
-        <div id="pinned-video-wrap" style="display:none;margin-top:4px;"></div>
+    <!-- Stats -->
+    <div class="profile-stats">
+      <div class="profile-stat" onclick="window.location.href='followers.html'">
+        <strong id="following-count">0</strong>
+        <span>Mengikuti</span>
+      </div>
+      <div class="profile-stat" onclick="window.location.href='followers.html?tab=followers'">
+        <strong id="followers-count">0</strong>
+        <span>Pengikut</span>
+      </div>
+      <div class="profile-stat">
+        <strong id="video-count">0</strong>
+        <span>Video</span>
+      </div>
+      <div class="profile-stat">
+        <strong id="total-likes-display">0</strong>
+        <span>Suka</span>
+      </div>
+    </div>
 
-        <!-- Tab Bar Profil -->
-        <div style="display:flex; border-bottom:1px solid #111; margin-top:4px;">
-            <button class="profile-tab-btn active" onclick="switchProfileTab('videos', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid #fff;color:#fff;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-                <i class="fa-solid fa-grid-2"></i> Video
-            </button>
-            <button class="profile-tab-btn" onclick="switchProfileTab('saved', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-                <i class="fa-solid fa-bookmark"></i> Tersimpan
-            </button>
-            <button class="profile-tab-btn" onclick="switchProfileTab('analytics', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-                <i class="fa-solid fa-chart-line"></i> Analitik
-            </button>
-            <button class="profile-tab-btn" onclick="switchProfileTab('earnings', this)" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-                <i class="fa-solid fa-coins"></i> Hadiah
-            </button>
-        </div>
+    <!-- Action Buttons -->
+    <div class="profile-actions">
+      <button class="profile-btn primary" onclick="window.location.href='edit-profile.html'">
+        <i class="fa-solid fa-pen"></i> Edit Profil
+      </button>
+      <button class="profile-btn pro" onclick="openProModal()">
+        <i class="fa-solid fa-star"></i> PRO
+      </button>
+      <button class="profile-btn analytics" onclick="window.location.href='analytics.html'">
+        <i class="fa-solid fa-chart-line"></i>
+      </button>
+      <button class="profile-btn" onclick="window.location.href='collections.html'">
+        <i class="fa-solid fa-bookmark"></i>
+      </button>
+      <button class="profile-btn" onclick="window.location.href='orders.html'">
+        <i class="fa-solid fa-bag-shopping"></i>
+      </button>
+      <button class="profile-btn danger" onclick="handleLogout()">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>
+    </div>
 
-        <!-- Panel: Video -->
-        <div id="profile-panel-videos" class="profile-panel" style="display:block;">
-            <div id="profile-video-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;"></div>
-        </div>
+    <!-- Video Grid Tabs -->
+    <div class="chip-row" style="padding-bottom:4px;">
+      <button class="chip active" onclick="switchProfileTab('videos',this)"><i class="fa-solid fa-play"></i> Video</button>
+      <button class="chip" onclick="switchProfileTab('saved',this)"><i class="fa-solid fa-bookmark"></i> Simpan</button>
+      <button class="chip" onclick="switchProfileTab('liked',this)"><i class="fa-solid fa-heart"></i> Suka</button>
+    </div>
 
-        <!-- Panel: Tersimpan -->
-        <div id="profile-panel-saved" class="profile-panel" style="display:none;padding:16px;">
-            <div id="saved-videos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;"></div>
-        </div>
+    <!-- Video Grid -->
+    <div id="profile-video-grid" class="profile-grid"></div>
 
-        <!-- Panel: Analitik -->
-        <div id="profile-panel-analytics" class="profile-panel" style="display:none;padding:16px;">
-            <div id="analytics-container"></div>
-        </div>
-    </main>
+  </main>
 
-    <script>
-        // Load pinned video on startup
-        window.addEventListener('DOMContentLoaded', () => {
-            loadPinnedVideo();
-            // Set theme icon
-            const icon = document.getElementById('theme-toggle-icon');
-            if (icon) icon.className = isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-        });
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="nav-item">
+      <i class="fa-solid fa-house"></i>
+      <span>Utama</span>
+    </a>
+    <a href="discover.html" class="nav-item">
+      <i class="fa-solid fa-compass"></i>
+      <span>Jelajah</span>
+    </a>
+    <a href="upload.html" class="nav-item upload-btn-nav">
+      <i class="fa-solid fa-plus"></i>
+    </a>
+    <a href="inbox.html" class="nav-item">
+      <i class="fa-regular fa-bell"></i>
+      <span>Notif</span>
+    </a>
+    <a href="profile.html" class="nav-item active">
+      <i class="fa-solid fa-user"></i>
+      <span>Profil</span>
+    </a>
+  </nav>
 
-        function switchProfileTab(tab, el) {
-            document.querySelectorAll('.profile-tab-btn').forEach(b => {
-                b.style.color = '#555';
-                b.style.borderBottomColor = 'transparent';
-            });
-            el.style.color = '#fff';
-            el.style.borderBottomColor = '#fff';
+  <script src="app.js"></script>
+  <script>
+    function switchProfileTab(tab, el) {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      const grid = document.getElementById('profile-video-grid');
+      if (tab === 'videos') {
+        loadProfileData();
+      } else if (tab === 'saved') {
+        window.location.href = 'saved.html';
+      } else if (tab === 'liked') {
+        loadLikedVideos(grid);
+      }
+    }
 
-            document.querySelectorAll('.profile-panel').forEach(p => p.style.display = 'none');
-            document.getElementById(`profile-panel-${tab}`).style.display = 'block';
+    async function loadLikedVideos(grid) {
+      grid.innerHTML = '<div style="grid-column:span 3;text-align:center;padding:40px 16px;color:var(--text3);"><div class="loader-spin" style="margin:0 auto 12px;"></div></div>';
+      try {
+        const user = await getAuthUser();
+        if (!user) return;
+        const { data } = await snapSupabase
+          .from('likes')
+          .select('video_id, videos(id, video_url, likes_count)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(30);
 
-            if (tab === 'saved') loadSavedVideos();
-            if (tab === 'analytics') loadCreatorAnalytics();
+        if (!data || data.length === 0) {
+          grid.innerHTML = '<div style="grid-column:span 3;text-align:center;padding:40px 16px;color:var(--text3);"><i class="fa-solid fa-heart" style="font-size:32px;margin-bottom:10px;display:block;"></i>Belum ada video yang disukai.</div>';
+          return;
         }
-    </script>
-
-    <nav class="bottom-nav">
-        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
-        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
-        <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
-        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
-        <a href="profile.html" class="nav-item active"><i class="fa-solid fa-user"></i><span>Profil</span></a>
-    </nav>
-
-    <script src="app.js"></script>
-    <!-- Page-specific modules for profile.html -->
-    <!--
-    -->
-
-    <!-- PWA Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(reg => console.log('[PWA] Service Worker berdaftar:', reg.scope))
-                    .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
-            });
-        }
-    </script>
+        grid.innerHTML = data.filter(d => d.videos).map(d => `
+          <div class="profile-video-item" onclick="viewVideo(${d.videos.id})">
+            <canvas id="thumb-${d.videos.id}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111;"></canvas>
+            <div class="profile-video-overlay"><i class="fa-solid fa-heart"></i> ${d.videos.likes_count || 0}</div>
+          </div>
+        `).join('');
+        data.filter(d => d.videos).forEach(d => generateThumbnail(d.videos.video_url, d.videos.id));
+      } catch(e) { grid.innerHTML = '<div style="grid-column:span 3;text-align:center;padding:40px;color:var(--text3);">Gagal muatkan.</div>'; }
+    }
+  </script>
 </body>
 </html>

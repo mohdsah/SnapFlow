@@ -1,11 +1,11 @@
-# SnapFlow v4.0
+# SKYNET v4.0
 
 Platform video pendek bergaya TikTok dibina dengan HTML/CSS/JS + Supabase.
 
 ## Struktur Projek
 
 ```
-SnapFlow/
+SKYNET/
 ├── 📄 HTML Pages (33 files)
 │   ├── index.html              # Home feed utama
 │   ├── login.html              # Log masuk
@@ -18,7 +18,7 @@ SnapFlow/
 │   ├── upload.html             # Upload video
 │   ├── editor.html             # Editor video
 │   ├── duet.html               # Duet / Stitch
-│   ├── live.html               # SnapFlow Live
+│   ├── live.html               # SKYNET Live
 │   ├── discover.html           # Explore / Trending
 │   ├── search.html             # Carian
 │   ├── categories.html         # Kategori
@@ -54,7 +54,7 @@ SnapFlow/
 │   └── service-worker.js       # PWA offline + push notif
 │
 ├── 🗄️ Database
-│   └── snapflow_supabase.sql   # Schema + 65 RLS policies
+│   └── skynet_supabase.sql   # Schema + 65 RLS policies
 │
 └── ☁️ Edge Functions (Supabase)
     └── supabase/functions/
@@ -85,14 +85,14 @@ SnapFlow/
 - 💬 Realtime chat + notifikasi
 - 🛒 E-commerce dengan Stripe
 - 📊 Dashboard analitik kreator
-- 🔴 Live streaming (SnapFlow Live)
+- 🔴 Live streaming (SKYNET Live)
 - 🎯 Video cabaran & duet
 - 📱 PWA (installable, offline support, push notifications)
 - 🔒 26 tables dengan 65 RLS policies
 
 ## Quick Start
 
-1. Run `snapflow_supabase.sql` dalam Supabase SQL Editor
+1. Run `skynet_supabase.sql` dalam Supabase SQL Editor
 2. Kemaskini `supabaseUrl` dan `supabaseKey` dalam `app.js`
 3. Deploy Edge Functions: `npx supabase functions deploy --all`
 4. Set secrets (lihat `DEPLOY.md`)

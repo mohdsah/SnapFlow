@@ -1,119 +1,82 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-    <meta charset="UTF-8">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Log Masuk | SnapFlow</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body {
-            background: #000;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .auth-wrap { width: 100%; max-width: 400px; padding: 40px 24px; text-align: center; }
-        .auth-logo { font-size: 36px; font-weight: 900; background: linear-gradient(135deg,#fff 30%,#fe2c55 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 6px; }
-        .auth-sub  { color: #555; font-size: 14px; margin-bottom: 32px; }
-        .form-group { text-align: left; margin-bottom: 16px; }
-        .form-group label { font-size: 12px; color: #555; display: block; margin-bottom: 6px; margin-left: 2px; }
-        .form-group input { width: 100%; background: #111; border: 1px solid #2a2a2a; padding: 14px 16px; border-radius: 12px; color: #fff; font-size: 15px; outline: none; transition: border-color 0.2s; box-sizing: border-box; font-family: inherit; }
-        .form-group input:focus { border-color: #fe2c55; }
-        .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
-        .divider div { flex: 1; height: 1px; background: #1a1a1a; }
-        .divider span { color: #333; font-size: 12px; white-space: nowrap; }
-        .social-btn { width: 100%; padding: 13px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; border: none; font-family: inherit; transition: opacity 0.2s; margin-bottom: 10px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <title>Log Masuk | SKYNET</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-    <div class="auth-wrap">
-        <h1 class="auth-logo">SnapFlow</h1>
-        <p class="auth-sub">Log masuk ke akaun anda</p>
+<body class="auth-page">
 
-        <div class="form-group">
-            <label>Alamat Email</label>
-            <input type="email" id="login-email" placeholder="email@contoh.com"
-                   autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()">
-        </div>
+  <div class="auth-logo">SKYNET</div>
+  <p class="auth-tagline">Platform video kreator #1</p>
 
-        <div class="form-group" style="margin-bottom: 8px;">
-            <label>Kata Laluan</label>
-            <input type="password" id="login-password" placeholder="••••••••"
-                   autocomplete="current-password" onkeydown="if(event.key==='Enter') handleLogin()">
-        </div>
+  <div class="auth-box">
+    <h2 class="auth-title">Log Masuk</h2>
 
-        <div style="text-align:right; margin-bottom: 22px;">
-            <a href="forgot-password.html" style="color:#555; font-size:13px;">Lupa kata laluan?</a>
-        </div>
-
-        <button class="login-btn-main" onclick="handleLogin()">Log Masuk</button>
-
-        <!-- Notis email belum disahkan akan muncul di sini -->
-
-        <div class="divider">
-            <div></div><span>atau log masuk dengan</span><div></div>
-        </div>
-
-        <button class="social-btn" style="background:#fff;color:#000;" onclick="loginWithGoogle()">
-            <svg width="18" height="18" viewBox="0 0 18 18">
-                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
-                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
-                <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/>
-                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
-            </svg>
-            Teruskan dengan Google
-        </button>
-
-        <button class="social-btn" style="background:#000;color:#fff;border:1px solid #333;" onclick="loginWithApple()">
-            <svg width="15" height="18" viewBox="0 0 15 18" fill="white">
-                <path d="M12.4 9.3c0-2 1.6-3 1.7-3.1-.9-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7C3.8 4.7 2.3 5.6 1.5 7 0 9.8 1.1 14 2.7 16.3c.8 1.1 1.7 2.4 2.9 2.3 1.2-.1 1.6-.8 3-.8 1.4 0 1.8.8 3 .8 1.3 0 2.1-1.2 2.8-2.3.9-1.3 1.3-2.6 1.3-2.7-.1-.1-2.5-1-2.5-3.3zM10.4 2.5c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z"/>
-            </svg>
-            Teruskan dengan Apple
-        </button>
-
-        <p style="margin-top:20px; color:#555; font-size:14px;">
-            Belum ada akaun? <a href="register.html" style="color:#fe2c55; font-weight:700;">Daftar Sekarang</a>
-        </p>
+    <div class="input-wrap">
+      <label>Emel</label>
+      <input id="login-email" class="sn-input" type="email" placeholder="nama@emel.com" autocomplete="email" inputmode="email">
     </div>
 
-    <script src="app.js"></script>
-    <script>
-    // Social login
-    async function loginWithGoogle() {
-        try {
-            const { error } = await snapSupabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: { redirectTo: window.location.origin + '/index.html' }
-            });
-            if (error) throw error;
-        } catch(e) { showToast('Gagal: ' + e.message, 'error'); }
-    }
-    async function loginWithApple() {
-        try {
-            const { error } = await snapSupabase.auth.signInWithOAuth({
-                provider: 'apple',
-                options: { redirectTo: window.location.origin + '/index.html' }
-            });
-            if (error) throw error;
-        } catch(e) { showToast('Gagal: ' + e.message, 'error'); }
-    }
-    </script>
+    <div class="input-wrap" style="position:relative;">
+      <label>Kata Laluan</label>
+      <input id="login-password" class="sn-input" type="password" placeholder="••••••••" autocomplete="current-password" style="padding-right:46px;">
+      <button onclick="togglePw('login-password',this)" style="position:absolute;right:14px;bottom:14px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0;">
+        <i class="fa-regular fa-eye"></i>
+      </button>
+    </div>
 
-    <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-            navigator.serviceWorker.register('/service-worker.js').catch(function(){});
-        });
+    <div style="text-align:right;margin:-8px 0 16px;">
+      <a href="forgot-password.html" style="font-size:12px;color:var(--text3);font-family:var(--font);">Lupa Kata Laluan?</a>
+    </div>
+
+    <button class="btn-primary" onclick="handleLogin()">Log Masuk</button>
+
+    <div class="auth-divider">atau</div>
+
+    <button class="social-btn" onclick="loginWithGoogle()">
+      <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="G">
+      Teruskan dengan Google
+    </button>
+    <button class="social-btn" onclick="loginWithApple()" style="display:none;" id="apple-btn">
+      <i class="fa-brands fa-apple" style="font-size:18px;"></i>
+      Teruskan dengan Apple
+    </button>
+
+    <div id="email-notis-container"></div>
+  </div>
+
+  <div class="auth-footer" style="margin-top:20px;">
+    Belum ada akaun? <a href="register.html">Daftar Sekarang</a>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // Show Apple button on iOS
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      document.getElementById('apple-btn').style.display = 'flex';
     }
-    </script>
+    // Enter key support
+    document.getElementById('login-email')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('login-password')?.focus();
+    });
+    document.getElementById('login-password')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleLogin();
+    });
+    function togglePw(id, btn) {
+      const input = document.getElementById(id);
+      const isText = input.type === 'text';
+      input.type = isText ? 'password' : 'text';
+      btn.innerHTML = isText ? '<i class="fa-regular fa-eye"></i>' : '<i class="fa-regular fa-eye-slash"></i>';
+    }
+  </script>
 </body>
 </html>

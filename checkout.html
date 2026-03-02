@@ -6,10 +6,10 @@
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Checkout</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SKYNET | Checkout</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -146,7 +146,7 @@ async function initCheckout() {
         // 2. Dapatkan items dari sessionStorage atau URL
         const params = new URLSearchParams(location.search);
         const pid    = params.get('pid'); // single product
-        const stored = sessionStorage.getItem('sf_checkout_items');
+        const stored = sessionStorage.getItem('sn_checkout_items');
 
         let items = [];
         if (pid) {
@@ -155,7 +155,7 @@ async function initCheckout() {
             items = JSON.parse(stored);
         } else {
             // Fallback: guna cart dari localStorage
-            const cartRaw = localStorage.getItem('sf_cart_v2') || localStorage.getItem('snapflow_cart');
+            const cartRaw = localStorage.getItem('sn_cart_v2') || localStorage.getItem('skynet_cart');
             const cartData = cartRaw ? JSON.parse(cartRaw) : [];
             items = cartData.map(i => ({ product_id: i.id, qty: i.qty || 1 }));
         }
@@ -289,7 +289,7 @@ async function submitCheckout() {
 
         // Redirect ke Stripe Checkout
         if (data?.url) {
-            sessionStorage.removeItem('sf_checkout_items');
+            sessionStorage.removeItem('sn_checkout_items');
             window.location.href = data.url;
         } else {
             throw new Error('URL Stripe tidak diterima');

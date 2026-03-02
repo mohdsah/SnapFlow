@@ -2,12 +2,12 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Live | SnapFlow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Live | SKYNET</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -100,7 +100,7 @@
          justify-content:center;padding:30px;text-align:center;">
 
         <div style="font-size:56px;margin-bottom:16px;">🔴</div>
-        <h2 style="margin:0 0 8px;font-size:24px;font-weight:900;">SnapFlow Live</h2>
+        <h2 style="margin:0 0 8px;font-size:24px;font-weight:900;">SKYNET Live</h2>
         <p style="margin:0 0 32px;font-size:14px;color:#555;line-height:1.6;">
             Siaran langsung kepada peminat anda atau tonton siaran kreator lain masa nyata.
         </p>
@@ -213,7 +213,7 @@
             if (!user) return showToast('Log masuk dahulu untuk live.', 'warning');
 
             // Minta tajuk siaran
-            const title = prompt('Tajuk siaran live anda:') || 'SnapFlow Live';
+            const title = prompt('Tajuk siaran live anda:') || 'SKYNET Live';
 
             try {
                 // Minta akses kamera + mikrofon
@@ -404,7 +404,7 @@
 
         function shareLiveLink() {
             const url  = window.location.href + '?session=' + liveSessionId;
-            const waUrl = `whatsapp://send?text=${encodeURIComponent('🔴 Tengok saya LIVE di SnapFlow sekarang! ' + url)}`;
+            const waUrl = `whatsapp://send?text=${encodeURIComponent('🔴 Tengok saya LIVE di SKYNET sekarang! ' + url)}`;
             window.location.href = waUrl;
         }
 

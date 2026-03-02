@@ -1,170 +1,86 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-    <meta charset="UTF-8">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SnapFlow">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192&bold=true">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SnapFlow | Home</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="auth-guard.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { background: #000; margin: 0; overflow: hidden; }
-
-        /* ── Feed Tabs ── */
-        .feed-tabs {
-            position: fixed;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 101;
-            display: flex;
-            gap: 24px;
-            padding-top: 18px;
-        }
-        .feed-tab-btn {
-            background: transparent;
-            border: none;
-            color: rgba(255,255,255,0.5);
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            font-family: inherit;
-            padding: 4px 0;
-            border-bottom: 2.5px solid transparent;
-            transition: all 0.2s;
-            letter-spacing: 0.2px;
-        }
-        .feed-tab-btn.active {
-            color: #fff;
-            border-bottom-color: #fff;
-        }
-    </style>
-
-    <!-- Modules: core, feed, social, features -->
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SKYNET">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SN&background=fe2c55&color=fff&size=192&bold=true">
+  <title>SKYNET</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="auth-guard.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <!-- Header -->
-    <header style="position: fixed; top: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; z-index: 100; background: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent); box-sizing: border-box;">
-        <strong style="font-size: 22px; font-weight: 800; background: linear-gradient(to right, #fff, #fe2c55); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 1px;">SnapFlow</strong>
-        <div style="display: flex; gap: 16px; color: #fff; align-items: center;">
-            <!-- Butang Install PWA (tersembunyi sehingga browser sedia) -->
-            <button id="pwa-install-btn" onclick="installPWA()" title="Install SnapFlow"
-                style="display:none; background:rgba(254,44,85,0.15); border:1px solid rgba(254,44,85,0.4);
-                color:#fe2c55; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700;
-                cursor:pointer; font-family:inherit; align-items:center; gap:5px;">
-                <i class="fa-solid fa-download"></i> Install
-            </button>
-            <i class="fa-solid fa-magnifying-glass" onclick="toggleSearch()" style="font-size: 20px; cursor: pointer;"></i>
-            <a href="inbox.html" style="color:#fff; position:relative;">
-                <i class="fa-solid fa-bell" style="font-size: 20px;"></i>
-            </a>
-        </div>
-    </header>
-
-    <!-- Feed Tabs -->
+  <!-- Header -->
+  <header class="app-header">
     <div class="feed-tabs">
-        <button class="feed-tab-btn active" id="tab-untuk-anda" onclick="switchFeedTab('untuk-anda', this)">Untuk Anda</button>
-        <button class="feed-tab-btn" id="tab-mengikuti" onclick="switchFeedTab('mengikuti', this)">Mengikuti</button>
+      <button class="feed-tab" onclick="switchTab('mengikuti',this)">Mengikuti</button>
+      <span class="auth-logo" style="font-size:20px;margin:0 4px;">SKYNET</span>
+      <button class="feed-tab active" id="tab-untukanda" onclick="switchTab('untukanda',this)">Untuk Anda</button>
     </div>
+    <button onclick="toggleSearch()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:6px;flex-shrink:0;">
+      <i class="fa-solid fa-magnifying-glass"></i>
+    </button>
+  </header>
 
-    <!-- Stories Strip -->
-    <div id="stories-strip" style="display:none;flex-direction:row;gap:12px;overflow-x:auto;padding:10px 14px;scrollbar-width:none;position:fixed;top:62px;left:0;right:0;z-index:90;background:linear-gradient(to bottom,rgba(0,0,0,0.7),transparent);"></div>
+  <!-- Live Bar -->
+  <div id="live-bar" class="live-bar"></div>
 
-    <!-- Video Feed -->
-    <main id="video-feed">
-        <div style="height: 100vh; display: flex; align-items: center; justify-content: center; color: #333; flex-direction: column; gap: 12px;">
-            <div class="loader-spin"></div>
-            <p style="color:#444; font-size: 14px;">Memuatkan video...</p>
+  <!-- Feed -->
+  <div id="video-feed"></div>
+
+  <!-- Comment Panel -->
+  <div class="comment-panel" id="comment-panel">
+    <div class="comment-backdrop" onclick="closeComments()"></div>
+    <div class="comment-sheet">
+      <div style="padding:12px 16px 8px;border-bottom:1px solid var(--border);">
+        <div class="modal-handle"></div>
+        <div class="flex-between">
+          <span class="font-bold" style="font-size:15px;">Komen <span id="comment-count" style="color:var(--text3);font-weight:400;font-size:13px;"></span></span>
+          <button onclick="closeComments()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
         </div>
-    </main>
-
-
-    <!-- Banner Install PWA (mobile) -->
-    <div id="pwa-install-banner" style="display:none; position:fixed; bottom:calc(var(--nav-height) + 12px); left:12px; right:12px; background:#111; border:1px solid #222; border-radius:14px; padding:14px 16px; z-index:9000; box-shadow:0 4px 30px rgba(0,0,0,0.6);">
-        <div style="display:flex; align-items:center; gap:14px;">
-            <div style="width:44px;height:44px;background:#fe2c55;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <span style="font-size:20px;font-weight:900;color:#fff;">S</span>
-            </div>
-            <div style="flex:1;">
-                <p style="margin:0 0 2px;font-size:14px;font-weight:700;">Install SnapFlow</p>
-                <p style="margin:0;font-size:12px;color:#555;">Tambah ke skrin utama telefon anda</p>
-            </div>
-            <button onclick="installPWA()" style="background:#fe2c55;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;">Install</button>
-            <button onclick="dismissInstallBanner()" style="background:transparent;border:none;color:#444;font-size:20px;cursor:pointer;padding:4px;flex-shrink:0;">✕</button>
-        </div>
+      </div>
+      <div id="comments-list" class="comment-list"></div>
+      <div class="comment-input-row">
+        <div id="comment-avatar-mini" style="width:32px;height:32px;border-radius:50%;background:var(--bg4);background-size:cover;flex-shrink:0;"></div>
+        <input id="comment-input" class="sn-input" style="flex:1;padding:9px 14px;border-radius:50px;" placeholder="Tambah komen...">
+        <button onclick="submitComment()" style="background:var(--accent);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- Comment Sheet -->
-    <div id="comment-sheet" class="comment-sheet">
-        <div class="sheet-header">
-            <div class="drag-handle"></div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 5px;">
-                <span style="font-weight: 700; font-size: 15px;">Komen</span>
-                <i class="fa-solid fa-xmark" onclick="toggleComments()" style="cursor: pointer; font-size: 20px; color: #888;"></i>
-            </div>
-        </div>
-        <div id="comment-list" class="comment-list"></div>
-        <div class="comment-input-area">
-            <input type="text" placeholder="Tambah komen... (taip @ untuk tag rakan)" id="new-comment" oninput="handleCommentInput(event)" autocomplete="off">
-            <button onclick="sendComment()" style="background: transparent; border: none; color: #fe2c55; font-size: 22px; padding: 4px;">
-                <i class="fa-solid fa-paper-plane"></i>
-            </button>
-        </div>
-    </div>
-    <div id="comment-overlay" class="comment-overlay" onclick="toggleComments()"></div>
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="nav-item active">
+      <i class="fa-solid fa-house"></i>
+      <span>Utama</span>
+    </a>
+    <a href="discover.html" class="nav-item">
+      <i class="fa-solid fa-compass"></i>
+      <span>Jelajah</span>
+    </a>
+    <a href="upload.html" class="nav-item upload-btn-nav">
+      <i class="fa-solid fa-plus"></i>
+    </a>
+    <a href="inbox.html" class="nav-item">
+      <i class="fa-regular fa-bell"></i>
+      <span>Notif</span>
+    </a>
+    <a href="profile.html" class="nav-item">
+      <i class="fa-regular fa-user"></i>
+      <span>Profil</span>
+    </a>
+  </nav>
 
-    <!-- Search Overlay -->
-    <div id="search-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 5000; padding: 20px; box-sizing: border-box; overflow-y: auto;">
-        <div class="search-overlay-inner">
-            <i class="fa-solid fa-chevron-left" onclick="toggleSearch()" style="color: #fff; cursor: pointer; font-size: 18px;"></i>
-            <div class="search-bar-shop" style="flex:1;">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="search-input" placeholder="Cari video, kreator, tanda pagar..." onkeyup="handleSearch(event)" autocomplete="off">
-            </div>
-        </div>
-        <div id="search-results"></div>
-    </div>
-
-    <!-- Bottom Nav -->
-    <nav class="bottom-nav">
-        <a href="index.html" class="nav-item active"><i class="fa-solid fa-house"></i><span>Utama</span></a>
-        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
-        <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
-        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
-        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
-    </nav>
-
-    <script src="app.js"></script>
-    <!-- Page-specific modules for index.html -->
-    <!--
-    -->
-
-    <script>
-        // Muatkan stories strip
-        window.addEventListener('DOMContentLoaded', () => {
-            loadStoriesStrip();
-        });
-    </script>
-
-    <!-- PWA Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(reg => console.log('[PWA] Service Worker berdaftar:', reg.scope))
-                    .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
-            });
-        }
-    </script>
+  <script src="app.js"></script>
 </body>
 </html>

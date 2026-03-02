@@ -1,5 +1,5 @@
 -- ============================================================
---  SNAPFLOW — Complete Database Schema
+--  SKYNET — Complete Database Schema
 --  Supabase PostgreSQL
 --  Termasuk: Tables, RLS Policies, Indexes, Triggers
 -- ============================================================
@@ -1063,7 +1063,7 @@ CREATE OR REPLACE VIEW admin_video_stats AS
 --    Dashboard > Authentication > Email Templates > Confirm signup
 
 -- ============================================================
--- END OF SNAPFLOW SECURE SCHEMA
+-- END OF SKYNET SECURE SCHEMA
 -- ============================================================
 
 -- ============================================================
@@ -1183,7 +1183,7 @@ ALTER TABLE IF EXISTS order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- RLS POLICIES COMPREHENSIVE — v4.0.0
--- SnapFlow Production-Ready Policies
+-- SKYNET Production-Ready Policies
 -- ============================================================
 
 -- ── PROFILES ────────────────────────────────────────────────

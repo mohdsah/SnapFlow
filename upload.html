@@ -1,263 +1,194 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-    <meta charset="UTF-8">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SnapFlow">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192&bold=true">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Upload | SnapFlow</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="auth-guard.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 20px); overflow-y: auto; }
-        textarea {
-            width: 100%; background: #111; border: 1px solid #2a2a2a;
-            border-radius: 12px; padding: 14px 16px; color: #fff;
-            font-size: 14px; resize: none; height: 100px; outline: none;
-            box-sizing: border-box; font-family: inherit; line-height: 1.5;
-            transition: border-color 0.2s;
-        }
-        textarea:focus { border-color: #444; }
-    </style>
-
-    <!-- Modules: core, upload -->
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <title>Upload | SKYNET</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="auth-guard.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <header style="padding: 16px 20px; display: flex; align-items: center; border-bottom: 1px solid #111; position: sticky; top: 0; background: #000; z-index: 100;">
-        <i class="fa-solid fa-xmark" onclick="window.history.back()" style="font-size: 20px; margin-right: 18px; cursor: pointer; color: #888;"></i>
-        <strong style="font-size: 17px; font-weight: 700;">Cipta Post Baharu</strong>
-    </header>
+  <header class="app-header">
+    <button onclick="history.back()" class="back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+    <h1 style="font-family:var(--font);font-size:17px;font-weight:800;flex:1;text-align:center;">Kongsi Video</h1>
+    <div style="width:36px;"></div>
+  </header>
 
-    <main style="padding: 20px;">
+  <main class="page" style="padding-top:12px;">
 
-        <!-- Upload Quota Bar -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0d0d0d;border-radius:10px;margin-bottom:14px;border:1px solid #111;">
-            <div id="upload-quota"><span style="font-size:12px;color:#555;">Memuatkan had upload...</span></div>
-            <button onclick="openProModal()" style="background:linear-gradient(135deg,#f6c90e,#ffdf6b);color:#000;border:none;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;flex-shrink:0;">
-                ⭐ Pro
-            </button>
+    <!-- Preview Box -->
+    <div class="upload-box" id="upload-box" onclick="document.getElementById('file-input').click()">
+      <img id="preview-img" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;border-radius:var(--radius);">
+      <video id="preview-vid" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;border-radius:var(--radius);" loop muted autoplay playsinline></video>
+      <div id="placeholder-content" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+        <div class="upload-text">Ketik untuk pilih video atau gambar<br><span style="color:var(--text3);font-size:12px;">MP4, MOV, JPG, PNG · Max 100MB</span></div>
+      </div>
+    </div>
+
+    <input type="file" id="file-input" accept="image/*,video/*" hidden onchange="previewFile(event)">
+
+    <!-- Change file button (shown after select) -->
+    <button id="change-file-btn" onclick="document.getElementById('file-input').click()" style="display:none;width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;color:var(--text2);cursor:pointer;margin-top:8px;">
+      <i class="fa-solid fa-arrow-rotate-right" style="margin-right:6px;"></i>Tukar Fail
+    </button>
+
+    <!-- Filter Section -->
+    <div id="filter-section" style="display:none;margin-top:16px;">
+      <p style="font-size:12px;font-weight:600;color:var(--text3);font-family:var(--font);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Filter</p>
+      <div class="chip-row" style="padding:0;gap:6px;overflow-x:auto;">
+        <button class="chip active" onclick="applyFilter('none',this)">Asal</button>
+        <button class="chip" onclick="applyFilter('brightness(1.15) contrast(1.1)',this)">Cerah</button>
+        <button class="chip" onclick="applyFilter('grayscale(1)',this)">B&amp;W</button>
+        <button class="chip" onclick="applyFilter('sepia(0.7)',this)">Sepia</button>
+        <button class="chip" onclick="applyFilter('hue-rotate(180deg)',this)">Neon</button>
+        <button class="chip" onclick="applyFilter('saturate(2)',this)">Vivid</button>
+        <button class="chip" onclick="applyFilter('contrast(1.3) brightness(0.9)',this)">Drama</button>
+      </div>
+    </div>
+
+    <!-- Compress Toggle -->
+    <div id="compress-wrap" style="display:none;margin-top:14px;padding:12px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <p style="font-family:var(--font);font-size:13px;font-weight:700;margin-bottom:2px;">Mampatkan Video</p>
+        <p id="compress-status" style="font-size:11px;color:var(--text3);">Jimat ruang storan</p>
+      </div>
+      <label style="position:relative;width:44px;height:24px;flex-shrink:0;">
+        <input type="checkbox" id="compress-toggle" onchange="toggleCompress(this)" style="opacity:0;width:0;height:0;">
+        <span id="compress-slider" style="position:absolute;inset:0;background:var(--border2);border-radius:12px;cursor:pointer;transition:background 0.2s;">
+          <span style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left 0.2s;"></span>
+        </span>
+      </label>
+    </div>
+
+    <!-- Caption -->
+    <div class="input-wrap" style="margin-top:14px;">
+      <label>Kapsyen</label>
+      <textarea id="video-caption" class="sn-input" rows="3" placeholder="Cerita tentang video anda..." style="resize:none;"></textarea>
+    </div>
+
+    <!-- AI Caption -->
+    <button id="ai-caption-btn" onclick="generateAICaption()" disabled style="width:100%;padding:10px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);border-radius:var(--radius-sm);color:#a78bfa;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;opacity:0.5;">
+      <i class="fa-solid fa-wand-magic-sparkles" style="margin-right:6px;"></i>Jana Kapsyen AI
+    </button>
+
+    <!-- Hashtag -->
+    <div class="input-wrap">
+      <label>Tanda Pagar (Hashtag)</label>
+      <input id="hashtag-input" class="sn-input" type="text" placeholder="#viral #fyp #skynet" style="font-size:14px;">
+    </div>
+
+    <!-- Schedule -->
+    <div style="padding:12px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:14px;">
+      <div class="flex-between" style="margin-bottom:10px;">
+        <div>
+          <p style="font-family:var(--font);font-size:13px;font-weight:700;">Jadual Publish</p>
+          <p style="font-size:11px;color:var(--text3);margin-top:2px;">Kosong = publish sekarang</p>
         </div>
+        <i class="fa-regular fa-calendar" style="color:var(--text3);font-size:18px;"></i>
+      </div>
+      <input type="datetime-local" id="schedule-datetime" class="sn-input" style="font-size:14px;">
+    </div>
 
-        <!-- Upload Box -->
-        <div class="upload-box" onclick="document.getElementById('file-input').click()">
-            <div id="placeholder-content" style="text-align: center;">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-                <p style="color: #555; font-size: 14px; margin: 0;">Klik untuk pilih Gambar atau Video</p>
-                <p style="color: #333; font-size: 12px; margin: 6px 0 0;">Sokongan: MP4, MOV, JPG, PNG (max 50MB)</p>
-            </div>
-            <img loading="lazy" id="preview-img" style="display:none; width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; border-radius:16px;">
-            <video id="preview-vid" style="display:none; width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; border-radius:16px;" loop muted autoplay playsinline></video>
-        </div>
+    <!-- Draft Toggle -->
+    <div style="padding:12px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <p style="font-family:var(--font);font-size:13px;font-weight:700;">Simpan Sebagai Draf</p>
+        <p style="font-size:11px;color:var(--text3);margin-top:2px;">Tidak akan publish automatik</p>
+      </div>
+      <label style="position:relative;width:44px;height:24px;flex-shrink:0;">
+        <input type="checkbox" id="draft-toggle" onchange="toggleDraftMode(this)" style="opacity:0;width:0;height:0;">
+        <span id="draft-slider" style="position:absolute;inset:0;background:var(--border2);border-radius:12px;cursor:pointer;transition:background 0.2s;">
+          <span style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left 0.2s;"></span>
+        </span>
+      </label>
+    </div>
 
-        <input type="file" id="file-input" accept="image/*,video/*" hidden onchange="previewFile(event)">
+    <!-- Upload Button -->
+    <button id="upload-btn" onclick="startUpload()" class="btn-primary" style="margin-bottom:12px;">
+      <i class="fa-solid fa-share-nodes" style="margin-right:8px;"></i>Kongsi Sekarang
+    </button>
 
-        <!-- Tukar fail -->
-        <button onclick="document.getElementById('file-input').click()" style="background: transparent; border: 1px solid #222; color: #888; padding: 8px 16px; border-radius: 8px; font-size: 13px; margin-top: 10px; cursor: pointer; width: 100%;">
-            <i class="fa-solid fa-arrow-rotate-left"></i> Pilih Fail Lain
-        </button>
+    <!-- Load Draft -->
+    <button onclick="loadDrafts()" class="btn-secondary">
+      <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i>Muatkan Draf
+    </button>
 
-        <!-- Video Filters -->
-        <div id="filter-section" style="display:none; margin-top:16px;">
-            <label style="font-size:13px;color:#666;margin-bottom:8px;display:block;">🎨 Filter Video</label>
-            <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none;">
-                <button class="filter-btn active" onclick="applyFilter('none',this)" data-filter="none"
-                    style="flex-shrink:0;background:#222;border:2px solid #fe2c55;color:#fff;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                    Asal
-                </button>
-                <button class="filter-btn" onclick="applyFilter('grayscale(100%)',this)" data-filter="grayscale"
-                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                    ⬛ B&W
-                </button>
-                <button class="filter-btn" onclick="applyFilter('sepia(80%)',this)" data-filter="sepia"
-                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                    🟤 Sepia
-                </button>
-                <button class="filter-btn" onclick="applyFilter('brightness(1.3) contrast(1.1)',this)" data-filter="vivid"
-                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                    ✨ Cerah
-                </button>
-                <button class="filter-btn" onclick="applyFilter('hue-rotate(180deg) saturate(1.5)',this)" data-filter="cyber"
-                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                    💙 Cyber
-                </button>
-                <button class="filter-btn" onclick="applyFilter('saturate(2) contrast(1.2)',this)" data-filter="pop"
-                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                    🌈 Pop
-                </button>
-                <button class="filter-btn" onclick="applyFilter('contrast(1.4) brightness(0.85)',this)" data-filter="drama"
-                    style="flex-shrink:0;background:#222;border:2px solid transparent;color:#aaa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                    🎭 Drama
-                </button>
-            </div>
+  </main>
 
-            <!-- Compression toggle -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:12px 14px;background:#111;border-radius:10px;border:1px solid #1a1a1a;">
-                <div>
-                    <p style="margin:0;font-size:13px;font-weight:700;">📦 Mampat Video</p>
-                    <p style="margin:3px 0 0;font-size:11px;color:#555;" id="compress-status">Aktifkan untuk jimat storan</p>
-                </div>
-                <label style="position:relative;display:inline-block;width:44px;height:24px;">
-                    <input type="checkbox" id="compress-toggle" style="opacity:0;width:0;height:0;" onchange="toggleCompress(this)">
-                    <span id="compress-slider" style="position:absolute;cursor:pointer;inset:0;background:#333;border-radius:24px;transition:0.3s;"></span>
-                </label>
-            </div>
-        </div>
+  <script src="app.js"></script>
+  <script>
+    // Init datetime min
+    document.addEventListener('DOMContentLoaded', function() {
+      const dt = document.getElementById('schedule-datetime');
+      if (dt) {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        dt.min = now.toISOString().slice(0,16);
+      }
+      // Enable AI caption on file select
+      document.getElementById('file-input')?.addEventListener('change', function() {
+        const btn = document.getElementById('ai-caption-btn');
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        document.getElementById('change-file-btn').style.display = 'block';
+        document.getElementById('compress-wrap').style.display = 'flex';
+      });
+    });
 
-        <!-- Butang Duet -->
-        <div style="margin-top:12px;">
-            <button onclick="openDuetPicker()" style="width:100%;background:transparent;border:1px solid #333;color:#aaa;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">
-                <i class="fa-solid fa-film" style="color:#00f2ea;"></i> Buat Duet dengan Video Lain
-            </button>
-        </div>
+    function toggleDraftMode(toggle) {
+      const slider = document.getElementById('draft-slider');
+      const thumb  = slider?.querySelector('span');
+      const uploadBtn = document.getElementById('upload-btn');
+      const scheduleInput = document.getElementById('schedule-datetime');
+      if (slider) slider.style.background = toggle.checked ? 'var(--accent)' : 'var(--border2)';
+      if (thumb)  thumb.style.left = toggle.checked ? '23px' : '3px';
+      if (scheduleInput) { scheduleInput.disabled = toggle.checked; scheduleInput.style.opacity = toggle.checked ? '0.4' : '1'; }
+      if (uploadBtn) uploadBtn.innerHTML = toggle.checked
+        ? '<i class="fa-solid fa-floppy-disk" style="margin-right:8px;"></i>Simpan Draf'
+        : '<i class="fa-solid fa-share-nodes" style="margin-right:8px;"></i>Kongsi Sekarang';
+    }
 
-        <div style="margin-top: 20px;">
-            <label style="font-size: 13px; color: #666; margin-bottom: 8px; display: block;">Kapsyen</label>
-            <textarea id="video-caption" placeholder="Tulis kapsyen menarik... #SnapFlow #viral #trending"></textarea>
-        </div>
+    function toggleCompress(toggle) {
+      const slider = document.getElementById('compress-slider');
+      const thumb  = slider?.querySelector('span');
+      if (slider) slider.style.background = toggle.checked ? 'var(--accent2)' : 'var(--border2)';
+      if (thumb)  thumb.style.left = toggle.checked ? '23px' : '3px';
+      compressEnabled = toggle.checked;
+      const file = document.getElementById('file-input')?.files?.[0];
+      const sizeMB = file ? (file.size/1024/1024).toFixed(1) : '?';
+      const status = document.getElementById('compress-status');
+      if (status) status.innerText = toggle.checked ? `Aktif — jimat ~40% dari ${sizeMB}MB` : `Tidak aktif — ${sizeMB}MB`;
+    }
 
-        <!-- Progress -->
-        <div id="upload-progress" style="display:none; margin-top: 15px;">
-            <div style="background: #111; border-radius: 100px; height: 6px; overflow: hidden;">
-                <div id="progress-bar" style="background: linear-gradient(to right, #00f2ea, #fe2c55); height: 100%; width: 0%; transition: width 0.3s; border-radius: 100px;"></div>
-            </div>
-            <p style="font-size: 13px; color: #555; text-align: center; margin-top: 8px;">Memuat naik...</p>
-        </div>
+    function applyFilter(filter, btn) {
+      currentFilter = filter;
+      const vid = document.getElementById('preview-vid');
+      const img = document.getElementById('preview-img');
+      if (vid) vid.style.filter = filter === 'none' ? '' : filter;
+      if (img) img.style.filter = filter === 'none' ? '' : filter;
+      document.querySelectorAll('#filter-section .chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+    }
 
-        <!-- Draft & Jadual -->
-        <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
-            <!-- Toggle Draf -->
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#111;border-radius:10px;border:1px solid #1a1a1a;">
-                <div>
-                    <p style="margin:0;font-size:13px;font-weight:700;">📝 Simpan sebagai Draf</p>
-                    <p style="margin:3px 0 0;font-size:11px;color:#555;">Simpan tanpa publish</p>
-                </div>
-                <label style="position:relative;display:inline-block;width:44px;height:24px;">
-                    <input type="checkbox" id="draft-toggle" style="opacity:0;width:0;height:0;" onchange="toggleDraftMode(this)">
-                    <span id="draft-slider" style="position:absolute;cursor:pointer;inset:0;background:#333;border-radius:24px;transition:0.3s;"></span>
-                </label>
-            </div>
-
-            <!-- Jadual Publish -->
-            <div id="schedule-wrap" style="padding:12px 14px;background:#111;border-radius:10px;border:1px solid #1a1a1a;">
-                <p style="margin:0 0 8px;font-size:13px;font-weight:700;">📅 Jadual Publish</p>
-                <input type="datetime-local" id="schedule-datetime"
-                       min=""
-                       style="width:100%;background:#1a1a1a;border:1px solid #222;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;">
-                <p style="margin:6px 0 0;font-size:11px;color:#555;">Kosongkan untuk publish segera</p>
-            </div>
-        </div>
-
-        <button id="upload-btn" onclick="startUpload()" class="login-btn-main" style="margin-top: 20px;">
-            <i class="fa-solid fa-share-nodes"></i> Kongsi Sekarang
-        </button>
-        <button onclick="loadDrafts()" style="width:100%;background:transparent;border:1px solid #222;color:#555;padding:12px;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px;">
-            <i class="fa-solid fa-folder-open"></i> Lihat Draf Tersimpan
-        </button>
-    </main>
-
-    <nav class="bottom-nav">
-        <a href="index.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Utama</span></a>
-        <a href="discover.html" class="nav-item"><i class="fa-solid fa-compass"></i><span>Discover</span></a>
-        <a href="upload.html" class="nav-plus"><div class="plus-icon"><i class="fa-solid fa-plus"></i></div></a>
-        <a href="inbox.html" class="nav-item"><i class="fa-solid fa-message"></i><span>Inbox</span></a>
-        <a href="profile.html" class="nav-item"><i class="fa-solid fa-user"></i><span>Profil</span></a>
-    </nav>
-
-    <script src="app.js"></script>
-    <!-- Page-specific modules for upload.html -->
-    <!--
-    -->
-    <script>
-        // Papar kuota upload
-        if (typeof showUploadQuota === 'function') showUploadQuota();
-
-        // Enable AI caption button bila ada file
-        document.getElementById('file-input')?.addEventListener('change', () => {
-            const btn = document.getElementById('ai-caption-btn');
-            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-        });
-
-        // Set min datetime ke sekarang
-        const dtInput = document.getElementById('schedule-datetime');
-        if (dtInput) {
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            dtInput.min = now.toISOString().slice(0,16);
+    function loadDrafts() {
+      const drafts = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('skynet_draft_')) {
+          try { drafts.push({ key, ...JSON.parse(localStorage.getItem(key)) }); } catch {}
         }
-
-        function toggleDraftMode(toggle) {
-            const slider   = document.getElementById('draft-slider');
-            const uploadBtn = document.getElementById('upload-btn');
-            const schedWrap = document.getElementById('schedule-wrap');
-            if (slider) slider.style.background = toggle.checked ? '#fe2c55' : '#333';
-            if (uploadBtn) uploadBtn.innerHTML = toggle.checked
-                ? '<i class="fa-solid fa-floppy-disk"></i> Simpan Draf'
-                : '<i class="fa-solid fa-share-nodes"></i> Kongsi Sekarang';
-            if (schedWrap) schedWrap.style.opacity = toggle.checked ? '0.4' : '1';
-        }
-
-        function loadDrafts() {
-            const drafts = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key?.startsWith('snapflow_draft_')) {
-                    try { drafts.push({ key, ...JSON.parse(localStorage.getItem(key)) }); } catch {}
-                }
-            }
-            if (drafts.length === 0) return showToast('Tiada draf tersimpan.', 'info');
-
-            const modal = document.createElement('div');
-            modal.innerHTML = \`
-                <div onclick="this.parentElement.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;"></div>
-                <div style="position:fixed;bottom:0;left:0;right:0;background:#111;border-radius:20px 20px 0 0;padding:20px;z-index:9001;max-height:70vh;overflow-y:auto;border-top:1px solid #222;">
-                    <div style="width:40px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
-                    <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;">📝 Draf Tersimpan</h3>
-                    \${drafts.sort((a,b)=>b.key.localeCompare(a.key)).map(d => \`
-                        <div style="padding:12px 0;border-bottom:1px solid #1a1a1a;">
-                            <p style="margin:0;font-size:13px;font-weight:700;">\${d.fileName || 'Video'}</p>
-                            <p style="margin:3px 0;font-size:12px;color:#555;">\${d.caption?.slice(0,60) || 'Tiada kapsyen'}</p>
-                            <p style="margin:3px 0 8px;font-size:11px;color:#333;">\${new Date(d.savedAt).toLocaleString('ms-MY')}</p>
-                            <button onclick="localStorage.removeItem('\${d.key}');this.closest('[style]').remove();showToast('Draf dipadam.','info');"
-                                style="background:transparent;border:1px solid #333;color:#fe2c55;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;">
-                                Padam
-                            </button>
-                        </div>\`).join('')}
-                </div>\`;
-            document.body.appendChild(modal);
-        }
-    </script>
-
-    <!-- PWA Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(reg => console.log('[PWA] Service Worker berdaftar:', reg.scope))
-                    .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
-            });
-        }
-    </script>
-    <script>
-        async function aiGenerateCaption() {
-            const file = document.getElementById('file-input')?.files?.[0];
-            if (!file) return showToast('Pilih video dahulu.', 'warning');
-            await generateAICaption(file);
-        }
-        // Enable button jika file sudah dipilih
-        const _fi = document.getElementById('file-input');
-        if (_fi) _fi.addEventListener('change', () => {
-            const btn = document.getElementById('ai-caption-btn');
-            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-        });
-    </script>
+      }
+      if (drafts.length === 0) return showToast('Tiada draf tersimpan.', 'info');
+      showToast(`${drafts.length} draf dijumpai. Pilih dalam galeri anda.`, 'info');
+    }
+  </script>
 </body>
 </html>
