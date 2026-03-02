@@ -8,6 +8,7 @@
     <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background:#000; color:#fff; margin:0; overflow-y:auto; padding-bottom:calc(var(--nav-height)+16px); }
@@ -50,16 +51,7 @@
     </style>
 
     <!-- Modules: core, social, discover -->
-    <!-- Auth Check (semi-public) -->
-    <script>
-    window._isLoggedIn = (() => {
-        try {
-            const k = Object.keys(localStorage).find(k => k.includes('auth-token'));
-            const s = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
-            return !!(s?.access_token && new Date(s.expires_at*1000) > new Date());
-        } catch(e) { return false; }
-    })();
-    </script>
+
 </head>
 <body>
 

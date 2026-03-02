@@ -6,176 +6,313 @@
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SnapFlow">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192&bold=true">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SnapFlow | Checkout</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- Modules: core, shop -->
-    <!-- Auth Guard -->
-    <script>
-    (() => {
-        try {
-            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
-            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
-            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
-            const isValid = session?.access_token && expiry && expiry > new Date();
-            if (!isValid) {
-                sessionStorage.setItem('sf_redirect_after_login', location.href);
-                location.replace('splash.html');
-            }
-        } catch(e) {
-            location.replace('splash.html');
-        }
-    })();
-    </script>
+
 </head>
-<body style="background: #000; color: #fff; padding-bottom: 100px;">
+<body style="background:#000;color:#fff;padding-bottom:120px;">
 
-    <header style="padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #222; position: sticky; top: 0; background: #000; z-index: 100;">
-        <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="margin-right: 20px; cursor:pointer;"></i>
-        <strong style="font-size: 17px;">Pengesahan Pesanan</strong>
-    </header>
+<header style="padding:15px;display:flex;align-items:center;border-bottom:1px solid #222;position:sticky;top:0;background:#000;z-index:100;">
+    <i class="fa-solid fa-chevron-left" onclick="window.history.back()" style="margin-right:20px;cursor:pointer;font-size:18px;"></i>
+    <strong style="font-size:17px;">Pengesahan Pesanan</strong>
+</header>
 
-    <main style="padding: 20px;">
+<main style="padding:20px;" id="checkout-main">
+    <!-- Loading state -->
+    <div id="loading-state" style="text-align:center;padding:60px 20px;">
+        <div class="loader-spin" style="margin:0 auto 16px;"></div>
+        <p style="color:#555;font-size:14px;">Memuatkan butiran pesanan...</p>
+    </div>
 
-        <!-- Alamat Penghantaran -->
-        <div style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: #fe2c55;">
+    <!-- Checkout content (hidden until loaded) -->
+    <div id="checkout-content" style="display:none;">
+
+        <!-- ── Alamat Penghantaran ── -->
+        <div style="background:#111;padding:15px;border-radius:12px;margin-bottom:16px;border:1px solid #222;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;color:#fe2c55;">
                 <i class="fa-solid fa-location-dot"></i>
-                <strong style="font-size: 14px;">Alamat Penghantaran</strong>
-                <span style="margin-left:auto; font-size:12px; color:#555; cursor:pointer;">Tukar</span>
+                <strong style="font-size:14px;">Alamat Penghantaran</strong>
             </div>
-            <p style="font-size: 13px; color: #ccc; line-height: 1.6;">
-                Nama Penerima<br>
-                No. 123, Jalan Bahagia,<br>
-                50000 Kuala Lumpur, WP.
+            <input id="ship-name" placeholder="Nama penerima *" required
+                style="width:100%;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px;color:#fff;font-size:13px;margin-bottom:8px;box-sizing:border-box;font-family:inherit;">
+            <input id="ship-phone" placeholder="No. telefon *" required type="tel"
+                style="width:100%;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px;color:#fff;font-size:13px;margin-bottom:8px;box-sizing:border-box;font-family:inherit;">
+            <textarea id="ship-address" placeholder="Alamat lengkap *" required rows="3"
+                style="width:100%;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px;color:#fff;font-size:13px;resize:none;box-sizing:border-box;font-family:inherit;"></textarea>
+        </div>
+
+        <!-- ── Item Pesanan ── -->
+        <div id="order-items" style="background:#111;padding:15px;border-radius:12px;margin-bottom:16px;border:1px solid #222;">
+            <!-- populated by JS -->
+        </div>
+
+        <!-- ── Penghantaran ── -->
+        <div style="background:#111;padding:15px;border-radius:12px;margin-bottom:16px;border:1px solid #222;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                <i class="fa-solid fa-truck" style="color:#fe2c55;"></i>
+                <strong style="font-size:14px;">Penghantaran</strong>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <div style="flex:1;background:#1a1a1a;border:1px solid #fe2c55;border-radius:8px;padding:10px;text-align:center;">
+                    <p style="font-size:12px;font-weight:700;margin:0;">Standard</p>
+                    <p style="font-size:11px;color:#888;margin:4px 0 0;">3-5 hari • RM 8.00</p>
+                </div>
+                <div style="flex:1;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px;text-align:center;opacity:0.5;">
+                    <p style="font-size:12px;font-weight:700;margin:0;">Ekspres</p>
+                    <p style="font-size:11px;color:#888;margin:4px 0 0;">1-2 hari • RM 18.00</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Ringkasan Harga ── -->
+        <div style="background:#111;padding:15px;border-radius:12px;margin-bottom:16px;border:1px solid #222;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
+                <span style="color:#888;">Subtotal</span>
+                <span id="display-subtotal">RM 0.00</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
+                <span style="color:#888;">Penghantaran</span>
+                <span>RM 8.00</span>
+            </div>
+            <div style="border-top:1px solid #222;padding-top:10px;margin-top:10px;display:flex;justify-content:space-between;font-weight:800;font-size:16px;">
+                <span>Jumlah</span>
+                <span style="color:#fe2c55;" id="display-total">RM 0.00</span>
+            </div>
+            <p style="font-size:10px;color:#444;margin:8px 0 0;text-align:center;">
+                * Harga final disahkan oleh pelayan. Sebarang manipulasi harga akan ditolak.
             </p>
         </div>
 
-        <!-- Item Pesanan -->
-        <div id="checkout-item" style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222; display: flex; gap: 15px; align-items: flex-start;">
-            <img loading="lazy" src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200" id="checkout-img" style="width: 80px; height: 80px; border-radius: 10px; object-fit: cover;">
-            <div style="flex: 1;">
-                <h3 style="font-size: 14px; margin-bottom: 5px; font-weight:700;" id="item-name">Produk SnapFlow</h3>
-                <p style="font-size: 12px; color: #666; margin-bottom: 6px;">Kuantiti: 1</p>
-                <p style="color: #fe2c55; font-weight: bold; font-size:15px;" id="item-price">RM 0.00</p>
-            </div>
-        </div>
-
-        <!-- Kaedah Penghantaran -->
-        <div style="background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #222;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: #fff;">
-                <i class="fa-solid fa-truck" style="color:#fe2c55;"></i>
-                <strong style="font-size: 14px;">Penghantaran</strong>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div style="flex:1; background:#1a1a1a; border:1px solid #fe2c55; border-radius:8px; padding:10px; text-align:center;">
-                    <p style="font-size:12px; font-weight:700; margin:0;">Standard</p>
-                    <p style="font-size:11px; color:#888; margin:4px 0 0;">3-5 hari • RM 8</p>
+        <!-- ── Kaedah Bayaran ── -->
+        <div style="background:#111;padding:15px;border-radius:12px;margin-bottom:16px;border:1px solid #222;">
+            <strong style="font-size:14px;display:block;margin-bottom:12px;">Kaedah Bayaran</strong>
+            <div style="background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px;">
+                <i class="fa-brands fa-stripe" style="font-size:24px;color:#635bff;"></i>
+                <div>
+                    <p style="margin:0;font-size:13px;font-weight:700;">Stripe Secure Checkout</p>
+                    <p style="margin:4px 0 0;font-size:11px;color:#555;">Visa, Mastercard, FPX, GrabPay</p>
                 </div>
-                <div style="flex:1; background:#1a1a1a; border:1px solid #222; border-radius:8px; padding:10px; text-align:center;">
-                    <p style="font-size:12px; font-weight:700; margin:0;">Ekspres</p>
-                    <p style="font-size:11px; color:#888; margin:4px 0 0;">1-2 hari • RM 15</p>
-                </div>
+                <i class="fa-solid fa-lock" style="margin-left:auto;color:#555;font-size:12px;"></i>
             </div>
         </div>
 
-        <!-- Ringkasan Bayaran -->
-        <div style="background: #111; padding: 15px; border-radius: 12px; border: 1px solid #222;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
-                <span style="color: #888;">Subtotal Produk</span>
-                <span id="subtotal">RM 0.00</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
-                <span style="color: #888;">Kos Penghantaran</span>
-                <span>RM 8.00</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
-                <span style="color: #888;">Diskaun Voucher</span>
-                <span style="color:#2ecc71;">- RM 0.00</span>
-            </div>
-            <hr style="border: 0; border-top: 1px solid #222; margin: 12px 0;">
-            <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                <span>Jumlah Bayaran</span>
-                <span style="color: #fe2c55; font-size: 18px;" id="total-price">RM 0.00</span>
-            </div>
-        </div>
+    </div><!-- /checkout-content -->
 
-        <!-- Kaedah Bayaran -->
-        <div style="background: #111; padding: 15px; border-radius: 12px; margin-top: 16px; border: 1px solid #222;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                <i class="fa-solid fa-credit-card" style="color:#fe2c55;"></i>
-                <strong style="font-size: 14px;">Kaedah Bayaran</strong>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <label style="display:flex; align-items:center; gap:12px; background:#1a1a1a; padding:12px; border-radius:8px; cursor:pointer;">
-                    <input type="radio" name="payment" value="fpx" checked style="accent-color:#fe2c55;"> <span style="font-size:14px;">FPX (Internet Banking)</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:12px; background:#1a1a1a; padding:12px; border-radius:8px; cursor:pointer;">
-                    <input type="radio" name="payment" value="ewallet" style="accent-color:#fe2c55;"> <span style="font-size:14px;">e-Wallet (Touch 'n Go, GrabPay)</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:12px; background:#1a1a1a; padding:12px; border-radius:8px; cursor:pointer;">
-                    <input type="radio" name="payment" value="cod" style="accent-color:#fe2c55;"> <span style="font-size:14px;">Bayar Semasa Terima (COD)</span>
-                </label>
-            </div>
-        </div>
-    </main>
-
-    <div style="position: fixed; bottom: 0; width: 100%; background: #0a0a0a; padding: 14px 20px; border-top: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
-        <div>
-            <p style="font-size: 12px; color: #666; margin:0 0 2px;">Jumlah Keseluruhan</p>
-            <p style="color: #fe2c55; font-weight: bold; font-size: 20px; margin:0;" id="bottom-total">RM 0.00</p>
-        </div>
-        <button onclick="processPayment()" style="background: #fe2c55; color: white; border: none; padding: 13px 28px; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer;">
-            Buat Bayaran
-        </button>
+    <!-- Error state -->
+    <div id="error-state" style="display:none;text-align:center;padding:60px 20px;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size:40px;color:#fe2c55;margin-bottom:16px;"></i>
+        <p style="color:#888;" id="error-msg">Troli anda kosong.</p>
+        <a href="shop.html" style="background:#fe2c55;color:#fff;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;display:inline-block;margin-top:12px;">
+            Ke Kedai
+        </a>
     </div>
+</main>
 
-    <script src="app.js"></script>
-    <!-- Page-specific modules for checkout.html -->
-    <!--
-        <script src="js/shop.js" defer></script>
-    -->
-    <script>
-        // Ambil item dari URL params atau cart
-        window.onload = function() {
-            const params = new URLSearchParams(window.location.search);
-            const productName = params.get('product');
-            const price = parseFloat(params.get('price') || 0);
+<!-- ── Sticky Checkout Bar ── -->
+<div id="checkout-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#111;border-top:1px solid #222;padding:14px 20px;display:none;align-items:center;justify-content:space-between;z-index:500;">
+    <div>
+        <p style="font-size:11px;color:#555;margin:0;">Jumlah Keseluruhan</p>
+        <p style="color:#fe2c55;font-weight:800;font-size:20px;margin:0;" id="bar-total">RM 0.00</p>
+    </div>
+    <button id="pay-btn" onclick="submitCheckout()"
+        style="background:#fe2c55;color:#fff;border:none;padding:13px 28px;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;min-width:140px;">
+        <i class="fa-solid fa-lock" style="margin-right:6px;"></i> Bayar Sekarang
+    </button>
+</div>
 
-            if (productName && price) {
-                document.getElementById('item-name').innerText = decodeURIComponent(productName);
-                document.getElementById('item-price').innerText = `RM ${price.toLocaleString('ms-MY', {minimumFractionDigits: 2})}`;
-                document.getElementById('subtotal').innerText = `RM ${price.toLocaleString('ms-MY', {minimumFractionDigits: 2})}`;
-                const total = price + 8;
-                document.getElementById('total-price').innerText = `RM ${total.toLocaleString('ms-MY', {minimumFractionDigits: 2})}`;
-                document.getElementById('bottom-total').innerText = `RM ${total.toLocaleString('ms-MY', {minimumFractionDigits: 2})}`;
+<script src="app.js"></script>
+<script>
+// ── Checkout Page Logic ────────────────────────────────────
+const SHIPPING = 8;
+let _checkoutItems = []; // [{ product_id, qty, name, price (display only) }]
+let _serverTotal   = 0;
+
+async function initCheckout() {
+    const loadEl   = document.getElementById('loading-state');
+    const contentEl= document.getElementById('checkout-content');
+    const errorEl  = document.getElementById('error-state');
+    const barEl    = document.getElementById('checkout-bar');
+
+    try {
+        // 1. Dapatkan user
+        const user = await getAuthUser();
+        if (!user) { location.replace('splash.html'); return; }
+
+        // 2. Dapatkan items dari sessionStorage atau URL
+        const params = new URLSearchParams(location.search);
+        const pid    = params.get('pid'); // single product
+        const stored = sessionStorage.getItem('sf_checkout_items');
+
+        let items = [];
+        if (pid) {
+            items = [{ product_id: parseInt(pid), qty: 1 }];
+        } else if (stored) {
+            items = JSON.parse(stored);
+        } else {
+            // Fallback: guna cart dari localStorage
+            const cartRaw = localStorage.getItem('sf_cart_v2') || localStorage.getItem('snapflow_cart');
+            const cartData = cartRaw ? JSON.parse(cartRaw) : [];
+            items = cartData.map(i => ({ product_id: i.id, qty: i.qty || 1 }));
+        }
+
+        if (!items.length) {
+            loadEl.style.display = 'none';
+            errorEl.style.display = 'block';
+            document.getElementById('error-msg').textContent = 'Troli anda kosong. Pilih produk dahulu.';
+            return;
+        }
+
+        // 3. Ambil harga dari Supabase (server-side validation)
+        const productIds = items.map(i => i.product_id);
+        const { data: products, error } = await snapSupabase
+            .from('products')
+            .select('id, name, price, image_url, is_active, stock')
+            .in('id', productIds);
+
+        if (error || !products?.length) {
+            loadEl.style.display = 'none';
+            errorEl.style.display = 'block';
+            document.getElementById('error-msg').textContent = 'Produk tidak dijumpai. ' + (error?.message || '');
+            return;
+        }
+
+        // 4. Build order items dengan harga dari DB
+        let subtotal = 0;
+        const orderItemsEl = document.getElementById('order-items');
+        let itemsHtml = '<strong style="font-size:14px;display:block;margin-bottom:12px;">Item Pesanan</strong>';
+
+        _checkoutItems = [];
+        for (const item of items) {
+            const product = products.find(p => p.id === item.product_id);
+            if (!product) continue;
+            if (!product.is_active) {
+                showToast(product.name + ' tidak lagi dijual.', 'error');
+                continue;
             }
-        };
+            if (product.stock < item.qty) {
+                showToast('Stok tidak mencukupi: ' + product.name, 'error');
+                continue;
+            }
 
-        async function processPayment() {
-            const btn = document.querySelector('button[onclick="processPayment()"]');
-            setLoading(btn, true, 'Buat Bayaran');
-            setTimeout(() => {
-                window.location.href = 'order-success.html';
-            }, 1500);
-        }
-    </script>
+            const lineTotal = product.price * item.qty;
+            subtotal += lineTotal;
 
-    <!-- PWA Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(reg => console.log('[PWA] Service Worker berdaftar:', reg.scope))
-                    .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
-            });
+            // ✅ Harga dari DB
+            _checkoutItems.push({ product_id: product.id, qty: item.qty });
+
+            itemsHtml += '<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #222;">' +
+                '<img loading="lazy" src="' + (product.image_url || 'https://via.placeholder.com/60') + '" ' +
+                'style="width:60px;height:60px;border-radius:8px;object-fit:cover;">' +
+                '<div style="flex:1;">' +
+                '<p style="margin:0 0 4px;font-size:13px;font-weight:700;">' + escapeHtml(product.name) + '</p>' +
+                '<p style="margin:0;font-size:12px;color:#666;">Qty: ' + item.qty + '</p>' +
+                '<p style="margin:4px 0 0;color:#fe2c55;font-weight:700;">RM ' + lineTotal.toFixed(2) + '</p>' +
+                '</div></div>';
         }
-    </script>
+        orderItemsEl.innerHTML = itemsHtml;
+
+        if (_checkoutItems.length === 0) {
+            loadEl.style.display = 'none';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        // 5. Update totals (display only — server akan verify semasa payment)
+        const total = subtotal + SHIPPING;
+        _serverTotal = total;
+
+        document.getElementById('display-subtotal').textContent = 'RM ' + subtotal.toFixed(2);
+        document.getElementById('display-total').textContent    = 'RM ' + total.toFixed(2);
+        document.getElementById('bar-total').textContent        = 'RM ' + total.toFixed(2);
+
+        // 6. Show content
+        loadEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        barEl.style.display = 'flex';
+
+    } catch(err) {
+        console.error('[checkout]', err);
+        loadEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        document.getElementById('error-msg').textContent = 'Ralat: ' + (err.message || 'Cuba lagi.');
+    }
+}
+
+async function submitCheckout() {
+    const btn  = document.getElementById('pay-btn');
+    const name = document.getElementById('ship-name')?.value?.trim();
+    const phone= document.getElementById('ship-phone')?.value?.trim();
+    const addr = document.getElementById('ship-address')?.value?.trim();
+
+    // Validate address
+    if (!name || !phone || !addr) {
+        return showToast('Sila isi nama, telefon dan alamat penghantaran.', 'warning');
+    }
+    if (phone.replace(/\D/g,'').length < 9) {
+        return showToast('No. telefon tidak sah.', 'warning');
+    }
+    if (addr.length < 10) {
+        return showToast('Sila masukkan alamat yang lengkap.', 'warning');
+    }
+
+    if (btn?.disabled) return;
+    setLoading(btn, true, '<i class="fa-solid fa-lock" style="margin-right:6px;"></i> Bayar Sekarang');
+
+    try {
+        const user = await getAuthUser();
+        if (!user) { location.replace('splash.html'); return; }
+
+        // ✅ Dapatkan token untuk server verification
+        const { data: { session } } = await snapSupabase.auth.getSession();
+        if (!session?.access_token) throw new Error('Sesi tamat. Sila log masuk semula.');
+
+        // Hantar ke Edge Function — harga dikira oleh server
+        const { data, error } = await snapSupabase.functions.invoke('create-checkout', {
+            body: {
+                type: 'product_checkout',
+                userId: user.id,
+                email:  user.email,
+                items:  _checkoutItems, // product_id + qty SAHAJA
+                shipping_address: { name, phone, address: addr }
+            },
+            headers: { Authorization: 'Bearer ' + session.access_token }
+        });
+
+        if (error || data?.error) {
+            throw new Error(data?.error || error?.message || 'Gagal buat pembayaran');
+        }
+
+        // Redirect ke Stripe Checkout
+        if (data?.url) {
+            sessionStorage.removeItem('sf_checkout_items');
+            window.location.href = data.url;
+        } else {
+            throw new Error('URL Stripe tidak diterima');
+        }
+
+    } catch(err) {
+        showToast('Ralat: ' + (err.message || 'Cuba lagi.'), 'error');
+        setLoading(btn, false, '<i class="fa-solid fa-lock" style="margin-right:6px;"></i> Bayar Sekarang');
+    }
+}
+
+// Init bila page load
+document.addEventListener('DOMContentLoaded', initCheckout);
+</script>
+
+<!-- PWA Service Worker -->
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+            .catch(err => devWarn('SW gagal:', err));
+    });
+}
+</script>
 </body>
 </html>

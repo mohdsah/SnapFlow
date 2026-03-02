@@ -7,12 +7,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SnapFlow">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192&bold=true">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SnapFlow</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
     <style>
         body {
             background: #000;
@@ -23,46 +20,72 @@
             justify-content: center;
             overflow: hidden;
         }
-        .logo-container {
-            text-align: center;
-            animation: pulse 2.2s ease-in-out infinite;
+        .splash-logo {
+            font-size: 42px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #fff 30%, #fe2c55 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+        }
+        .splash-tagline {
+            color: #444;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .splash-loader {
+            position: absolute;
+            bottom: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
         }
     </style>
-
-    <!-- Modules: core -->
 </head>
 <body>
-    <div class="logo-container">
-        <h1 class="logo-text">SnapFlow</h1>
-        <p class="logo-tagline">Kongsi Momen Anda Bersama Dunia 🎬</p>
+    <div style="text-align:center;">
+        <div class="splash-logo">SnapFlow</div>
+        <p class="splash-tagline">Kongsi Momen Anda Bersama Dunia 🎬</p>
     </div>
-
-    <div style="position: absolute; bottom: 60px;">
+    <div class="splash-loader">
         <div class="loader-spin"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
     <script>
-        // Semak sesi — jika dah login terus ke home, kalau tidak ke login
-        async function init() {
-            const { data: { user } } = await snapSupabase.auth.getUser();
-            setTimeout(() => {
-                window.location.href = user ? 'index.html' : 'login.html';
-            }, 2200);
+    (async function initSplash() {
+        try {
+            // Semak sesi yang sedia ada
+            const { data: { session } } = await snapSupabase.auth.getSession();
+            setTimeout(function() {
+                if (session && session.user) {
+                    // Dah login — balik ke page asal atau index
+                    const redir = sessionStorage.getItem('sf_redirect_after_login');
+                    if (redir && !['login.html','register.html','splash.html'].some(function(p){ return redir.includes(p); })) {
+                        sessionStorage.removeItem('sf_redirect_after_login');
+                        window.location.replace(redir);
+                    } else {
+                        window.location.replace('index.html');
+                    }
+                } else {
+                    window.location.replace('login.html');
+                }
+            }, 1800);
+        } catch(e) {
+            setTimeout(function() { window.location.replace('login.html'); }, 1800);
         }
-        init();
+    })();
     </script>
 
-    <!-- PWA Service Worker -->
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(reg => console.log('[PWA] Service Worker berdaftar:', reg.scope))
-                    .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
-            });
-        }
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/service-worker.js').catch(function(){});
+        });
+    }
     </script>
 </body>
 </html>

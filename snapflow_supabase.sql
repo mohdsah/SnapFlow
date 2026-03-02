@@ -60,16 +60,39 @@ create policy "profiles: admin can update all"
 -- ── Auto-create profile on signup ────────────────
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer as $$
+declare
+    v_username text;
+    v_base     text;
+    v_count    integer := 0;
 begin
+    -- Ambil username dari metadata (dihantar oleh app) atau jana dari email
+    v_base := coalesce(
+        nullif(trim(new.raw_user_meta_data->>'username'), ''),
+        regexp_replace(lower(split_part(new.email, '@', 1)), '[^a-z0-9_.]', '_', 'g')
+    );
+
+    -- Pastikan panjang minimum
+    v_base := substring(lower(v_base) from 1 for 25);
+    if length(v_base) < 3 then v_base := 'user_' || v_base; end if;
+
+    -- Cari username unik (tambah nombor jika sudah ada)
+    v_username := v_base;
+    loop
+        exit when not exists (select 1 from profiles where username = v_username);
+        v_count    := v_count + 1;
+        v_username := v_base || v_count::text;
+        exit when v_count > 9999;
+    end loop;
+
     insert into profiles (id, username, full_name, avatar_url)
     values (
         new.id,
-        coalesce(new.raw_user_meta_data->>'username',
-                 split_part(new.email, '@', 1)),
-        coalesce(new.raw_user_meta_data->>'full_name', ''),
+        v_username,
+        coalesce(nullif(trim(new.raw_user_meta_data->>'full_name'), ''), ''),
         coalesce(new.raw_user_meta_data->>'avatar_url', '')
     )
     on conflict (id) do nothing;
+
     return new;
 end;
 $$;
@@ -1011,3 +1034,435 @@ CREATE OR REPLACE VIEW admin_video_stats AS
 -- ============================================================
 -- END OF SNAPFLOW SECURE SCHEMA
 -- ============================================================
+
+-- ============================================================
+-- TABLE: cart_items (Server-side cart — survive refresh)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS cart_items (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+    product_id  BIGINT REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+    quantity    INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0 AND quantity <= 99),
+    added_at    TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, product_id)
+);
+
+ALTER TABLE cart_items ENABLE ROW LEVEL SECURITY;
+
+-- Hanya pemilik boleh baca/ubah cart sendiri
+CREATE POLICY "cart_items: owner only"
+    ON cart_items FOR ALL
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_cart_items_user ON cart_items(user_id);
+
+-- ============================================================
+-- TABLE: order_items (Line items untuk setiap order)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS order_items (
+    id          BIGSERIAL PRIMARY KEY,
+    order_id    BIGINT REFERENCES orders(id) ON DELETE CASCADE NOT NULL,
+    product_id  BIGINT REFERENCES products(id) ON DELETE SET NULL,
+    product_name TEXT NOT NULL,
+    quantity    INTEGER NOT NULL CHECK (quantity > 0),
+    unit_price  DECIMAL(10,2) NOT NULL,
+    line_total  DECIMAL(10,2) NOT NULL
+);
+
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "order_items: buyer can read own"
+    ON order_items FOR SELECT
+    USING (
+        EXISTS (SELECT 1 FROM orders WHERE id = order_items.order_id AND buyer_id = auth.uid())
+    );
+
+CREATE POLICY "order_items: system insert"
+    ON order_items FOR INSERT WITH CHECK (TRUE);
+
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+
+-- ============================================================
+-- TABLE: subscriptions (Stripe subscriptions)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS subscriptions (
+    user_id                 UUID REFERENCES profiles(id) ON DELETE CASCADE PRIMARY KEY,
+    stripe_customer_id      TEXT UNIQUE,
+    stripe_subscription_id  TEXT UNIQUE,
+    stripe_session_id       TEXT,
+    status                  TEXT DEFAULT 'inactive' CHECK (status IN ('inactive','active','cancelled','past_due')),
+    plan                    TEXT DEFAULT 'free' CHECK (plan IN ('free','pro')),
+    current_period_end      TIMESTAMPTZ,
+    created_at              TIMESTAMPTZ DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "subscriptions: owner can read own"
+    ON subscriptions FOR SELECT USING (auth.uid() = user_id);
+
+-- Hanya system (service role) boleh update
+CREATE POLICY "subscriptions: system manage"
+    ON subscriptions FOR ALL
+    USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role='admin' OR is_admin=TRUE))
+    );
+
+-- Function: Kurang stok selepas order confirmed
+CREATE OR REPLACE FUNCTION decrement_stock(p_product_id BIGINT, p_qty INTEGER)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+    UPDATE products
+    SET stock = GREATEST(0, stock - p_qty)
+    WHERE id = p_product_id;
+END; $$;
+
+
+
+-- ============================================================
+
+-- ── ENABLE RLS UNTUK SEMUA TABLES ──────────────────────────
+ALTER TABLE IF EXISTS profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS videos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS stories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS challenge_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS live_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS gifts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS blocked_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS playlists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS playlist_videos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS search_queries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS coins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS cart_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- RLS POLICIES COMPREHENSIVE — v4.0.0
+-- SnapFlow Production-Ready Policies
+-- ============================================================
+
+-- ── PROFILES ────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "profiles: public read"   ON profiles;
+  DROP POLICY IF EXISTS "profiles: owner update"  ON profiles;
+  DROP POLICY IF EXISTS "profiles: owner insert"  ON profiles;
+  DROP POLICY IF EXISTS "profiles: sesiapa boleh baca"    ON profiles;
+  DROP POLICY IF EXISTS "profiles: pemilik boleh update"  ON profiles;
+  DROP POLICY IF EXISTS "profiles: pemilik boleh insert"  ON profiles;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "profiles_select_all"  ON profiles FOR SELECT USING (TRUE);
+CREATE POLICY "profiles_insert_own"  ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "profiles_update_own"  ON profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+-- ── VIDEOS ──────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "videos: sesiapa boleh baca yang published" ON videos;
+  DROP POLICY IF EXISTS "videos: pemilik boleh tambah"  ON videos;
+  DROP POLICY IF EXISTS "videos: pemilik boleh update"  ON videos;
+  DROP POLICY IF EXISTS "videos: pemilik boleh padam"   ON videos;
+  DROP POLICY IF EXISTS "videos_select" ON videos;
+  DROP POLICY IF EXISTS "videos_insert" ON videos;
+  DROP POLICY IF EXISTS "videos_update" ON videos;
+  DROP POLICY IF EXISTS "videos_delete" ON videos;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "videos_select" ON videos FOR SELECT
+  USING (is_published = TRUE OR auth.uid() = user_id);
+CREATE POLICY "videos_insert" ON videos FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "videos_update" ON videos FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "videos_delete" ON videos FOR DELETE USING (auth.uid() = user_id);
+
+-- ── LIKES ───────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "likes_select" ON likes;
+  DROP POLICY IF EXISTS "likes_insert" ON likes;
+  DROP POLICY IF EXISTS "likes_delete" ON likes;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "likes_select" ON likes FOR SELECT USING (TRUE);
+CREATE POLICY "likes_insert" ON likes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "likes_delete" ON likes FOR DELETE USING (auth.uid() = user_id);
+
+-- ── COMMENTS ────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "comments_select" ON comments;
+  DROP POLICY IF EXISTS "comments_insert" ON comments;
+  DROP POLICY IF EXISTS "comments_update" ON comments;
+  DROP POLICY IF EXISTS "comments_delete" ON comments;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "comments_select" ON comments FOR SELECT USING (TRUE);
+CREATE POLICY "comments_insert" ON comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "comments_update" ON comments FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "comments_delete" ON comments FOR DELETE USING (auth.uid() = user_id);
+
+-- ── FOLLOWS ─────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "follows_select" ON follows;
+  DROP POLICY IF EXISTS "follows_insert" ON follows;
+  DROP POLICY IF EXISTS "follows_delete" ON follows;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "follows_select" ON follows FOR SELECT USING (TRUE);
+CREATE POLICY "follows_insert" ON follows FOR INSERT WITH CHECK (auth.uid() = follower_id);
+CREATE POLICY "follows_delete" ON follows FOR DELETE USING (auth.uid() = follower_id);
+
+-- ── NOTIFICATIONS ────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "notifications_all" ON notifications;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "notifications_all" ON notifications FOR ALL USING (auth.uid() = user_id);
+
+-- ── MESSAGES ─────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "messages_select" ON messages;
+  DROP POLICY IF EXISTS "messages_insert" ON messages;
+  DROP POLICY IF EXISTS "messages_delete" ON messages;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "messages_select" ON messages FOR SELECT
+  USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+CREATE POLICY "messages_insert" ON messages FOR INSERT WITH CHECK (auth.uid() = sender_id);
+CREATE POLICY "messages_delete" ON messages FOR DELETE USING (auth.uid() = sender_id);
+
+-- ── PRODUCTS ─────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "products_select" ON products;
+  DROP POLICY IF EXISTS "products_insert" ON products;
+  DROP POLICY IF EXISTS "products_update" ON products;
+  DROP POLICY IF EXISTS "products_delete" ON products;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+-- Admin dan seller boleh urus; public boleh baca produk aktif
+CREATE POLICY "products_select" ON products FOR SELECT
+  USING (is_active = TRUE OR
+    (auth.uid() IS NOT NULL AND (
+      auth.uid() = seller_id OR
+      EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (is_admin = TRUE OR role = 'admin'))
+    ))
+  );
+CREATE POLICY "products_insert" ON products FOR INSERT
+  WITH CHECK (
+    auth.uid() = seller_id OR
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (is_admin = TRUE OR role = 'admin'))
+  );
+CREATE POLICY "products_update" ON products FOR UPDATE
+  USING (
+    auth.uid() = seller_id OR
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (is_admin = TRUE OR role = 'admin'))
+  );
+CREATE POLICY "products_delete" ON products FOR DELETE
+  USING (
+    auth.uid() = seller_id OR
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (is_admin = TRUE OR role = 'admin'))
+  );
+
+-- ── ORDERS ───────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "orders_select" ON orders;
+  DROP POLICY IF EXISTS "orders_insert" ON orders;
+  DROP POLICY IF EXISTS "orders_update" ON orders;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "orders_select" ON orders FOR SELECT
+  USING (auth.uid() = buyer_id OR
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (is_admin = TRUE OR role = 'admin'))
+  );
+CREATE POLICY "orders_insert" ON orders FOR INSERT WITH CHECK (auth.uid() = buyer_id);
+-- Webhook edge function akan update order (guna service_role, bypass RLS)
+
+-- ── STORIES ──────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "stories_select" ON stories;
+  DROP POLICY IF EXISTS "stories_insert" ON stories;
+  DROP POLICY IF EXISTS "stories_delete" ON stories;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "stories_select" ON stories FOR SELECT
+  USING (expires_at > NOW() OR auth.uid() = user_id);
+CREATE POLICY "stories_insert" ON stories FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "stories_delete" ON stories FOR DELETE USING (auth.uid() = user_id);
+
+-- ── REACTIONS ────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "reactions_select" ON reactions;
+  DROP POLICY IF EXISTS "reactions_insert" ON reactions;
+  DROP POLICY IF EXISTS "reactions_delete" ON reactions;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "reactions_select" ON reactions FOR SELECT USING (TRUE);
+CREATE POLICY "reactions_insert" ON reactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "reactions_delete" ON reactions FOR DELETE USING (auth.uid() = user_id);
+
+-- ── CHALLENGES ───────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "challenges_select" ON challenges;
+  DROP POLICY IF EXISTS "challenges_insert" ON challenges;
+  DROP POLICY IF EXISTS "challenge_entries_select" ON challenge_entries;
+  DROP POLICY IF EXISTS "challenge_entries_insert" ON challenge_entries;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "challenges_select"       ON challenges       FOR SELECT USING (TRUE);
+CREATE POLICY "challenges_insert"       ON challenges       FOR INSERT WITH CHECK (auth.uid() = creator_id);
+CREATE POLICY "challenge_entries_select" ON challenge_entries FOR SELECT USING (TRUE);
+CREATE POLICY "challenge_entries_insert" ON challenge_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- ── LIVE SESSIONS ─────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "live_sessions_select" ON live_sessions;
+  DROP POLICY IF EXISTS "live_sessions_insert" ON live_sessions;
+  DROP POLICY IF EXISTS "live_sessions_update" ON live_sessions;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "live_sessions_select" ON live_sessions FOR SELECT
+  USING (is_active = TRUE OR auth.uid() = host_id);
+CREATE POLICY "live_sessions_insert" ON live_sessions FOR INSERT WITH CHECK (auth.uid() = host_id);
+CREATE POLICY "live_sessions_update" ON live_sessions FOR UPDATE USING (auth.uid() = host_id);
+
+-- ── GIFTS ────────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "gifts_select" ON gifts;
+  DROP POLICY IF EXISTS "gifts_insert" ON gifts;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "gifts_select" ON gifts FOR SELECT
+  USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+CREATE POLICY "gifts_insert" ON gifts FOR INSERT WITH CHECK (auth.uid() = sender_id);
+
+-- ── BLOCKED USERS ─────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "blocked_users_all" ON blocked_users;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "blocked_users_all" ON blocked_users FOR ALL USING (auth.uid() = blocker_id);
+
+-- ── PLAYLISTS ────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "playlists_select" ON playlists;
+  DROP POLICY IF EXISTS "playlists_all"    ON playlists;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "playlists_select" ON playlists FOR SELECT
+  USING (is_public = TRUE OR auth.uid() = user_id);
+CREATE POLICY "playlists_modify" ON playlists FOR ALL USING (auth.uid() = user_id);
+
+-- ── PLAYLIST VIDEOS ───────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "playlist_videos_select" ON playlist_videos;
+  DROP POLICY IF EXISTS "playlist_videos_modify"  ON playlist_videos;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "playlist_videos_select" ON playlist_videos FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM playlists WHERE id = playlist_videos.playlist_id
+    AND (is_public = TRUE OR user_id = auth.uid())
+  ));
+CREATE POLICY "playlist_videos_modify" ON playlist_videos FOR ALL
+  USING (EXISTS (
+    SELECT 1 FROM playlists WHERE id = playlist_videos.playlist_id
+    AND user_id = auth.uid()
+  ));
+
+-- ── CART ITEMS ───────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "cart_items_all"   ON cart_items;
+  DROP POLICY IF EXISTS "cart_items_owner" ON cart_items;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "cart_items_owner" ON cart_items FOR ALL
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- ── ORDER ITEMS ──────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "order_items_select" ON order_items;
+  DROP POLICY IF EXISTS "order_items_insert" ON order_items;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "order_items_select" ON order_items FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM orders WHERE id = order_items.order_id AND buyer_id = auth.uid()
+  ));
+-- Insert dilakukan oleh webhook (service_role — bypass RLS)
+
+-- ── SUBSCRIPTIONS ────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "subscriptions_owner" ON subscriptions;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "subscriptions_owner" ON subscriptions FOR SELECT USING (auth.uid() = user_id);
+
+-- ── RATE LIMITS ──────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "rate_limits_owner" ON rate_limits;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "rate_limits_owner" ON rate_limits FOR ALL USING (auth.uid() = user_id);
+
+-- ── AUDIT LOGS ───────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "audit_logs_admin"  ON audit_logs;
+  DROP POLICY IF EXISTS "audit_logs_insert" ON audit_logs;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "audit_logs_admin_read" ON audit_logs FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND (is_admin = TRUE OR role = 'admin')
+  ));
+-- Insert dari Edge Functions (service_role)
+
+-- ── COINS ────────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "coins_owner" ON coins;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "coins_owner" ON coins FOR ALL USING (auth.uid() = user_id);
+
+-- ── SEARCH QUERIES ───────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "search_queries_owner" ON search_queries;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "search_queries_owner" ON search_queries FOR ALL USING (auth.uid() = user_id);
+
+-- ── REPORTS ──────────────────────────────────────────────────
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "reports_insert" ON reports;
+  DROP POLICY IF EXISTS "reports_select" ON reports;
+EXCEPTION WHEN OTHERS THEN NULL; END; $$;
+
+CREATE POLICY "reports_insert" ON reports FOR INSERT WITH CHECK (auth.uid() = reporter_id);
+CREATE POLICY "reports_select" ON reports FOR SELECT
+  USING (auth.uid() = reporter_id OR
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (is_admin = TRUE OR role = 'admin'))
+  );
+
+-- ============================================================
+-- SEMAKAN AKHIR: Pastikan semua tables ada RLS ON
+-- ============================================================
+DO $$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    BEGIN
+      EXECUTE 'ALTER TABLE ' || r.tablename || ' ENABLE ROW LEVEL SECURITY';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END LOOP;
+  RAISE NOTICE 'RLS diaktifkan untuk semua tables';
+END; $$;

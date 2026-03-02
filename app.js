@@ -7,7 +7,7 @@ const snapSupabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ── Dev mode: tukar ke false sebelum production deploy ──
 const DEV_MODE = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const devLog   = (...args) => { if (DEV_MODE) console.log('[SnapFlow]', ...args); };
+const devLog   = (...args) => { if (DEV_MODE) devLog('[SnapFlow]', ...args); };
 const devWarn  = (...args) => { if (DEV_MODE) console.warn('[SnapFlow]', ...args); };
 const devErr   = (...args) => console.error('[SnapFlow]', ...args); // error sentiasa log
 
@@ -117,220 +117,479 @@ function timeAgo(dateStr) {
 }
 
 // ==========================================
-// 3. SISTEM SESI & AUTH — SECURE
 // ==========================================
-
-// Pages yang TIDAK perlukan login
-const AUTH_PAGES     = ['login.html','register.html','splash.html','forgot-password.html','update-password.html'];
-// Pages yang langsung skip semua auth check
+// 3. SISTEM AUTH — LENGKAP & SELAMAT
+// ==========================================
+const AUTH_PAGES      = ['login.html','register.html','splash.html','forgot-password.html','update-password.html'];
 const SKIP_AUTH_PAGES = ['offline.html','404.html'];
-// Pages semi-public (boleh tengok tapi features terhad tanpa login)
 const SEMI_PUBLIC     = ['discover.html','search.html','profile.html'];
 
-// State cache supaya tidak query Supabase berulang kali
-let _authUser    = undefined; // undefined = belum check, null = tidak login
+let _authUser    = undefined;
 let _authChecked = false;
 
-// ── Fungsi utama: dapatkan user (cached) ─────────
 async function getAuthUser(forceRefresh = false) {
     if (_authChecked && !forceRefresh) return _authUser;
     try {
         const { data: { session } } = await snapSupabase.auth.getSession();
         _authUser    = session?.user || null;
         _authChecked = true;
-        // Cache user ID untuk fungsi lain
         if (_authUser) _cachedUserId = _authUser.id;
         return _authUser;
     } catch (err) {
-        console.error('[Auth] getAuthUser error:', err);
-        _authUser = null;
+        devErr('[Auth]', err.message);
+        _authUser = null; _authChecked = true;
         return null;
     }
 }
 
-// ── Guard utama: panggil di setiap protected page ─
 async function requireAuth(redirectTo = 'splash.html') {
     const user = await getAuthUser();
     if (!user) {
+        sessionStorage.setItem('sf_redirect_after_login', window.location.href);
         window.location.replace(redirectTo);
         return null;
     }
     return user;
 }
 
-// ── Guard admin: check role dari DB ────────────────
 async function requireAdmin() {
     const user = await requireAuth();
     if (!user) return null;
-
-    const { data: profile, error } = await snapSupabase
-        .from('profiles')
-        .select('role, is_admin')
-        .eq('id', user.id)
-        .single();
-
-    if (error || (!profile?.is_admin && profile?.role !== 'admin')) {
-        showToast('Akses dinafikan. Halaman ini hanya untuk admin.', 'error');
+    const { data: profile } = await snapSupabase
+        .from('profiles').select('role,is_admin').eq('id', user.id).single();
+    if (!profile?.is_admin && profile?.role !== 'admin') {
+        showToast('Akses dinafikan.', 'error');
         setTimeout(() => window.location.replace('index.html'), 1500);
         return null;
     }
     return { user, profile };
 }
 
-// ── checkUserSession: panggil bila DOMContentLoaded ─
 async function checkUserSession() {
-    const currentPage = window.location.pathname;
-    const page        = currentPage.split('/').pop() || 'index.html';
-
-    // Skip pages tertentu
+    const page   = window.location.pathname.split('/').pop() || 'index.html';
     if (SKIP_AUTH_PAGES.some(p => page.includes(p))) return;
-
-    const isAuthPage   = AUTH_PAGES.some(p => page.includes(p));
-    const isSemiPublic = SEMI_PUBLIC.some(p => page.includes(p));
-
-    const user = await getAuthUser();
-
-    // Redirect user yang dah login keluar dari auth pages
-    if (user && isAuthPage && !page.includes('update-password')) {
-        window.location.replace('index.html');
-        return;
+    const isAuth = AUTH_PAGES.some(p => page.includes(p));
+    const isSemi = SEMI_PUBLIC.some(p => page.includes(p));
+    const user   = await getAuthUser();
+    if (user && isAuth && !page.includes('update-password')) {
+        window.location.replace('index.html'); return;
     }
-
-    // Redirect ke splash jika tidak login (kecuali semi-public pages)
-    if (!user && !isAuthPage && !isSemiPublic) {
-        // Simpan URL asal untuk redirect balik selepas login
+    if (!user && !isAuth && !isSemi) {
         sessionStorage.setItem('sf_redirect_after_login', window.location.href);
         window.location.replace('splash.html');
-        return;
     }
+    // Load cart dari server bila user login
+    if (user) { loadCartFromServer().catch(function(){}); }
 }
 
-// ── Auto refresh token & handle sign out ──────────
 snapSupabase.auth.onAuthStateChange((event, session) => {
-    const page = window.location.pathname.split('/').pop() || 'index.html';
-    const isAuthPage   = AUTH_PAGES.some(p => page.includes(p));
-    const isSkipPage   = SKIP_AUTH_PAGES.some(p => page.includes(p));
-    const isSemiPublic = SEMI_PUBLIC.some(p => page.includes(p));
+    const page   = window.location.pathname.split('/').pop() || 'index.html';
+    const isAuth = AUTH_PAGES.some(p => page.includes(p));
+    const isSkip = SKIP_AUTH_PAGES.some(p => page.includes(p));
+    const isSemi = SEMI_PUBLIC.some(p => page.includes(p));
+    if (isSkip) return;
 
-    if (isSkipPage) return;
-
-    // Update cache
-    _authUser    = session?.user || null;
-    _authChecked = true;
+    _authUser = session?.user || null; _authChecked = true;
     if (_authUser) _cachedUserId = _authUser.id;
 
-    if (event === 'SIGNED_IN' && isAuthPage) {
-        // Redirect balik ke page asal atau index
-        const redirect = sessionStorage.getItem('sf_redirect_after_login');
+    if (event === 'SIGNED_IN' && isAuth && !page.includes('update-password')) {
+        const redir = sessionStorage.getItem('sf_redirect_after_login');
         sessionStorage.removeItem('sf_redirect_after_login');
-        window.location.replace(redirect && !AUTH_PAGES.some(p => redirect.includes(p)) ? redirect : 'index.html');
+        const safe  = redir && !AUTH_PAGES.some(p => redir.includes(p));
+        window.location.replace(safe ? redir : 'index.html');
     }
-
-    if (event === 'SIGNED_OUT' && !isAuthPage && !isSemiPublic) {
+    if (event === 'SIGNED_OUT' && !isAuth && !isSemi) {
         window.location.replace('splash.html');
     }
-
-    if (event === 'TOKEN_REFRESHED') {
-        // Token refreshed silently — no action needed
-    }
-
-    if (event === 'USER_UPDATED') {
-        // Refresh cached user data
-        getAuthUser(true);
+    if (event === 'PASSWORD_RECOVERY' && !page.includes('update-password')) {
+        window.location.replace('update-password.html');
     }
 });
 
-// ✅ BARU: Handle Login
+// ── Helper: dialog konfirmasi ──────────────────────
+function _showConfirmDialog(title, msg, okText, cancelText) {
+    return new Promise((resolve) => {
+        const o = document.createElement('div');
+        o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        o.innerHTML =
+            '<div style="background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:28px 24px;width:100%;max-width:300px;text-align:center;">' +
+            '<p style="font-weight:800;font-size:17px;color:#fff;margin:0 0 10px;">' + title + '</p>' +
+            '<p style="color:#777;font-size:13px;margin:0 0 22px;line-height:1.5;">' + msg + '</p>' +
+            '<div style="display:flex;gap:10px;">' +
+            '<button id="d-no"  style="flex:1;background:#1a1a1a;border:1px solid #333;color:#fff;padding:11px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">' + cancelText + '</button>' +
+            '<button id="d-yes" style="flex:1;background:#fe2c55;border:none;color:#fff;padding:11px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">' + okText + '</button>' +
+            '</div></div>';
+        document.body.appendChild(o);
+        o.querySelector('#d-yes').onclick = () => { o.remove(); resolve(true);  };
+        o.querySelector('#d-no').onclick  = () => { o.remove(); resolve(false); };
+        o.onclick = (e) => { if (e.target === o) { o.remove(); resolve(false); } };
+    });
+}
+
+// ==========================================
+// ── PWA: Service Worker Registration + Update Banner ──────
+(function() {
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.register('/service-worker.js').then(function(reg) {
+        reg.addEventListener('updatefound', function() {
+            var w = reg.installing;
+            if (!w) return;
+            w.addEventListener('statechange', function() {
+                if (w.state === 'installed' && navigator.serviceWorker.controller) {
+                    _pwaShowUpdateBanner(w);
+                }
+            });
+        });
+    }).catch(function(e){ devErr('[SW]', e); });
+
+    navigator.serviceWorker.addEventListener('message', function(evt) {
+        if (evt.data && evt.data.type === 'SW_UPDATED') _pwaShowUpdateBanner(null);
+    });
+})();
+
+function _pwaShowUpdateBanner(worker) {
+    if (document.getElementById('pwa-update-bar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'pwa-update-bar';
+    bar.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);' +
+        'background:#111;border:1px solid #333;color:#fff;padding:10px 16px;border-radius:12px;' +
+        'z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,0.6);' +
+        'font-size:13px;white-space:nowrap;max-width:calc(100vw - 32px);font-family:inherit;';
+    bar.innerHTML = '<i class="fa-solid fa-rotate" style="color:#fe2c55;"></i>' +
+        '<span>Versi baru tersedia</span>' +
+        '<button onclick="window._applyPwaUpdate()" style="background:#fe2c55;color:#fff;border:none;' +
+        'padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' +
+        'Kemas Kini</button>' +
+        '<button onclick="this.parentElement.remove()" style="background:none;border:none;' +
+        'color:#666;cursor:pointer;font-size:18px;padding:0 4px;">×</button>';
+    document.body && document.body.appendChild(bar);
+    window._pwaNewWorker = worker;
+    setTimeout(function(){ var el=document.getElementById('pwa-update-bar'); if(el) el.remove(); }, 12000);
+}
+
+window._applyPwaUpdate = function() {
+    var bar = document.getElementById('pwa-update-bar');
+    if (bar) bar.remove();
+    if (window._pwaNewWorker) window._pwaNewWorker.postMessage('SKIP_WAITING');
+    else if (navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('SKIP_WAITING');
+    window.location.reload();
+};
+
+// 3b. AUTH FUNCTIONS — LOGIN, REGISTER, LOGOUT
+// ==========================================
+
+// ── LOG MASUK ──────────────────────────────────────────────────────────
 async function handleLogin() {
     const emailEl = document.getElementById('login-email');
-    const passEl = document.getElementById('login-password');
-    const btn = document.querySelector('.login-btn-main');
+    const passEl  = document.getElementById('login-password');
+    const btn     = document.querySelector('.login-btn-main') || document.querySelector('#login-btn');
+    const email   = emailEl ? emailEl.value.trim() : '';
+    const pass    = passEl  ? passEl.value : '';
 
-    const email = emailEl?.value?.trim();
-    const password = passEl?.value?.trim();
-
-    if (!email || !password) return showToast('Sila isi semua ruangan.', 'warning');
+    if (!email || !pass) {
+        showToast('Sila isi emel dan kata laluan.', 'warning');
+        if (!email && emailEl) emailEl.focus();
+        else if (passEl)       passEl.focus();
+        return;
+    }
 
     setLoading(btn, true, 'Log Masuk');
 
-    const { error } = await snapSupabase.auth.signInWithPassword({ email, password });
-    if (error) {
-        showToast('Email atau kata laluan salah.', 'error');
+    try {
+        const { data, error } = await snapSupabase.auth.signInWithPassword({
+            email:    email,
+            password: pass
+        });
+
+        if (error) {
+            setLoading(btn, false, 'Log Masuk');
+
+            if (error.message && error.message.indexOf('Email not confirmed') !== -1) {
+                _tunjukNotisEmailBelumSahkan(email);
+                return;
+            }
+
+            var pesanan = 'Emel atau kata laluan salah.';
+            if (error.message && error.message.indexOf('Too many requests') !== -1) {
+                pesanan = 'Terlalu banyak cubaan. Tunggu sebentar.';
+            }
+            showToast(pesanan, 'error');
+            if (passEl) passEl.select();
+            return;
+        }
+
+        // Berjaya — onAuthStateChange akan redirect
+        showToast('Selamat datang! \uD83C\uDF89', 'success');
+
+    } catch (err) {
+        devErr('[login]', err);
+        showToast('Ralat sambungan. Semak internet anda.', 'error');
         setLoading(btn, false, 'Log Masuk');
-    } else {
-        showToast('Berjaya log masuk! 🎉', 'success');
-        setTimeout(() => window.location.href = 'index.html', 800);
     }
 }
 
-// ✅ BARU: Handle Register
-async function handleRegister() {
-    const name = document.getElementById('reg-username')?.value?.trim();
-    const email = document.getElementById('reg-email')?.value?.trim();
-    const password = document.getElementById('reg-password')?.value?.trim();
-    const btn = document.querySelector('button[onclick="handleRegister()"]');
+// Notis email belum disahkan
+function _tunjukNotisEmailBelumSahkan(email) {
+    var safeEmail = String(email).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    var existing  = document.getElementById('sf-notis-emel');
+    if (existing) existing.remove();
 
-    if (!name || !email || !password) return showToast('Sila isi semua ruangan.', 'warning');
-    if (password.length < 6) return showToast('Kata laluan minimum 6 aksara.', 'warning');
+    var notis = document.createElement('div');
+    notis.id  = 'sf-notis-emel';
+    notis.innerHTML =
+        '<div style="background:#111;border:1px solid #2a2a2a;border-radius:12px;' +
+        'padding:20px;margin-top:16px;text-align:center;">' +
+        '<i class="fa-solid fa-envelope" style="font-size:34px;color:#f59e0b;display:block;margin-bottom:12px;"></i>' +
+        '<p style="color:#fff;font-weight:700;font-size:15px;margin:0 0 8px;">Emel Belum Disahkan</p>' +
+        '<p style="color:#666;font-size:13px;margin:0 0 16px;line-height:1.5;">' +
+        'Semak inbox dan folder Spam untuk<br>' +
+        '<strong style="color:#fe2c55;">' + safeEmail + '</strong></p>' +
+        '<button onclick="hantarSemulaPengesahan(\'' + safeEmail + '\')" ' +
+        'id="btn-resend" style="width:100%;background:transparent;border:1px solid #fe2c55;' +
+        'color:#fe2c55;padding:10px;border-radius:8px;font-size:13px;font-weight:700;' +
+        'cursor:pointer;font-family:inherit;">' +
+        '<i class="fa-solid fa-paper-plane" style="margin-right:6px;"></i>' +
+        'Hantar Semula Pengesahan</button></div>';
+
+    var anchor = document.querySelector('.login-btn-main') || document.querySelector('#login-btn');
+    if (anchor) {
+        anchor.insertAdjacentElement('afterend', notis);
+    } else {
+        document.body.appendChild(notis);
+    }
+    showToast('Sahkan emel anda dahulu.', 'warning');
+}
+
+async function hantarSemulaPengesahan(email) {
+    var btn = document.getElementById('btn-resend');
+    if (btn) { btn.disabled = true; btn.textContent = 'Menghantar...'; }
+
+    var { error } = await snapSupabase.auth.resend({ type: 'signup', email: email });
+
+    if (error) {
+        showToast('Gagal: ' + error.message, 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-rotate" style="margin-right:6px;"></i>Cuba Semula';
+        }
+    } else {
+        showToast('Emel pengesahan dihantar! Semak inbox & Spam.', 'success');
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-check" style="margin-right:6px;"></i>Emel Dihantar';
+        }
+    }
+}
+
+// ── DAFTAR AKAUN ──────────────────────────────────────────────────────
+async function handleRegister() {
+    var namaEl    = document.getElementById('reg-fullname');
+    var userEl    = document.getElementById('reg-username');
+    var emailEl   = document.getElementById('reg-email');
+    var passEl    = document.getElementById('reg-password');
+    var btn       = document.querySelector('button[onclick="handleRegister()"]');
+
+    var namaLengkap = namaEl   ? namaEl.value.trim()            : '';
+    var username    = userEl   ? userEl.value.trim().toLowerCase() : '';
+    var email       = emailEl  ? emailEl.value.trim()           : '';
+    var password    = passEl   ? passEl.value                   : '';
+
+    // ── Validasi ──────────────────────────────────────────────────────
+    if (!namaLengkap) {
+        showToast('Sila masukkan nama penuh.', 'warning');
+        if (namaEl) namaEl.focus(); return;
+    }
+    if (!username) {
+        showToast('Sila masukkan username.', 'warning');
+        if (userEl) userEl.focus(); return;
+    }
+    if (username.length < 3 || username.length > 30) {
+        showToast('Username mesti antara 3 hingga 30 aksara.', 'warning');
+        if (userEl) userEl.focus(); return;
+    }
+    if (!/^[a-zA-Z0-9_.]+$/.test(username)) {
+        showToast('Username hanya boleh ada huruf, nombor, titik dan underscore.', 'warning');
+        if (userEl) userEl.focus(); return;
+    }
+    if (!email || email.indexOf('@') === -1) {
+        showToast('Sila masukkan alamat emel yang sah.', 'warning');
+        if (emailEl) emailEl.focus(); return;
+    }
+    if (!password || password.length < 6) {
+        showToast('Kata laluan minimum 6 aksara.', 'warning');
+        if (passEl) passEl.focus(); return;
+    }
 
     setLoading(btn, true, 'Daftar Sekarang');
 
-    const { error } = await snapSupabase.auth.signUp({
-        email, password,
-        options: { data: { full_name: name } }
-    });
+    try {
+        // Semak username belum dipakai
+        var { data: existing } = await snapSupabase
+            .from('profiles').select('id').eq('username', username).maybeSingle();
 
-    if (error) {
-        showToast(error.message, 'error');
+        if (existing) {
+            showToast('Username ini sudah digunakan. Pilih username lain.', 'error');
+            setLoading(btn, false, 'Daftar Sekarang');
+            if (userEl) userEl.focus();
+            return;
+        }
+
+        // Daftar akaun baru
+        var { data, error } = await snapSupabase.auth.signUp({
+            email:    email,
+            password: password,
+            options:  { data: { full_name: namaLengkap, username: username } }
+        });
+
+        if (error) {
+            var pesanan = error.message;
+            if (pesanan.indexOf('already registered') !== -1 || pesanan.indexOf('User already') !== -1) {
+                pesanan = 'Emel ini sudah didaftarkan. Sila log masuk atau reset kata laluan.';
+            } else if (pesanan.indexOf('Password should') !== -1) {
+                pesanan = 'Kata laluan terlalu mudah. Gunakan gabungan huruf dan nombor.';
+            }
+            showToast(pesanan, 'error');
+            setLoading(btn, false, 'Daftar Sekarang');
+            return;
+        }
+
+        // ── Berjaya ───────────────────────────────────────────────────
+        if (data && data.user && !data.session) {
+            // Email confirmation perlu — tunjuk skrin kejayaan
+            var container = document.querySelector('div[style*="max-width"], .auth-container');
+            if (container) {
+                container.innerHTML =
+                    '<div style="text-align:center;padding:20px;">' +
+                    '<i class="fa-solid fa-envelope-circle-check" style="font-size:64px;' +
+                    'color:#22c55e;margin-bottom:20px;display:block;"></i>' +
+                    '<h2 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 12px;">' +
+                    'Semak Emel Anda!</h2>' +
+                    '<p style="color:#666;font-size:14px;margin:0 0 8px;">Emel pengesahan dihantar ke:</p>' +
+                    '<p style="color:#fe2c55;font-size:16px;font-weight:700;margin:0 0 24px;">' +
+                    email + '</p>' +
+                    '<p style="color:#555;font-size:13px;margin:0 0 28px;">Klik pautan dalam emel ' +
+                    'untuk aktifkan akaun anda.</p>' +
+                    '<a href="login.html" style="display:inline-block;background:#fe2c55;color:#fff;' +
+                    'padding:14px 32px;border-radius:12px;font-weight:800;text-decoration:none;' +
+                    'font-size:15px;">Pergi ke Log Masuk</a></div>';
+            }
+        } else if (data && data.session) {
+            // Auto-login (email confirmation dimatikan di Supabase)
+            showToast('Akaun berjaya dicipta! Selamat datang!', 'success');
+            setTimeout(function() { window.location.replace('index.html'); }, 800);
+        }
+
+    } catch (err) {
+        devErr('[register]', err);
+        showToast('Ralat tidak dijangka. Cuba lagi.', 'error');
         setLoading(btn, false, 'Daftar Sekarang');
-    } else {
-        showToast('Akaun berjaya dicipta! Sila semak emel anda.', 'success');
-        setTimeout(() => window.location.href = 'login.html', 2000);
     }
 }
 
-// ✅ BARU: Handle Logout
+// ── LOG KELUAR ────────────────────────────────────────────────────────
 async function handleLogout() {
-    if (!confirm('Anda pasti mahu log keluar?')) return;
-    await snapSupabase.auth.signOut();
-    window.location.href = 'splash.html';
-}
+    var ok = await _showConfirmDialog(
+        'Log Keluar?',
+        'Anda pasti mahu log keluar dari SnapFlow?',
+        'Ya, Log Keluar', 'Batal'
+    );
+    if (!ok) return;
 
-// ✅ BARU: Handle Reset Password
-async function handleResetPassword() {
-    const email = document.getElementById('reset-email')?.value?.trim();
-    const btn = document.querySelector('.login-btn-main');
-
-    if (!email) return showToast('Sila masukkan emel anda.', 'warning');
-    setLoading(btn, true, 'Hantar Pautan');
-
-    const { error } = await snapSupabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/update-password.html'
-    });
-
-    if (error) {
-        showToast('Ralat: ' + error.message, 'error');
-    } else {
-        showToast('Pautan reset telah dihantar ke emel anda!', 'success');
+    try {
+        await snapSupabase.auth.signOut();
+        _authUser    = null;
+        _authChecked = false;
+        sessionStorage.clear();
+        window.location.replace('splash.html');
+    } catch (err) {
+        devErr('[logout]', err);
+        showToast('Ralat log keluar. Cuba lagi.', 'error');
     }
-    setLoading(btn, false, 'Hantar Pautan');
 }
 
-// ✅ BARU: Update Password
+// ── LUPA KATA LALUAN ─────────────────────────────────────────────────
+async function handleResetPassword() {
+    var emailEl = document.getElementById('reset-email');
+    var btn     = document.querySelector('.login-btn-main') || document.querySelector('#reset-btn');
+    var email   = emailEl ? emailEl.value.trim() : '';
+
+    if (!email) {
+        showToast('Sila masukkan alamat emel anda.', 'warning');
+        if (emailEl) emailEl.focus(); return;
+    }
+
+    setLoading(btn, true, 'Hantar Pautan Reset');
+
+    try {
+        var { error } = await snapSupabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin + '/update-password.html'
+        });
+
+        if (error) throw error;
+
+        // Tunjuk halaman kejayaan
+        var wrap = document.querySelector('div[style*="max-width"], body > div');
+        if (wrap) {
+            wrap.innerHTML =
+                '<div style="text-align:center;padding:20px;">' +
+                '<i class="fa-solid fa-paper-plane" style="font-size:56px;color:#fe2c55;' +
+                'margin-bottom:20px;display:block;"></i>' +
+                '<h2 style="color:#fff;font-size:20px;font-weight:800;margin:0 0 12px;">' +
+                'Emel Dihantar!</h2>' +
+                '<p style="color:#666;font-size:14px;margin:0 0 8px;">' +
+                'Pautan reset kata laluan dihantar ke:</p>' +
+                '<p style="color:#fe2c55;font-size:15px;font-weight:700;margin:0 0 20px;">' +
+                email + '</p>' +
+                '<p style="color:#555;font-size:13px;margin:0 0 28px;">' +
+                'Semak inbox dan folder Spam.<br>Pautan sah selama 1 jam.</p>' +
+                '<a href="login.html" style="display:inline-block;background:#fe2c55;color:#fff;' +
+                'padding:12px 28px;border-radius:12px;font-weight:800;text-decoration:none;' +
+                'font-size:14px;">Kembali Log Masuk</a></div>';
+        }
+
+    } catch (err) {
+        var msg = err.message || 'Gagal hantar emel reset.';
+        if (msg.indexOf('For security purposes') !== -1) {
+            msg = 'Terlalu banyak permintaan. Sila tunggu beberapa minit.';
+        }
+        showToast(msg, 'error');
+        setLoading(btn, false, 'Hantar Pautan Reset');
+    }
+}
+
+// ── KEMASKINI KATA LALUAN (selepas klik link reset) ──────────────────
 async function updateUserPassword() {
-    const newPassword = document.getElementById('new-password')?.value?.trim();
-    const btn = document.querySelector('button[onclick="updateUserPassword()"]');
+    var newPassEl  = document.getElementById('new-password');
+    var confPassEl = document.getElementById('confirm-password');
+    var btn        = document.querySelector('.login-btn-main') || document.querySelector('#update-pass-btn');
+    var newPass    = newPassEl  ? newPassEl.value  : '';
+    var confPass   = confPassEl ? confPassEl.value : '';
 
-    if (!newPassword || newPassword.length < 6) return showToast('Kata laluan minimum 6 aksara.', 'warning');
-    setLoading(btn, true, 'Kemaskini');
+    if (!newPass) {
+        showToast('Sila masukkan kata laluan baru.', 'warning');
+        if (newPassEl) newPassEl.focus(); return;
+    }
+    if (newPass.length < 6) {
+        showToast('Kata laluan minimum 6 aksara.', 'warning'); return;
+    }
+    if (confPass && newPass !== confPass) {
+        showToast('Kata laluan tidak sepadan. Sila semak semula.', 'warning'); return;
+    }
 
-    const { error } = await snapSupabase.auth.updateUser({ password: newPassword });
-    if (error) {
-        showToast('Ralat: ' + error.message, 'error');
-        setLoading(btn, false, 'Kemaskini Kata Laluan');
-    } else {
+    setLoading(btn, true, 'Kemaskini Kata Laluan');
+
+    try {
+        var { error } = await snapSupabase.auth.updateUser({ password: newPass });
+        if (error) throw error;
         showToast('Kata laluan berjaya dikemaskini!', 'success');
-        setTimeout(() => window.location.href = 'login.html', 1200);
+        setTimeout(function() { window.location.replace('login.html'); }, 1500);
+    } catch (err) {
+        var msg = err.message || 'Gagal kemaskini kata laluan.';
+        if (msg.indexOf('same password') !== -1) {
+            msg = 'Kata laluan baru mestilah berbeza daripada yang lama.';
+        }
+        showToast(msg, 'error');
+        setLoading(btn, false, 'Kemaskini Kata Laluan');
     }
 }
 
@@ -716,7 +975,7 @@ async function handleFollow(targetUserId, itemEl) {
     const btn = document.getElementById(`follow-btn-${targetUserId}`);
     if (!btn) return;
 
-    const { data: { user } } = await snapSupabase.auth.getUser();
+    const user = await getAuthUser();
     if (!user) return showToast('Sila log masuk dahulu.', 'warning');
     if (user.id === targetUserId) return showToast('Anda tidak boleh follow diri sendiri.', 'warning');
 
@@ -832,7 +1091,7 @@ function handleShare(url) {
 async function handleLikeAction(videoId, fromDoubleTap = false) {
     const icon = document.getElementById(`like-icon-${videoId}`);
     const countSpan = document.getElementById(`like-count-${videoId}`);
-    const { data: { user } } = await snapSupabase.auth.getUser();
+    const user = await getAuthUser();
     if (!user) return showToast('Log masuk dahulu.', 'warning');
 
     const isLiked = likedVideos.has(videoId);
@@ -990,7 +1249,7 @@ async function sendComment() {
     const input = document.getElementById('new-comment');
     if (!input?.value?.trim() || !currentVideoId) return;
 
-    const { data: { user } } = await snapSupabase.auth.getUser();
+    const user = await getAuthUser();
     if (!user) return showToast('Log masuk dahulu.', 'warning');
 
     const commentText = input.value.trim();
@@ -1281,7 +1540,7 @@ async function loadProfileData() {
     if (!profileGrid) return;
 
     try {
-        const { data: { user } } = await snapSupabase.auth.getUser();
+        const user = await getAuthUser();
         if (!user) return;
 
         const name = user.user_metadata?.full_name || 'User';
@@ -1425,8 +1684,73 @@ const PRODUCTS = [
     { id: 8, name: 'Kek Coklat Homemade', brand: 'Makanan', price: 45, img: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400', desc: 'Kek coklat lembap buatan tangan, tempahan sahaja.' },
 ];
 
-let cart = JSON.parse(localStorage.getItem('sf_cart_v2') || localStorage.getItem('snapflow_cart') || '[]');
-function saveCart() { localStorage.setItem('sf_cart_v2', JSON.stringify(cart)); }
+// ── CART SYSTEM — Hybrid (localStorage cache + Supabase sync) ─────────
+// localStorage: untuk UI cepat (offline-friendly)
+// Supabase cart_items: untuk keselamatan & cross-device sync
+// Harga TIDAK disimpan dalam cart — dikira semula server side pada checkout
+
+let cart = [];
+
+// Load dari localStorage dulu (pantas)
+try {
+    var _rawCart = localStorage.getItem('sf_cart_v2');
+    if (_rawCart) {
+        var _parsed = JSON.parse(_rawCart);
+        // Hanya simpan product_id dan qty — BUANG harga dari cache lama
+        cart = _parsed.map(function(i){ return { id: i.id, name: i.name, img: i.img || '', qty: i.qty || 1 }; });
+    }
+} catch(e) { cart = []; }
+
+function saveCart() {
+    // Simpan TANPA harga (harga akan diambil dari DB pada checkout)
+    var safeCart = cart.map(function(i){ return { id: i.id, name: i.name, img: i.img || '', qty: i.qty }; });
+    try { localStorage.setItem('sf_cart_v2', JSON.stringify(safeCart)); } catch(e) {}
+    // Sync ke Supabase (async, tidak perlu tunggu)
+    _syncCartToSupabase();
+}
+
+// Sync cart ke Supabase (background)
+var _syncTimer = null;
+async function _syncCartToSupabase() {
+    clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(async function() {
+        try {
+            var user = await getAuthUser();
+            if (!user) return;
+            // Delete semua cart lama, insert baru (upsert)
+            await snapSupabase.from('cart_items').delete().eq('user_id', user.id);
+            if (cart.length > 0) {
+                var items = cart.map(function(i){ return { user_id: user.id, product_id: i.id, quantity: i.qty }; });
+                await snapSupabase.from('cart_items').insert(items);
+            }
+        } catch(e) { devErr('[cart sync]', e); }
+    }, 800);
+}
+
+// Load cart dari Supabase (bila user login)
+async function loadCartFromServer() {
+    try {
+        var user = await getAuthUser();
+        if (!user) return;
+        var result = await snapSupabase
+            .from('cart_items')
+            .select('product_id, quantity, products(id, name, image_url)')
+            .eq('user_id', user.id);
+        if (result.error || !result.data || result.data.length === 0) return;
+        // Merge dengan cart lokal (server wins)
+        cart = result.data.map(function(row) {
+            return {
+                id:  row.product_id,
+                name: row.products ? row.products.name : 'Produk',
+                img:  row.products ? (row.products.image_url || '') : '',
+                qty:  row.quantity
+            };
+        });
+        saveCart();
+        if (typeof updateCartBadge === 'function') updateCartBadge();
+        if (typeof renderCart === 'function') renderCart();
+    } catch(e) { devErr('[cart load]', e); }
+}
 
 function filterBrand(brand, el) {
     document.querySelectorAll('.brand-item').forEach(b => b.classList.remove('active'));
@@ -1555,8 +1879,16 @@ function removeFromCart(id) {
     showToast('Item dibuang dari troli.', 'info');
 }
 
-function checkout() {
+async function checkout() {
     if (cart.length === 0) return showToast('Troli anda kosong!', 'warning');
+
+    const user = await getAuthUser();
+    if (!user) return showToast('Sila log masuk untuk checkout.', 'warning');
+
+    // Simpan cart items ke sessionStorage (untuk checkout page ambil)
+    // Cart hanya simpan product_id dan qty — harga dikira server
+    const checkoutItems = cart.map(i => ({ product_id: i.id, qty: i.qty }));
+    sessionStorage.setItem('sf_checkout_items', JSON.stringify(checkoutItems));
     window.location.href = 'checkout.html';
 }
 
@@ -1564,8 +1896,15 @@ function contactSeller(sellerId) {
     window.location.href = `chat.html?seller=${sellerId}`;
 }
 
-function goToCheckout(productName, price) {
-    window.location.href = `checkout.html?product=${encodeURIComponent(productName)}&price=${price}`;
+function goToCheckout(productId, productName) {
+    // ✅ FIX: Hantar product_id sahaja — harga dikira server-side
+    // JANGAN hantar harga dalam URL (boleh dimanipulasi)
+    window.location.href = 'checkout.html?pid=' + encodeURIComponent(productId);
+}
+
+function buyNow(productId, productName) {
+    // Beli terus tanpa masuk cart
+    window.location.href = 'checkout.html?pid=' + encodeURIComponent(productId) + '&direct=1';
 }
 
 // ==========================================
@@ -1590,7 +1929,7 @@ async function loadMessages() {
     const sellerId = params.get('seller') || 'default';
 
     try {
-        const { data: { user } } = await snapSupabase.auth.getUser();
+        const user = await getAuthUser();
         if (!user) return;
 
         const { data: msgs } = await snapSupabase.from('messages')
@@ -1600,7 +1939,8 @@ async function loadMessages() {
 
         renderMessages(msgs || [], user.id);
     } catch (err) {
-        console.error("loadMessages error:", err);
+        devErr("[chat] loadMessages:", err);
+        if (typeof showToast === 'function') showToast("Gagal memuatkan mesej.", "error");
     }
 }
 
@@ -1948,7 +2288,7 @@ function startRealtimeSubscriptions() {
 
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
-                console.log('✅ Realtime connected — Like & Komen aktif!');
+                devLog('✅ Realtime connected — Like & Komen aktif!');
             } else if (status === 'CHANNEL_ERROR') {
                 console.warn('⚠️ Realtime connection error. Cuba sambung semula...');
                 // Cuba sambung semula selepas 5 saat
@@ -2916,7 +3256,7 @@ async function submitReport(videoId, reason) {
 
     } catch (err) {
         // Walaupun table belum wujud, masih tunjuk mesej berjaya
-        console.log('Report logged (table may not exist yet):', err.message);
+        devLog('Report logged (table may not exist yet):', err.message);
     }
 
     showToast('Laporan dihantar. Terima kasih! 🙏', 'success');
@@ -4092,7 +4432,7 @@ async function cleanupExpiredStories() {
             } catch { /* fail mungkin dah takde */ }
         }
 
-        console.log(`[Stories] ${ids.length} cerita tamat tempoh dipadam.`);
+        devLog(`[Stories] ${ids.length} cerita tamat tempoh dipadam.`);
     } catch (err) {
         console.warn('[Stories] Cleanup error:', err.message);
     }
@@ -4169,7 +4509,7 @@ async function requestPushPermission() {
         const { data: { user } } = await snapSupabase.auth.getUser();
         if (user) {
             // Nota: dalam implementasi sebenar, simpan FCM token dalam table 'push_tokens'
-            console.log('[FCM] Notifikasi aktif untuk user:', user.id);
+            devLog('[FCM] Notifikasi aktif untuk user:', user.id);
         }
 
     } catch (err) {
@@ -4299,7 +4639,7 @@ async function checkScheduledVideos() {
             await snapSupabase.from('videos')
                 .update({ is_published: true })
                 .eq('id', vid.id);
-            console.log(`[Schedule] Video ${vid.id} diterbitkan pada ${now}`);
+            devLog(`[Schedule] Video ${vid.id} diterbitkan pada ${now}`);
         }
 
         if (scheduled.length > 0) {

@@ -7,73 +7,108 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SnapFlow">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=SF&background=fe2c55&color=fff&size=192&bold=true">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Daftar Akaun | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body {
-            background: #000;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            overflow-y: auto;
-        }
-        .form-group { text-align: left; margin-bottom: 16px; }
-        .form-group label { font-size: 12px; color: #666; margin-left: 4px; margin-bottom: 6px; display: block; }
-        .form-group input {
-            width: 100%; background: #111; border: 1px solid #2a2a2a;
-            padding: 14px 16px; border-radius: 12px; color: #fff;
-            font-size: 15px; outline: none; transition: border-color 0.2s;
-        }
-        .form-group input:focus { border-color: #444; }
+        body { background:#000; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+        .auth-wrap { width:100%; max-width:400px; padding:36px 24px; text-align:center; }
+        .auth-logo { font-size:34px; font-weight:900; background:linear-gradient(135deg,#fff 30%,#fe2c55 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:6px; }
+        .auth-sub  { color:#555; font-size:14px; margin-bottom:28px; }
+        .form-group { text-align:left; margin-bottom:14px; }
+        .form-group label { font-size:12px; color:#555; display:block; margin-bottom:6px; margin-left:2px; }
+        .form-group input { width:100%; background:#111; border:1px solid #2a2a2a; padding:13px 16px; border-radius:12px; color:#fff; font-size:15px; outline:none; transition:border-color 0.2s; box-sizing:border-box; font-family:inherit; }
+        .form-group input:focus { border-color:#fe2c55; }
+        .field-hint { font-size:11px; margin:4px 0 0 4px; display:block; min-height:16px; transition:color 0.2s; color:#555; }
     </style>
-
-    <!-- Modules: core -->
 </head>
 <body>
-    <div style="width: 100%; max-width: 400px; padding: 40px 25px; text-align: center;">
-        <h1 style="font-size: 34px; font-weight: 800; background: linear-gradient(135deg, #fff 30%, #fe2c55 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px;">SnapFlow</h1>
-        <p class="text-muted" style="margin-bottom: 32px; font-size: 14px;">Cipta akaun baharu anda</p>
+    <div class="auth-wrap" id="main-wrap">
+        <h1 class="auth-logo">SnapFlow</h1>
+        <p class="auth-sub">Cipta akaun baharu anda</p>
 
         <div class="form-group">
             <label>Nama Penuh</label>
-            <input type="text" id="reg-username" placeholder="Nama anda" autocomplete="name">
+            <input type="text" id="reg-fullname" placeholder="Nama penuh anda"
+                   autocomplete="name" onkeydown="if(event.key==='Enter') document.getElementById('reg-username').focus()">
+        </div>
+
+        <div class="form-group">
+            <label>Username <span style="color:#333;font-size:10px;">(huruf, nombor, _ sahaja)</span></label>
+            <input type="text" id="reg-username" placeholder="contoh: ahmad_razif99"
+                   autocomplete="username" maxlength="30"
+                   oninput="bersihkanUsername(this); semakUsername(this.value)"
+                   onkeydown="if(event.key==='Enter') document.getElementById('reg-email').focus()">
+            <span class="field-hint" id="username-hint"></span>
         </div>
 
         <div class="form-group">
             <label>Alamat Email</label>
-            <input type="email" id="reg-email" placeholder="email@contoh.com" autocomplete="email">
+            <input type="email" id="reg-email" placeholder="email@contoh.com"
+                   autocomplete="email" onkeydown="if(event.key==='Enter') document.getElementById('reg-password').focus()">
         </div>
 
-        <div class="form-group" style="margin-bottom: 28px;">
-            <label>Kata Laluan</label>
-            <input type="password" id="reg-password" placeholder="Minimum 6 aksara" autocomplete="new-password">
+        <div class="form-group" style="margin-bottom:24px;">
+            <label>Kata Laluan <span style="color:#333;font-size:10px;">(min. 6 aksara)</span></label>
+            <input type="password" id="reg-password" placeholder="••••••••"
+                   autocomplete="new-password" onkeydown="if(event.key==='Enter') handleRegister()">
         </div>
 
         <button onclick="handleRegister()" class="login-btn-main">Daftar Sekarang</button>
 
-        <p style="margin-top: 28px; color: #666; font-size: 14px;">
-            Sudah ada akaun? <a href="login.html" style="color: #fe2c55; font-weight: 700;">Log Masuk</a>
+        <p style="margin-top:24px; color:#555; font-size:14px;">
+            Sudah ada akaun? <a href="login.html" style="color:#fe2c55; font-weight:700;">Log Masuk</a>
         </p>
     </div>
 
     <script src="app.js"></script>
-
-    <!-- PWA Service Worker -->
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(reg => console.log('[PWA] Service Worker berdaftar:', reg.scope))
-                    .catch(err => console.warn('[PWA] Gagal daftar SW:', err));
-            });
+    // Auto-bersihkan username (buang karakter tidak sah)
+    function bersihkanUsername(input) {
+        var val = input.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
+        if (input.value !== val) input.value = val;
+    }
+
+    // Semak availability username secara live
+    var _usernameTimer = null;
+    function semakUsername(val) {
+        var hint = document.getElementById('username-hint');
+        if (!val) { hint.textContent = ''; return; }
+        if (val.length < 3) {
+            hint.style.color = '#ef4444';
+            hint.textContent = 'Terlalu pendek (min. 3 aksara)'; return;
         }
+        if (val.length > 30) {
+            hint.style.color = '#ef4444';
+            hint.textContent = 'Terlalu panjang (maks. 30 aksara)'; return;
+        }
+        hint.style.color = '#555';
+        hint.textContent = 'Menyemak...';
+        clearTimeout(_usernameTimer);
+        _usernameTimer = setTimeout(async function() {
+            try {
+                var { data } = await snapSupabase
+                    .from('profiles').select('id').eq('username', val).maybeSingle();
+                if (data) {
+                    hint.style.color = '#ef4444';
+                    hint.textContent = '✗ Username sudah digunakan';
+                } else {
+                    hint.style.color = '#22c55e';
+                    hint.textContent = '✓ Username tersedia!';
+                }
+            } catch(e) { hint.textContent = ''; }
+        }, 700);
+    }
+    </script>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/service-worker.js').catch(function(){});
+        });
+    }
     </script>
 </body>
 </html>

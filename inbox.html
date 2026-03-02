@@ -13,6 +13,7 @@
     <title>Inbox | SnapFlow</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background: #000; color: #fff; margin: 0; padding-bottom: calc(var(--nav-height) + 10px); overflow-y: auto; }
@@ -60,23 +61,7 @@
     </style>
 
     <!-- Modules: core, chat -->
-    <!-- Auth Guard -->
-    <script>
-    (() => {
-        try {
-            const authKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
-            const session = authKey ? JSON.parse(localStorage.getItem(authKey) || 'null') : null;
-            const expiry  = session?.expires_at ? new Date(session.expires_at * 1000) : null;
-            const isValid = session?.access_token && expiry && expiry > new Date();
-            if (!isValid) {
-                sessionStorage.setItem('sf_redirect_after_login', location.href);
-                location.replace('splash.html');
-            }
-        } catch(e) {
-            location.replace('splash.html');
-        }
-    })();
-    </script>
+
 </head>
 <body>
 

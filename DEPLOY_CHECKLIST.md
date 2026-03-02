@@ -1,148 +1,182 @@
-# SnapFlow — Deploy Checklist
+# SnapFlow — Production Deploy Checklist v4.0
 
-## 🔴 WAJIB SEBELUM DEPLOY
+## ✅ STEP 1: Supabase Setup
 
-### 1. Supabase Setup
-- [ ] Run `snapflow_supabase.sql` dalam Supabase SQL Editor
-- [ ] Enable Realtime untuk tables:
-  - `likes`, `comments`, `notifications`, `messages`, `follows`, `live_sessions`
-- [ ] Create Storage Buckets:
-  - `videos` — public, max 500MB
-  - `avatars` — public, max 5MB  
-  - `stories` — public, max 50MB
-  - `thumbnails` — public, max 5MB
-- [ ] Set Admin user (ganti emel):
-  ```sql
-  UPDATE profiles SET role='admin', is_admin=TRUE
-  WHERE id=(SELECT id FROM auth.users WHERE email='EMEL_ANDA@gmail.com');
-  ```
-- [ ] JWT Expiry: Dashboard → Auth → Settings → JWT Expiry = `3600`
-- [ ] Enable email confirmations: Dashboard → Auth → Email Templates
-
-### 2. Environment Variables (Netlify)
-Di Netlify Dashboard → Site Settings → Environment Variables:
+### 1a. Run SQL Schema
 ```
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_ANON_KEY=eyJ...
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-ANTHROPIC_API_KEY=sk-ant-...
-RESEND_API_KEY=re_...
+Supabase Dashboard → SQL Editor → New Query
+Paste kandungan: snapflow_supabase.sql
+Klik RUN
 ```
 
-### 3. Supabase Edge Functions
+### 1b. Enable Authentication
+```
+Supabase Dashboard → Authentication → Providers
+- Email: ✅ ON
+- Google OAuth: Setup (optional)
+- Apple Sign In: Setup (optional)
+
+Authentication → Settings:
+- Site URL: https://your-app.netlify.app
+- Redirect URLs: tambah https://your-app.netlify.app/*
+```
+
+### 1c. Enable Email Confirmation (Recommended)
+```
+Authentication → Settings → Email Confirmation: ON
+```
+
+### 1d. Realtime
+```
+Database → Replication → tambah tables:
+- messages ✅
+- notifications ✅
+- live_sessions ✅
+```
+
+### 1e. Storage Buckets
+```
+Storage → New Bucket:
+- videos (Public: ON, Max size: 100MB)
+- thumbnails (Public: ON, Max size: 5MB)
+- avatars (Public: ON, Max size: 2MB)
+```
+
+---
+
+## ✅ STEP 2: Deploy Edge Functions
+
 ```bash
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+
 # Deploy semua functions
-npx supabase functions deploy stripe-webhook
 npx supabase functions deploy create-checkout
+npx supabase functions deploy stripe-webhook
+npx supabase functions deploy publish-scheduled
 npx supabase functions deploy generate-caption
 npx supabase functions deploy generate-subtitle
 npx supabase functions deploy weekly-report
-npx supabase functions deploy publish-scheduled
 npx supabase functions deploy cleanup-stories
-
-# Set secrets
-npx supabase secrets set STRIPE_SECRET_KEY=sk_live_...
-npx supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
-npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-npx supabase secrets set RESEND_API_KEY=re_...
 ```
 
-### 4. Stripe Setup
-- [ ] Webhook URL: `https://xxxxx.supabase.co/functions/v1/stripe-webhook`
-- [ ] Events: `checkout.session.completed`, `payment_intent.succeeded`
-- [ ] Verify webhook signature diaktifkan ✅ (sudah ada dalam kod)
-
-### 5. Netlify Deploy
+### 2a. Set Secrets
 ```bash
-# Push ke GitHub, kemudian connect ke Netlify
-# netlify.toml sudah configured dengan:
-# - Redirect rules ✅
-# - Security headers ✅
-# - Cache rules ✅
+npx supabase secrets set STRIPE_SECRET_KEY=sk_live_xxx
+npx supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_xxx
+npx supabase secrets set STRIPE_PRO_PRICE_ID=price_xxx
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-xxx
+npx supabase secrets set RESEND_API_KEY=re_xxx
+npx supabase secrets set CRON_SECRET=random_strong_secret_here
+npx supabase secrets set APP_URL=https://your-app.netlify.app
 ```
 
 ---
 
-## ✅ SUDAH DILAKUKAN (AUTO-FIX)
+## ✅ STEP 3: Stripe Setup
 
-| Item | Status |
-|------|--------|
-| Auth guard semua 26 protected pages | ✅ |
-| Admin role check dari Supabase DB | ✅ |
-| `onAuthStateChange` auto redirect | ✅ |
-| Session cache (tidak query DB berulang) | ✅ |
-| RLS semua tables | ✅ |
-| Admin policies (hanya admin boleh delete/update) | ✅ |
-| Storage bucket policies | ✅ |
-| `skipWaiting` + `clients.claim` dalam SW | ✅ |
-| Versioned cache (v3.0.0) | ✅ |
-| Button disable selepas submit | ✅ |
-| Auto-enable button selepas 15s (anti-stuck) | ✅ |
-| Chat unsubscribe on page unload | ✅ |
-| Duplicate message prevention | ✅ |
-| Empty state / Error state / Skeleton loader | ✅ |
-| DEV_MODE — console.log hanya dalam dev | ✅ |
-| Lazy loading images | ✅ |
-| Cart persistence (localStorage + migration) | ✅ |
-| CORS headers semua edge functions | ✅ |
-| No secret keys dalam frontend | ✅ |
-| No localStorage role storage | ✅ |
-| Rate limiting table + function (SQL) | ✅ |
-| Audit log table (SQL) | ✅ |
-| Input validation constraints (SQL) | ✅ |
-| Modular JS (9 modules dalam js/) | ✅ |
-| Netlify redirect rules | ✅ |
-| netlify.toml security headers | ✅ |
+### 3a. Webhook
+```
+Stripe Dashboard → Developers → Webhooks → Add Endpoint
+
+URL: https://YOUR_PROJECT.supabase.co/functions/v1/stripe-webhook
+
+Events:
+✅ checkout.session.completed
+✅ customer.subscription.created
+✅ customer.subscription.updated
+✅ customer.subscription.deleted
+✅ invoice.payment_failed
+```
+
+### 3b. Salin Webhook Secret
+```
+Selepas buat webhook, salin "Signing secret" (whsec_xxx)
+Set: npx supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_xxx
+```
 
 ---
 
-## ⚠️ PERLU BUAT MANUAL
+## ✅ STEP 4: Netlify Deploy
 
-### Image Optimization
-Upload images dalam format WebP. Guna tools:
-- [Squoosh.app](https://squoosh.app) — compress & convert ke WebP
-- [TinyPNG](https://tinypng.com) — compress PNG/JPG
+### 4a. Environment Variables
+```
+Netlify → Site → Environment Variables:
 
-### Monitoring
-Setup selepas deploy:
-- Supabase Dashboard → Logs (monitor errors)
-- Netlify Analytics (monitor traffic)
-- Stripe Dashboard (monitor payments)
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJxxx (anon key sahaja!)
 
----
+❌ JANGAN tambah: STRIPE_SECRET_KEY (backend sahaja)
+❌ JANGAN tambah: SUPABASE_SERVICE_ROLE_KEY (backend sahaja)
+```
 
-## 🚀 Deploy Command
-
+### 4b. Deploy
 ```bash
-# 1. Push ke GitHub
-git add .
-git commit -m "Production ready — auth, security, RLS, performance"
+git add . && git commit -m "Production deploy v4.0"
 git push origin main
-
-# 2. Netlify auto-deploy dari GitHub
-# (setup di Netlify Dashboard → New Site from Git)
+# GitHub Actions akan auto-deploy ke Netlify
 ```
 
 ---
 
-## 📊 Architecture Summary
+## ✅ STEP 5: Test Critical Paths
+
+### Security Tests
+```
+❌ Cuba buka admin.html tanpa login → Sepatutnya redirect ke splash.html
+❌ Cuba buka cart.html tanpa login → Sepatutnya redirect ke splash.html
+❌ Cuba manipulate harga dalam DevTools → Sepatutnya ditolak server
+❌ Cuba hantar webhook palsu ke Stripe endpoint → Sepatutnya 400 error
+✅ Stripe checkout dengan harga betul → Berjaya
+✅ Email confirmation flow → User dapat emel, klik link, boleh login
+✅ Password reset flow → User dapat emel, klik link, boleh set password baru
+✅ Login dengan emel yang belum disahkan → Tunjuk notis dengan butang resend
+```
+
+### Functional Tests
+```
+✅ Register akaun baru
+✅ Login / Logout
+✅ Upload video
+✅ Like / Comment / Follow
+✅ Shop → Cart → Checkout → Payment
+✅ Chat realtime
+✅ PWA install
+✅ Offline mode
+```
+
+---
+
+## 🔒 SECURITY CHECKLIST
 
 ```
-SnapFlow/
-├── app.js              ← Main bundle (5,934 lines) — load di semua pages
-├── js/
-│   ├── core.js         ← Config, auth, helpers (337 lines)
-│   ├── feed.js         ← Video feed, like, comment (880 lines)
-│   ├── upload.js       ← Upload, compress, rate limit (535 lines)
-│   ├── profile.js      ← Profile, bio, verified (274 lines)
-│   ├── shop.js         ← Shop, cart, Stripe (310 lines)
-│   ├── chat.js         ← Chat, inbox, realtime (579 lines)
-│   ├── discover.js     ← Search, trending (477 lines)
-│   ├── social.js       ← Stories, reactions, duet (1,378 lines)
-│   └── features.js     ← Analytics, AI, live (1,172 lines)
-├── snapflow_supabase.sql ← Complete DB schema (1,013 lines)
-├── netlify.toml        ← Deploy config
-├── service-worker.js   ← PWA (v3.0.0)
-└── [33 HTML pages]
+✅ Tiada secret key dalam frontend (sk_live, sk_test, whsec_)
+✅ Tiada service_role key dalam frontend
+✅ Supabase anon key sahaja dalam app.js (ini NORMAL dan selamat)
+✅ RLS aktif untuk semua 26 tables
+✅ 65 RLS policies (semua CRUD dilindungi)
+✅ Stripe harga dari DB bukan frontend
+✅ JWT verification dalam Edge Functions
+✅ User ID mismatch check dalam checkout
+✅ Webhook signature verification (Stripe)
+✅ Auth guard untuk semua protected pages
+✅ Admin role verified dari DB (bukan localStorage)
+✅ CRON_SECRET untuk protect scheduled functions
+✅ Rate limiting table ready
+✅ Audit logs untuk tindakan kritikal
 ```
+
+---
+
+## 📱 SELEPAS DEPLOY
+
+### Monitor
+- Supabase Dashboard → Logs → Edge Function Logs
+- Stripe Dashboard → Events
+- Netlify → Functions → Logs
+
+### Performance
+- Tambah image ke Supabase Storage (bukan external CDN)
+- Enable Supabase Edge Caching
+- Compress images sebelum upload
+
