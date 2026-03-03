@@ -11,8 +11,6 @@
   <title>Upload | SKYNET</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <script src="auth-guard.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -28,45 +26,44 @@
     <div class="upload-box" id="upload-box" onclick="document.getElementById('file-input').click()">
       <img id="preview-img" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;border-radius:var(--radius);">
       <video id="preview-vid" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;border-radius:var(--radius);" loop muted autoplay playsinline></video>
-      <div id="placeholder-content" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div id="placeholder-content" style="display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none;">
         <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
         <div class="upload-text">Ketik untuk pilih video atau gambar<br><span style="color:var(--text3);font-size:12px;">MP4, MOV, JPG, PNG · Max 100MB</span></div>
       </div>
     </div>
 
-    <input type="file" id="file-input" accept="image/*,video/*" hidden onchange="previewFile(event)">
+    <input type="file" id="file-input" accept="image/*,video/*" hidden>
 
-    <!-- Change file button (shown after select) -->
-    <button id="change-file-btn" onclick="document.getElementById('file-input').click()" style="display:none;width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;color:var(--text2);cursor:pointer;margin-top:8px;">
+    <button id="change-file-btn" style="display:none;width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;color:var(--text2);cursor:pointer;margin-top:8px;">
       <i class="fa-solid fa-arrow-rotate-right" style="margin-right:6px;"></i>Tukar Fail
     </button>
 
     <!-- Filter Section -->
     <div id="filter-section" style="display:none;margin-top:16px;">
       <p style="font-size:12px;font-weight:600;color:var(--text3);font-family:var(--font);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Filter</p>
-      <div class="chip-row" style="padding:0;gap:6px;overflow-x:auto;">
-        <button class="chip active" onclick="applyFilter('none',this)">Asal</button>
-        <button class="chip" onclick="applyFilter('brightness(1.15) contrast(1.1)',this)">Cerah</button>
-        <button class="chip" onclick="applyFilter('grayscale(1)',this)">B&amp;W</button>
-        <button class="chip" onclick="applyFilter('sepia(0.7)',this)">Sepia</button>
-        <button class="chip" onclick="applyFilter('hue-rotate(180deg)',this)">Neon</button>
-        <button class="chip" onclick="applyFilter('saturate(2)',this)">Vivid</button>
-        <button class="chip" onclick="applyFilter('contrast(1.3) brightness(0.9)',this)">Drama</button>
+      <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;">
+        <button class="chip active" id="f-none">Asal</button>
+        <button class="chip" id="f-bright">Cerah</button>
+        <button class="chip" id="f-bw">B&amp;W</button>
+        <button class="chip" id="f-sepia">Sepia</button>
+        <button class="chip" id="f-neon">Neon</button>
+        <button class="chip" id="f-vivid">Vivid</button>
+        <button class="chip" id="f-drama">Drama</button>
       </div>
     </div>
 
     <!-- Compress Toggle -->
-    <div id="compress-wrap" style="display:none;margin-top:14px;padding:12px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <div>
-        <p style="font-family:var(--font);font-size:13px;font-weight:700;margin-bottom:2px;">Mampatkan Video</p>
-        <p id="compress-status" style="font-size:11px;color:var(--text3);">Jimat ruang storan</p>
+    <div id="compress-wrap" style="display:none;margin-top:14px;padding:12px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+          <p style="font-family:var(--font);font-size:13px;font-weight:700;margin:0 0 2px;">Mampatkan Video</p>
+          <p id="compress-status" style="font-size:11px;color:var(--text3);margin:0;">Jimat ruang storan</p>
+        </div>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="compress-toggle">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
       </div>
-      <label style="position:relative;width:44px;height:24px;flex-shrink:0;">
-        <input type="checkbox" id="compress-toggle" onchange="toggleCompress(this)" style="opacity:0;width:0;height:0;">
-        <span id="compress-slider" style="position:absolute;inset:0;background:var(--border2);border-radius:12px;cursor:pointer;transition:background 0.2s;">
-          <span style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left 0.2s;"></span>
-        </span>
-      </label>
     </div>
 
     <!-- Caption -->
@@ -76,22 +73,16 @@
     </div>
 
     <!-- AI Caption -->
-    <button id="ai-caption-btn" onclick="generateAICaption()" disabled style="width:100%;padding:10px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);border-radius:var(--radius-sm);color:#a78bfa;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;opacity:0.5;">
+    <button id="ai-caption-btn" disabled style="width:100%;padding:10px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);border-radius:var(--radius-sm);color:#a78bfa;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;opacity:0.5;transition:opacity 0.2s;">
       <i class="fa-solid fa-wand-magic-sparkles" style="margin-right:6px;"></i>Jana Kapsyen AI
     </button>
 
-    <!-- Hashtag -->
-    <div class="input-wrap">
-      <label>Tanda Pagar (Hashtag)</label>
-      <input id="hashtag-input" class="sn-input" type="text" placeholder="#viral #fyp #skynet" style="font-size:14px;">
-    </div>
-
     <!-- Schedule -->
     <div style="padding:12px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:14px;">
-      <div class="flex-between" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div>
-          <p style="font-family:var(--font);font-size:13px;font-weight:700;">Jadual Publish</p>
-          <p style="font-size:11px;color:var(--text3);margin-top:2px;">Kosong = publish sekarang</p>
+          <p style="font-family:var(--font);font-size:13px;font-weight:700;margin:0 0 2px;">Jadual Publish</p>
+          <p style="font-size:11px;color:var(--text3);margin:0;">Kosong = publish sekarang</p>
         </div>
         <i class="fa-regular fa-calendar" style="color:var(--text3);font-size:18px;"></i>
       </div>
@@ -99,96 +90,158 @@
     </div>
 
     <!-- Draft Toggle -->
-    <div style="padding:12px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-      <div>
-        <p style="font-family:var(--font);font-size:13px;font-weight:700;">Simpan Sebagai Draf</p>
-        <p style="font-size:11px;color:var(--text3);margin-top:2px;">Tidak akan publish automatik</p>
+    <div style="padding:12px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+          <p style="font-family:var(--font);font-size:13px;font-weight:700;margin:0 0 2px;">Simpan Sebagai Draf</p>
+          <p style="font-size:11px;color:var(--text3);margin:0;">Tidak akan publish automatik</p>
+        </div>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="draft-toggle">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
       </div>
-      <label style="position:relative;width:44px;height:24px;flex-shrink:0;">
-        <input type="checkbox" id="draft-toggle" onchange="toggleDraftMode(this)" style="opacity:0;width:0;height:0;">
-        <span id="draft-slider" style="position:absolute;inset:0;background:var(--border2);border-radius:12px;cursor:pointer;transition:background 0.2s;">
-          <span style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left 0.2s;"></span>
-        </span>
-      </label>
     </div>
 
     <!-- Upload Button -->
-    <button id="upload-btn" onclick="startUpload()" class="btn-primary" style="margin-bottom:12px;">
+    <button id="upload-btn" class="btn-primary" style="margin-bottom:12px;">
       <i class="fa-solid fa-share-nodes" style="margin-right:8px;"></i>Kongsi Sekarang
     </button>
 
-    <!-- Load Draft -->
-    <button onclick="loadDrafts()" class="btn-secondary">
+    <button id="load-draft-btn" class="btn-secondary">
       <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i>Muatkan Draf
     </button>
 
   </main>
 
+  <!-- Toggle CSS -->
+  <style>
+    .toggle-wrap { position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer; }
+    .toggle-wrap input { opacity:0;width:0;height:0;position:absolute; }
+    .toggle-track { position:absolute;inset:0;background:var(--border2);border-radius:12px;transition:background 0.2s; }
+    .toggle-thumb { position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left 0.2s; }
+    .toggle-wrap input:checked ~ .toggle-track { background:var(--accent); }
+    .toggle-wrap input:checked ~ .toggle-track .toggle-thumb { left:23px; }
+    #compress-toggle:checked ~ .toggle-track { background:var(--accent2) !important; }
+  </style>
+
+  <!-- Load scripts SEBELUM </body> — SUSUNAN PENTING -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
+  <script src="auth-guard.js"></script>
   <script>
-    // Init datetime min
-    document.addEventListener('DOMContentLoaded', function() {
-      const dt = document.getElementById('schedule-datetime');
-      if (dt) {
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        dt.min = now.toISOString().slice(0,16);
+  // ================================================================
+  // Upload Page Init — semua event listeners dipasang di sini
+  // ================================================================
+  document.addEventListener('DOMContentLoaded', function() {
+
+    // Set min datetime ke sekarang
+    var dtInput = document.getElementById('schedule-datetime');
+    if (dtInput) {
+      var now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      dtInput.min = now.toISOString().slice(0, 16);
+    }
+
+    // File input change
+    var fileInput = document.getElementById('file-input');
+    fileInput && fileInput.addEventListener('change', function(e) {
+      previewFile(e);
+      document.getElementById('change-file-btn').style.display = 'block';
+      document.getElementById('compress-wrap').style.display = 'block';
+      var btn = document.getElementById('ai-caption-btn');
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    });
+
+    // Change file button
+    document.getElementById('change-file-btn')?.addEventListener('click', function() {
+      document.getElementById('file-input').click();
+    });
+
+    // Upload button
+    document.getElementById('upload-btn')?.addEventListener('click', function() {
+      startUpload();
+    });
+
+    // AI Caption
+    document.getElementById('ai-caption-btn')?.addEventListener('click', function() {
+      if (typeof generateAICaption === 'function') generateAICaption();
+    });
+
+    // Load drafts
+    document.getElementById('load-draft-btn')?.addEventListener('click', loadDrafts);
+
+    // Draft toggle
+    var draftToggle = document.getElementById('draft-toggle');
+    draftToggle && draftToggle.addEventListener('change', function() {
+      var uploadBtn = document.getElementById('upload-btn');
+      var scheduleInput = document.getElementById('schedule-datetime');
+      if (scheduleInput) {
+        scheduleInput.disabled = this.checked;
+        scheduleInput.style.opacity = this.checked ? '0.4' : '1';
       }
-      // Enable AI caption on file select
-      document.getElementById('file-input')?.addEventListener('change', function() {
-        const btn = document.getElementById('ai-caption-btn');
-        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-        document.getElementById('change-file-btn').style.display = 'block';
-        document.getElementById('compress-wrap').style.display = 'flex';
+      if (uploadBtn) uploadBtn.innerHTML = this.checked
+        ? '<i class="fa-solid fa-floppy-disk" style="margin-right:8px;"></i>Simpan Draf'
+        : '<i class="fa-solid fa-share-nodes" style="margin-right:8px;"></i>Kongsi Sekarang';
+    });
+
+    // Compress toggle
+    var compressToggle = document.getElementById('compress-toggle');
+    compressToggle && compressToggle.addEventListener('change', function() {
+      if (typeof compressEnabled !== 'undefined') compressEnabled = this.checked;
+      var file = document.getElementById('file-input')?.files?.[0];
+      var sizeMB = file ? (file.size / 1024 / 1024).toFixed(1) : '?';
+      var status = document.getElementById('compress-status');
+      if (status) status.textContent = this.checked
+        ? 'Aktif — jimat ~40% dari ' + sizeMB + 'MB'
+        : 'Tidak aktif — ' + sizeMB + 'MB';
+    });
+
+    // Filter buttons
+    var filters = {
+      'f-none':   'none',
+      'f-bright': 'brightness(1.15) contrast(1.1)',
+      'f-bw':     'grayscale(1)',
+      'f-sepia':  'sepia(0.7)',
+      'f-neon':   'hue-rotate(180deg)',
+      'f-vivid':  'saturate(2)',
+      'f-drama':  'contrast(1.3) brightness(0.9)',
+    };
+    Object.keys(filters).forEach(function(id) {
+      var btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener('click', function() {
+        var filter = filters[id];
+        if (typeof currentFilter !== 'undefined') currentFilter = filter;
+        var vid = document.getElementById('preview-vid');
+        var img = document.getElementById('preview-img');
+        if (vid) vid.style.filter = filter === 'none' ? '' : filter;
+        if (img) img.style.filter = filter === 'none' ? '' : filter;
+        document.querySelectorAll('#filter-section .chip').forEach(function(c) {
+          c.classList.remove('active');
+        });
+        btn.classList.add('active');
       });
     });
 
-    function toggleDraftMode(toggle) {
-      const slider = document.getElementById('draft-slider');
-      const thumb  = slider?.querySelector('span');
-      const uploadBtn = document.getElementById('upload-btn');
-      const scheduleInput = document.getElementById('schedule-datetime');
-      if (slider) slider.style.background = toggle.checked ? 'var(--accent)' : 'var(--border2)';
-      if (thumb)  thumb.style.left = toggle.checked ? '23px' : '3px';
-      if (scheduleInput) { scheduleInput.disabled = toggle.checked; scheduleInput.style.opacity = toggle.checked ? '0.4' : '1'; }
-      if (uploadBtn) uploadBtn.innerHTML = toggle.checked
-        ? '<i class="fa-solid fa-floppy-disk" style="margin-right:8px;"></i>Simpan Draf'
-        : '<i class="fa-solid fa-share-nodes" style="margin-right:8px;"></i>Kongsi Sekarang';
-    }
+    // Upload quota
+    if (typeof showUploadQuota === 'function') showUploadQuota();
+  });
 
-    function toggleCompress(toggle) {
-      const slider = document.getElementById('compress-slider');
-      const thumb  = slider?.querySelector('span');
-      if (slider) slider.style.background = toggle.checked ? 'var(--accent2)' : 'var(--border2)';
-      if (thumb)  thumb.style.left = toggle.checked ? '23px' : '3px';
-      compressEnabled = toggle.checked;
-      const file = document.getElementById('file-input')?.files?.[0];
-      const sizeMB = file ? (file.size/1024/1024).toFixed(1) : '?';
-      const status = document.getElementById('compress-status');
-      if (status) status.innerText = toggle.checked ? `Aktif — jimat ~40% dari ${sizeMB}MB` : `Tidak aktif — ${sizeMB}MB`;
-    }
-
-    function applyFilter(filter, btn) {
-      currentFilter = filter;
-      const vid = document.getElementById('preview-vid');
-      const img = document.getElementById('preview-img');
-      if (vid) vid.style.filter = filter === 'none' ? '' : filter;
-      if (img) img.style.filter = filter === 'none' ? '' : filter;
-      document.querySelectorAll('#filter-section .chip').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-    }
-
-    function loadDrafts() {
-      const drafts = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('skynet_draft_')) {
-          try { drafts.push({ key, ...JSON.parse(localStorage.getItem(key)) }); } catch {}
-        }
+  function loadDrafts() {
+    var drafts = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && key.startsWith('skynet_draft_')) {
+        try { drafts.push(JSON.parse(localStorage.getItem(key))); } catch(e) {}
       }
-      if (drafts.length === 0) return showToast('Tiada draf tersimpan.', 'info');
-      showToast(`${drafts.length} draf dijumpai. Pilih dalam galeri anda.`, 'info');
     }
+    if (drafts.length === 0) {
+      if (typeof showToast === 'function') showToast('Tiada draf tersimpan.', 'info');
+      return;
+    }
+    if (typeof showToast === 'function') showToast(drafts.length + ' draf tersimpan.', 'info');
+  }
   </script>
 </body>
 </html>

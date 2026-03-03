@@ -1348,3 +1348,350 @@ input, textarea, select { font-family: var(--font-body); }
   border-color: var(--accent);
   color: #fff;
 }
+
+/* ── Extra fixes untuk compatibility ──────────────────────── */
+
+/* Body default untuk semua pages */
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* Page wrapper dengan safe area */
+.page-body {
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 12px);
+  min-height: 100vh;
+}
+
+/* Video container (untuk feed) */
+.video-container {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - var(--nav-height) - var(--safe-bottom));
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Video gradient overlay */
+.video-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.8) 0%,
+    rgba(0,0,0,0.2) 35%,
+    transparent 65%,
+    rgba(0,0,0,0.1) 100%
+  );
+  pointer-events: none;
+}
+
+/* Mute button */
+.mute-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(0,0,0,0.4);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+/* Video info section */
+.video-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 60px;
+  padding: 16px;
+  z-index: 5;
+}
+
+.video-username-btn {
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.video-caption-text {
+  font-size: 13px;
+  color: rgba(255,255,255,0.88);
+  line-height: 1.45;
+  font-family: var(--font-body);
+}
+
+/* Action buttons column */
+.video-actions-col {
+  position: absolute;
+  right: 10px;
+  bottom: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  z-index: 10;
+}
+
+.vid-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vid-action-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #fff;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.vid-action-btn:active .vid-action-icon {
+  transform: scale(0.88);
+}
+
+.vid-action-btn.liked .vid-action-icon {
+  background: rgba(254,44,85,0.2);
+  border-color: rgba(254,44,85,0.35);
+}
+.vid-action-btn.liked .vid-action-icon i { color: var(--accent); }
+
+.vid-action-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  font-family: var(--font);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+}
+
+/* Avatar in feed */
+.vid-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--bg4);
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+}
+
+/* Follow button on avatar */
+.vid-follow-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+  margin-top: -8px;
+  cursor: pointer;
+}
+
+/* Double tap heart animation */
+.heart-anim {
+  position: absolute;
+  font-size: 80px;
+  color: #fff;
+  pointer-events: none;
+  z-index: 20;
+  animation: heartPop 0.8s ease forwards;
+  transform-origin: center;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+@keyframes heartPop {
+  0%  { transform: scale(0); opacity: 0; }
+  30% { transform: scale(1.3); opacity: 1; }
+  60% { transform: scale(1); opacity: 1; }
+  100%{ transform: scale(0.9) translateY(-30px); opacity: 0; }
+}
+
+/* Progress bar */
+.video-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.2);
+  z-index: 15;
+}
+.video-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.1s linear;
+  border-radius: 0 2px 2px 0;
+}
+
+/* Loader untuk pages */
+.page-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--text3);
+  font-size: 14px;
+  font-family: var(--font);
+}
+
+/* Cart badge */
+.cart-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+}
+
+/* Sticky section header */
+.section-header {
+  padding: 14px 16px 10px;
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-header a {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Comment item */
+.comment-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg4);
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.comment-body { flex: 1; }
+.comment-name {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.comment-text {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.4;
+  font-family: var(--font-body);
+}
+.comment-time {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 4px;
+}
+
+/* Tabs style */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 56px;
+  background: var(--bg);
+  z-index: 10;
+}
+
+.tab-item {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: center;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+.tab-item.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 12px;
+  color: var(--text3);
+  text-align: center;
+}
+.empty-state i { font-size: 40px; margin-bottom: 4px; }
+.empty-state p { font-family: var(--font); font-size: 15px; font-weight: 700; color: var(--text2); margin: 0; }
+.empty-state span { font-size: 13px; }

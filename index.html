@@ -22,7 +22,7 @@
   <header class="app-header">
     <div class="feed-tabs">
       <button class="feed-tab" onclick="switchTab('mengikuti',this)">Mengikuti</button>
-      <span class="auth-logo" style="font-size:20px;margin:0 4px;">SKYNET</span>
+      <span style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;background:linear-gradient(135deg,#fe2c55,#00f2ea);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.5px;padding:0 6px;">SKYNET</span>
       <button class="feed-tab active" id="tab-untukanda" onclick="switchTab('untukanda',this)">Untuk Anda</button>
     </div>
     <button onclick="toggleSearch()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:6px;flex-shrink:0;">
@@ -33,6 +33,18 @@
   <!-- Live Bar -->
   <div id="live-bar" class="live-bar"></div>
 
+  <!-- Search Overlay -->
+  <div id="search-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:300;padding:16px;">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+      <div class="search-bar" style="flex:1;">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="search-input" type="search" placeholder="Cari video, kreator..." autofocus>
+      </div>
+      <button onclick="toggleSearch()" style="background:none;border:none;color:var(--text2);font-size:16px;padding:8px;cursor:pointer;">Batal</button>
+    </div>
+    <div id="search-results"></div>
+  </div>
+
   <!-- Feed -->
   <div id="video-feed"></div>
 
@@ -40,19 +52,19 @@
   <div class="comment-panel" id="comment-panel">
     <div class="comment-backdrop" onclick="closeComments()"></div>
     <div class="comment-sheet">
-      <div style="padding:12px 16px 8px;border-bottom:1px solid var(--border);">
+      <div style="padding:10px 16px 8px;border-bottom:1px solid var(--border);">
         <div class="modal-handle"></div>
-        <div class="flex-between">
-          <span class="font-bold" style="font-size:15px;">Komen <span id="comment-count" style="color:var(--text3);font-weight:400;font-size:13px;"></span></span>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-family:var(--font);font-size:15px;font-weight:800;">Komen <span id="comment-count" style="color:var(--text3);font-weight:400;font-size:13px;"></span></span>
           <button onclick="closeComments()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
       <div id="comments-list" class="comment-list"></div>
       <div class="comment-input-row">
-        <div id="comment-avatar-mini" style="width:32px;height:32px;border-radius:50%;background:var(--bg4);background-size:cover;flex-shrink:0;"></div>
-        <input id="comment-input" class="sn-input" style="flex:1;padding:9px 14px;border-radius:50px;" placeholder="Tambah komen...">
-        <button onclick="submitComment()" style="background:var(--accent);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-          <i class="fa-solid fa-paper-plane"></i>
+        <div id="comment-avatar-mini" style="width:32px;height:32px;border-radius:50%;background:var(--bg4);flex-shrink:0;"></div>
+        <input id="comment-input" class="sn-input" style="flex:1;padding:9px 14px;border-radius:50px;font-size:14px;" placeholder="Tambah komen...">
+        <button onclick="submitComment()" style="background:var(--accent);border:none;border-radius:50%;width:36px;height:36px;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;">
+          <i class="fa-solid fa-paper-plane" style="font-size:14px;"></i>
         </button>
       </div>
     </div>

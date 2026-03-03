@@ -1471,9 +1471,9 @@ async function startUpload() {
     const btn        = document.getElementById('upload-btn');
 
     const caption  = captionEl?.value?.trim() || '';
-    // ✅ FIX: Baca scheduleAt dari input datetime (jika diisi & bukan mod draf)
-    const isDraft  = draftEl?.checked === true;
-    scheduleAt = (!isDraft && scheduleEl?.value) ? scheduleEl.value : null;
+    // ✅ FIX MUKTAMAD: scheduleAt sebagai LOCAL const — tidak bergantung pada global
+    const isDraft      = draftEl?.checked === true;
+    const scheduleAt   = (!isDraft && scheduleEl?.value) ? scheduleEl.value : null;
 
     if (!fileInput?.files[0]) return showToast('Sila pilih fail dahulu.', 'warning');
 
@@ -1587,8 +1587,6 @@ async function startUpload() {
             showToast('Video berjaya dikongsikan! 🎉', 'success');
         }
 
-        // Reset scheduleAt selepas upload berjaya
-        scheduleAt = null;
         setTimeout(() => window.location.href = 'index.html', 1500);
 
     } catch (err) {
@@ -1622,9 +1620,12 @@ async function loadProfileData() {
         const avatarEl = document.getElementById('profile-avatar');
         if (avatarEl) avatarEl.style.backgroundImage = `url('https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=200')`;
 
-        // Ambil video user
+        // Ambil video user (semua termasuk draft - RLS allow owner baca video sendiri)
         const { data: myVideos, error } = await snapSupabase.from('videos')
-            .select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+            .select('id, video_url, caption, likes_count, is_published, scheduled_at, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(60);
 
         if (error) throw error;
 
@@ -1707,7 +1708,12 @@ async function loadProfileData() {
             <div class="profile-video-item" onclick="viewVideo(${vid.id})" id="pvitem-${vid.id}">
                 ${thumb}
                 <div class="profile-video-overlay">
-                    <i class="fa-solid fa-${isImage ? 'image' : 'heart'}"></i> ${isImage ? '' : (vid.likes_count || 0)}
+                    ${!vid.is_published && vid.scheduled_at
+                        ? `<i class="fa-solid fa-calendar-clock" style="color:var(--gold);"></i>`
+                        : !vid.is_published
+                        ? `<i class="fa-solid fa-eye-slash" style="color:var(--text3);"></i>`
+                        : `<i class="fa-solid fa-${isImage ? 'image' : 'heart'}"></i> ${isImage ? '' : (vid.likes_count || 0)}`
+                    }
                 </div>
             </div>`;
         }).join('');
